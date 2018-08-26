@@ -18,10 +18,6 @@ Q: 类和对象的基本概念？
     - 形参self必不可少，且必须位于其他参数之前，self会自动传递，调用是不需要给出
     - 属性self.name和self.age，带有self的变量叫属性，可供类的所有方法使用，也可供类的所有实例访问
     - 
-3. 类的属性
-
-4. 类的方法
-
 '''
 
 
@@ -35,17 +31,19 @@ class Car():                                 # 定义类名：大写，空括号
         self.year = year
         self.odometer_reading = 0
     
-    def read_odometer(self):                 # 定义方法：必须有self？
+    def read_odometer(self):
         print('this car has ' + str(self.odometer_reading) + ' miles on it')
         
     def update_odometer(self, mileage):
-        if mileage >= self.odometer_reading:  # 此处用条件禁止改小属性值，但还是可以直接修改属性值
+        if mileage >= self.odometer_reading:  # 此处用逻辑禁止改小属性值，但还是可以直接修改属性值
                                               # 比如 new_car.odometer_reading = 15是可以的
-            self.odometer_reading = mileage   # 是否还有别的方法可以禁止修改属性？
+                                              # 是否还有别的方法可以禁止修改属性？
+            odometer_reading = mileage
         else:
             print('You can not roll back an odometer!')
-        
-new_car = Car('audi', 'a4', 2016)    # 新建一个基于类的实例：类相当于函数，实例相当于函数返回值
+        self.odometer_reading = mileage
+
+new_car = Car('audi', 'a4', 2016)
 new_car.read_odometer()
 
 new_car.update_odometer(200)
@@ -59,7 +57,7 @@ Q: 如何通过继承一个父类来创建一个子类和实例？
 '''
 class Ecar(Car):         # 定义一个子类：大写，括号内写父类名字
     def __init__(self,make, model, year):
-        super().__init__(make, model, year)  # 用super().来继承父类的初始化函数
+        super().__init__(make, model, year)  # 可与
         self.battery_size = 70
         
     def describe_battery(self):
@@ -70,6 +68,6 @@ new_Ecar.describe_battery()
 
 
 '''
-Q: 如何？
+Q: 如何通过继承一个父类来创建一个子类和实例？
 '''
     

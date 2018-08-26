@@ -28,23 +28,5 @@ for x, y in zip(listx, listy):
     
     
 '''
-Q: 同时迭代多个序列，还可以用字典实现吗？
+Q: 想要？
 '''    
-user = {'Eason':['toyota'],
-        'Leo':['ford','honda','smart'],   # 字典可以嵌套列表作为值
-        'Winnie':['nissan','nio']}
-for name, cars in user.items():      # 遍历键值对：用.items()返回的是一个键值对元组列表
-    for car in cars:                 # 对嵌套列表值进行二级循环遍历
-        print(name + ': '+ car)
-        
-
-'''
-Q: 同时？
-'''            
-
-
-
-
-
-
-        
