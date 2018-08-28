@@ -104,3 +104,18 @@ pos_or_zero = [n if n>0 else 0 for n in mylist] # 用列表推导式筛选
 # 列表推导式 [n if xx for xxx] 先条件判断，再进行for循环
 
 
+'''
+Q: 如何复制一个变量，而不影响另外一个变量？
+'''
+old = [4,1,3,2,5]
+new_1 = old
+new_1.sort()
+print(old, new_1)   # 名称作为指针拷贝，两者指向同一内存，同时变化
+
+old = [4,1,3,2,5]
+new_2 = old.copy()  # copy()为浅拷贝，两者不会同时变化
+new_2.sort()
+
+old = [4,1,3,2,5]
+new_3 = old.deepcopy()  # c???
+new_3.sort()
