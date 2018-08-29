@@ -113,8 +113,9 @@ new_1.sort()
 print(old, new_1)   # 名称作为指针拷贝，两者指向同一内存，同时变化
 
 old = [4,1,3,2,5]
-new_2 = old.copy()  # copy()为浅拷贝，两者不会同时变化
+new_2 = old.copy()  # copy()为浅拷贝，会重新分配内存，两者不会同时变化
 new_2.sort()
+print(old, new_2) 
 
 old = [4,1,3,2,5]
 new_3 = old.deepcopy()  # c???
