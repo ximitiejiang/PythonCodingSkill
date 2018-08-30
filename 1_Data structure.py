@@ -110,12 +110,17 @@ Q: 如何复制一个变量，而不影响另外一个变量？
 old = [4,1,3,2,5]
 new_1 = old
 new_1.sort()
-print(old, new_1)   # 名称作为指针拷贝，两者指向同一内存，同时变化
+print(old, new_1)   # 用名称的形式拷贝，只是指针拷贝，指向同一内存，共同变化
 
 old = [4,1,3,2,5]
-new_2 = old.copy()  # copy()为浅拷贝，会重新分配内存，两者不会同时变化
+new_2 = old[:]      # 用old[:]的形式是重新分配内存了
 new_2.sort()
-print(old, new_2) 
+print(old, new_2)
+
+old = [4,1,3,2,5]
+new_3 = old.copy()  # 用copy()为浅拷贝，会重新分配内存，两者不会同时变化
+new_3.sort()
+print(old, new_3) 
 
 old = [4,1,3,2,5]
 new_3 = old.deepcopy()  # c???
