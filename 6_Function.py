@@ -42,7 +42,19 @@ add(2,3)
 
 
 '''
-Q: 对于？
+Q: 对于函数体内的变量的作用域是如何？如何修改函数体外的变量？
 '''
+def f1():
+    value = [100, 100]
 
+def f3():
+    global value         # 需要声明一个全局变量出来，才能对这个已有全局变量进行修改
+    value = [100, 100]
 
+value = [0,0]
+f1()
+print('after f1, value = {}'.format(value))
+
+value = [0,0]
+f3()
+print('after f3, value = {}'.format(value))

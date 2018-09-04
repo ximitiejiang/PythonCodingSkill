@@ -105,16 +105,22 @@ s1 = lst.sort()   # 这是对lst的永久排序
 
 lst2 = [2,1,4,2,7]
 s2 = sorted(lst2)  # 这是临时排序，不影响lst2
+# sorted.(lst)放在list前面，lst.sort()放在list后面
 # sort函数可以对任何iterable的结构进行排序：
 # 比如dict, list, str, dic.value, dic.key, tuple
 
 
 '''
-Q: 有一组序列，希望筛选出需要的元素，怎么筛选？
+Q: 有一组序列，我知道怎么排序，但不知道怎么筛选出特定要求的元素？
 '''
-mylist = [1,4,-5,10,-7,2,3,-1]
-pos = [n for n in mylist if n > 0]     # 用列表推导式做筛选
-pos_or_zero = [n if n>0 else 0 for n in mylist] # 用列表推导式筛选
+import numpy as np
+mylist = [1,4,-5,10,-7,0,3,-1]
+pos = [n for n in mylist if n > 0]     # 用列表推导式做筛选-格式1(先循环后判断)
+pos_or_zero = [n if n>0 else 0 for n in mylist] # 用列表推导式筛选-格式2(先判断后循环)
+
+index_gtz = np.where(np.array(mylist)>=0)  # 用numpy的where()函数可以返回index
+index_ltz = np.where(np.array(mylist)<0)
+
 # 列表推导式 [n for xx if xxx] 先for循环，再条件判断
 # 列表推导式 [n if xx for xxx] 先条件判断，再进行for循环
 
