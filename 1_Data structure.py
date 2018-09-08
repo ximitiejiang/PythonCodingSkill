@@ -17,6 +17,14 @@ print(lst[3:-1]) # 写成3到最后，正好代表下一个元素到最后，从
 
 
 '''
+Q: list里边嵌套list是算法里边常见的一种数据结构，如果对这类list进行切片？
+'''
+lst = [[1,2,3],[4,5,6],[7,8,9]]
+for i in range(len(lst[0])):
+    featList = [sample[i] for sample in lst]
+
+
+'''
 Q: 有一个包含N个不同类型元素的序列(list/dic/str)，如何把它分解为N个单独的变量？
 '''
 p = [12,5]
@@ -126,23 +134,42 @@ index_ltz = np.where(np.array(mylist)<0)
 
 
 '''
-Q: 如何复制一个变量，而不影响另外一个变量？
+Q: 为什么有时候复制一个变量会影响另一个变量，有时候又不会影响？
 '''
-old = [4,1,3,2,5]
+# 这是一个重要知识点：在算法编写过程中，已经踩坑2次，每次耗费我2天都找不到问题根源
+''' 1. python中一类叫不可变对象，包括数字/字符串/元祖，他们的复制只能创建新内存，所以是不会影响
+    2. python中另一类叫可变对象，包括数组/字典，他们常规复制都是浅复制，不同变量名指向同一内存地址
+    3. 相应的在函数形参上，不可变对象形参是传值，函数体内改变该对象，不会影响函数体外的原始变量；
+       而可变对象形参是传址，即传递的是指针，在函数体内改变该对象，会影响函数体外的原始变量。
+    4. 浅复制方式：b = a; b = a[:]; 
+       深复制方式：import copy; copy.copy(lst)
+'''
+
+old = [4,1,3,['age',10]]
 new_1 = old
-new_1.sort()
+new_1.append(100)
 print(old, new_1)   # 用名称的形式拷贝，只是指针拷贝，指向同一内存，共同变化
 
-old = [4,1,3,2,5]
-new_2 = old[:]      # 用old[:]的形式是重新分配内存了
-new_2.sort()
+old = [4,1,3,['age',10]]
+new_2 = old[:]      # 用old[:]的形式是浅拷贝，对外层的所有对象都可以拷贝了
+new_2.append(100)
 print(old, new_2)
 
-old = [4,1,3,2,5]
-new_3 = old.copy()  # 用copy()为浅拷贝，会重新分配内存，两者不会同时变化
-new_3.sort()
-print(old, new_3) 
+old = [4,1,3,['age',10]]
+new_2 = old.copy()      # 用copy()的形式是浅拷贝，对外层的所有对象都可以拷贝了
+new_2.append(100)
+print(old, new_2)
 
+old = [4,1,3,['age',10]]
+new_2 = old.copy()      # 用copy()的形式是浅拷贝，在修改内层可变对象时，依然会影响源数据
+new_2[3].append(100)
+print(old, new_2)
+
+old = [4,1,3,['age',10]]
+import copy
+new_2 = copy.deepcopy(old)  # 要做到完全深度拷贝，不影响源数据，唯一方法是deepcopy()
+new_2[3].append(100)
+print(old, new_2)
 
 
 

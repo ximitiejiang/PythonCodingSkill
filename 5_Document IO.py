@@ -10,11 +10,22 @@ Created on Fri Aug 24 20:28:01 2018
 Q: 如何读写文本数据？
 '''
 with open('xxx.txt', 'rt') as f:  # 用with语句打开文件，只要离开with文件就会自动关闭，省去手动关闭
-    data = f.read()               # 一次性全部读入
-    
-with open('xxx.txt', 'rt') as f:
-    for line in f:                # 每次读入一行
+    data = f.read()               # f.read()一次性全部读入，但读入的是一个字符串
+
+with open(file) as f:            # 
+    data = f.readlines()         # f.readlines()一次性全部读入，但读入的是一个list
+    for line in data:
+        print(line)
         
+# 另一种按行读取方式：
+with open(file) as f:            # 
+    line = f.readline()        # f.readline()一次只读入一行
+    while line:
+        line = f.readline()
+        line = line[:-1]
+        line = f.readline()  #再次读入下一行，指针会自动下移，知道读取到最后一行变空退出while
+
+# 写文件
 with open('xxx.txt', 'wt') as f:  # 写入模式打开文件
     f.write(text1)               # 写入文件
     
