@@ -207,5 +207,20 @@ new_2[3].append(100)
 print(old, new_2)
 
 
+'''
+Q: 如何生成正态分布的随机数据？
+'''
+import numpy as np
+'''正态分布
+'''
+r1 = np.random.randn(2,4)   # 生成2x4的标准正态分布N(0,1)
+r2 = 5*np.random.randn(2,4)+10  # 生成2x4的正态分布N(10,5)
+'''均匀分布 - 实数
+'''
+r3 = np.random.rand(2,4)    # 生成2x4的均匀分布
+'''均匀分布 - 整数
+'''
+r4 = np.random.randint(5, size=(2,4))  # 生成[0,5]之间整数的均匀分布
+r5 = np.random.random_integers(5, size=(2,4)) # 生成[1,5]之间整数的均匀分布
 
 
