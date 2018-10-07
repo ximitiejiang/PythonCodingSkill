@@ -29,34 +29,33 @@ with open(file) as f:            #
 with open('xxx.txt', 'wt') as f:  # 写入模式打开文件
     f.write(text1)               # 写入文件
     
-with open('xxx.txt', 'at') as f:  # 以结尾写入的方式打开
+with open('xxx.txt', 'at') as f:  # 以结尾写入的方式打开，只有'a'和'at'两种模式的指针是在文件末尾
     print(text1, file = f)
         
 
-'''
-Q: 如何用文件绝对路径或相对路径进行文件的打开？
-'''
-
-
-
 
 '''
-Q: 如何获得文件路径？
+Q: 如何获得文件绝对路径？
 '''
 # 尽可能用os模块，他能很好处理不同操作系统关于路径的差别，较好的可移植性
 import os
 path = '~/PythonCodingSkill/4_Iter.py'  # 待获得完整路径的目录名要以～开头
 fullpath = os.path.expanduser(path)   # 获得完整路径名
+print(fullpath)
 
 
 '''
 Q: 如何获得某个路径下所有文件名称的列表？
 '''
 import os
-path = '/Users/suliang/MyCodeForML/'
-names = os.listdir()
+root = '/Users/suliang/PythonCodingSkill/'
+names = os.listdir(root)
 pynames = [name for name in names if name.endswith('.py')]
 print(pynames)
+
+# 生成每个文件的绝对地址
+name_addr = [os.path.join(root, name) for name in names]  # 拼接地址
+print(name_addr)
 
 
 '''

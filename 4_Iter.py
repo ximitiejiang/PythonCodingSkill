@@ -46,5 +46,15 @@ for x, y in zip(listx, listy):
     
     
 '''
-Q: 想要？
-'''    
+Q: 想要执行一类事先要设置，事后要清理的工作，比如打开文件后要关闭，？
+'''
+# with语句先执行with之后的语句，如果为真，则调用__enter__方法返回值赋值给as后的变量
+# with执行完后，调用__exit__方法
+with open('xxx.txt', 'wt') as f:  # 写入模式打开文件
+    f.write(text1)               # 写入文件    
+    
+    
+    
+    
+    
+    

@@ -103,11 +103,11 @@ dict.get('c', 0)  # 如果不存在返回值可设置，此处设置为0
 Q: str的基本函数？
 '''
 str = ' d8,apple,8d '
-str.strip()
+str.strip()   # 切除，默认切除左右两边的空格/回车/tab
 str.lstrip()
 str.rstrip()
 
-str.split(',')
+str.split(',')  # 分隔，基于逗号
 str.count('d')
 
 
