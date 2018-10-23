@@ -134,6 +134,10 @@ s2 = sorted(lst2)  # 这是临时排序，不影响lst2
 # sort函数可以对任何iterable的结构进行排序：
 # 比如dict, list, str, dic.value, dic.key, tuple
 
+arr = [('a', 1), ('b', 2), ('c', 6), ('d', 4), ('e', 3)]
+s3 = sorted(arr, key=lambda x:x[1])
+# sorted还可以带一个函数，相当与先对x进行函数处理，然后排序，但输出结果是原数据而不是处理过的x
+
 
 '''
 Q: 有一组序列，我知道怎么排序，但不知道怎么筛选出特定要求的元素？
