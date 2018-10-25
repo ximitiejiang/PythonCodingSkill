@@ -49,9 +49,14 @@ Q: 如何获得某个路径下所有文件名称的列表？
 '''
 import os
 root = '/Users/suliang/PythonCodingSkill/'
-names = os.listdir(root)
+names = os.listdir(root)  # 文件名称列表
 pynames = [name for name in names if name.endswith('.py')]
 print(pynames)
+
+root = '/Users/suliang/PythonCodingSkill/abc.py'
+base = os.path.basename(root)   # 获得文件名
+dir = os.path.dirname(root)    # 获得文件路径
+os.path.join(dir, base)        # 拼接文件名
 
 # 生成每个文件的绝对地址
 name_addr = [os.path.join(root, name) for name in names]  # 拼接地址
@@ -67,5 +72,34 @@ df = pd.read_csv('Train_big_mart_III.csv', skip_footer =1)
 df['name'].unique()
 
 
+'''
+Q: 如何设置文件的包(package)和模块(module)，并进行模块导入
+假定如下文件结构：
+mypackage/
+    __init__.py
+    packA/
+        __init__.py
+        spam.py
+        grok.py: class AAA()
+    packB/
+        __init__.py
+        bar.py: class BBB()
 
+需要理解包与模块的概念：包是package对应文件夹，模块是module对应py文件，
+通常一个包里边包含多个模块，相当与一个文件夹包含多个py文件
+__init__文件可以把文件夹变成一个包/package，这样这个文件夹(package)就可以被import导入了
+import命令，可以导入一个package, 导入一个module，或者导入一个.py文件
+'''
+# 需要理解包package是文件夹, 模块module是文件, 类class是代码段
+# 首先要把文件夹转化为包package, 即在文件夹下创建__init__.py文件
+
+# 如果在spam.py文件中希望导入grok模块
+from .grok import AAA  # 方式1：导入AAA类, .代表同级目录
+from . import grok     # 方式2：导入grok模块
+import packA           # 方式3：只导入packA, 然后在packA下面init文件中添加 from .grok import AAA
+
+# 如果在spam.py文件中希望导入bar模块
+from ..packB import bar     # 方式1：导入bar模块, ..代表上一级目录
+from ..packB.bar import BBB # 方式2：导入BBB类
+import packB                # 在packB下面init文件中添加from .bar import BBB
 

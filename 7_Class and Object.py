@@ -39,8 +39,8 @@ Q: 如何定义一个最基本的类和方法，以及定义一个实例？
 '''
 class Car():                                 # 定义类名：大写，空括号
     def __init__(self, make, model, year):   # 定义初始化函数：必须有self
-        self.make = make                     # 类的形参都要写在init()函数形参上
-        self.model = model                   # 所有形参都需要内化为属性吗？
+        self.make = make                     # 写在init()函数的形参在定义对象时都需要输入
+        self.model = model                   # 内化为属性的形参可以share给class中所有函数使用
         self.year = year
         self.odometer_reading = 0
     
@@ -100,13 +100,72 @@ p          # 调用的是__repr__
 
 
 '''
-Q: 如何在自定义的类中来定义对象切片？
-- 重写__getitem__()函数
+Q: 如何自定义一个数据类？
+- 自定义一个数据类
+- 重写__getitem__()函数和__len__()函数
+- __getitem__()用于返回一条数据或一个样本： obj[index]等价于obj.__getitem__(index)
+- __len__()用于返回样本数量：len(obj)等价于obj.__len__()
+
 '''
-def __getitem__():
+# 本数据类参考陈云的pytorch教程第5章
+import os
+from PIL import  Image
+import numpy as np
+
+# 最简版的一个数据类，但涵盖了数据类定义的基本要点
+#
+class DogCat(data.Dataset):
+    def __init__(self, root):
+        imgs = os.listdir(root)  #获得每张图片地址
+        self.imgs = [os.path.join(root, img) for img in imgs]
+    # 把数据提取的内容都放到__getitem__来实现，
+    # 只有在每张图片需要加载时才会调用该函数，且多进程(多图片)可以并行
+    # 也就不用一次性把所有图片都加载到内存去    
+    def __getitem__(self, index):  
+        img_path = self.imgs[index]
+        # dog->1， cat->0
+        label = 1 if 'dog' in img_path.split('/')[-1] else 0
+        pil_img = Image.open(img_path)
+        array = np.asarray(pil_img)
+        data = t.from_numpy(array)
+        return data, label
     
+    def __len__(self):
+        return len(self.imgs)
+
         
         
-        
+'''
+Q: 如何使用getattr和setattr方法实现调用对象上的方法和方法名用字符串形式给出？
+（参考python cookbook 8.20）
+1. getattr的用法：getattr(obj. , attr.)等效于obj.attr
+    getattr(obj, 'name')  获得对象的name属性，存在就打印出来
+    getattr(obj, 'run')   获得对象的run方法，存在就打印方法的内存地址
+    getattr(obj, 'run')() 获得方法，并且运行该方法
+    getattr(obj, 'age','18') 想要获得一个不存在的方法，但预设了不存在的默认返回值。
+   另一个__getattr__()方法，对于obj.attr的指令，系统对默认先找getattr()函数，如果没有则调用obj.__getattr__()兜底，如果也没有则报错AttributeError 
+
+2. setattr的用法：为对象已有属性赋值，或者创建新属性
+    setattr(obj, 'age', '18') 如果age属性存在，则赋值为18,如果不存在则先创建再赋值为18
+    对于该命令，系统默认调用__setattr__()函数
+'''
+
+# 实例参考python cookbook - 类对象一章
+import math
+class Point():
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def __repr__(self):
+        return 'Point({!r:}, {!r:})'.format(self.x, self.y)
+    def distance(self, x, y):
+        return math.hypot(self.x - x, self.y - y)
+
+p = Point(2,3)
+
+dist = getattr(p, 'distance')(0,0)  # 相当与p.distance(0,0), 但可以采用字符串形式给到getattr(),在某些场合有这种需求
+print(dist)
+
+            
         
     

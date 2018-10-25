@@ -46,6 +46,11 @@ ceil(3.14)
 int(3.14)
 math.modf(3.14)
 
+# python - 除法取整取余
+x = 37
+x//4  # 取相除的整数
+x%4   # 取相除的余数
+
 # python - 格式转换
 float('3')
 str(123)
