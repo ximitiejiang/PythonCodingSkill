@@ -93,10 +93,14 @@ import命令，可以导入一个package, 导入一个module，或者导入一�
 # 需要理解包package是文件夹, 模块module是文件, 类class是代码段
 # 首先要把文件夹转化为包package, 即在文件夹下创建__init__.py文件
 
-# 如果在spam.py文件中希望导入grok模块
+# 如果在spam.py文件中希望导入grok模块, 可以用相对导入.grok
 from .grok import AAA  # 方式1：导入AAA类, .代表同级目录
 from . import grok     # 方式2：导入grok模块
 import packA           # 方式3：只导入packA, 然后在packA下面init文件中添加 from .grok import AAA
+# 但由于相对导入实现前提是父目录已经导入，也就是packA要先导入，否则以下语句会报错：
+# ModuleNotFoundError: No module named '__main__.Basicmodule'; '__main__' is not a package
+# 所以合适的写法是如下：
+from packA.grok import AAA
 
 # 如果在spam.py文件中希望导入bar模块
 from ..packB import bar     # 方式1：导入bar模块, ..代表上一级目录
