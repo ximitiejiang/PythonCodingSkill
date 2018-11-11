@@ -23,6 +23,10 @@ def recv(size, *, block):  # 使用星号作为强制的关键字参数的开始
     pass
 recv(1024, True)         # 这种写法报错，因为block是关键字参数而不是位置参数
 recv(1024, block = True) # 必须是关键字参数写法
+
+
+
+
     
 
 '''

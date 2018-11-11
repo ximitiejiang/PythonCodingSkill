@@ -77,18 +77,18 @@ Q: list的基本函数？
 '''
 lst = [2,1,2,5,2]
 # 两种增加的方式
-lst.append(9)  # append是在末尾加入新元素
-lst.extend(10)   # extend是
+lst.append(9)  # append是在末尾加入一个新元素
+lst.extend([1,2])   # extend是加入一串新元素list
 # 计数
-lst.count(2)
+lst.count(2)  # 统计有多少个2
 # 三种弹出的方式
-lst.pop()
-lst.remove()
-del lst[0]
+lst.pop(3)     # 弹出最后一个，或者pop(2)弹出指定位置的元素
+lst.remove(2)  # 删除值为2的元素，但每次只删除一个
+del lst[3]     # 删除第0个位置的元素
 # 三种排序的方式
-lst.reverse()
-lst.sort()
-lst.sorted()
+lst.reverse()  # 反转顺序
+lst.sort(reverse = True)     # 排序，inplace的方式
+lst.sorted()                # 排序，临时性的
 # 复制
 lst.copy()
 
@@ -96,7 +96,9 @@ lst.copy()
 '''##########################################
 Q: dict的基本函数？
 '''
+
 dict = {'a':1, 'b':3, 'c':2, 'd':5}
+
 dict.keys()
 dict.values()
 dict.items()

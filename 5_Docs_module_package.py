@@ -107,3 +107,15 @@ from ..packB import bar     # 方式1：导入bar模块, ..代表上一级目录
 from ..packB.bar import BBB # 方式2：导入BBB类
 import packB                # 在packB下面init文件中添加from .bar import BBB
 
+
+
+'''
+Q: 如何读取其他文件夹的包？
+'''
+from KidsCoding.kc.tool import PAPER,DRAW,ANT
+# 只要在KidsCoding包，kc包都存在时，从tool文件中导入类就是合法的
+
+paper = PAPER(size=[6,8])
+ant = ANT(paper)
+
+ant.move(2)

@@ -38,7 +38,7 @@ class Car():                                 # 类名：后边加不加括号都
     def update_odometer(self, mileage):
         if mileage >= self.odometer_reading:  # 此处用逻辑禁止改小属性值，但还是可以直接修改属性值
                                               # 比如 new_car.odometer_reading = 15是可以的
-            odometer_reading = mileage
+            self.odometer_reading = mileage
         else:
             print('You can not roll back an odometer!')
         self.odometer_reading = mileage
@@ -50,6 +50,17 @@ new_car.update_odometer(200)                 # 调用带参方法
 new_car.read_odometer()
 
 new_car.update_odometer(15)
+
+
+
+'''
+Q: 在类的体内如何引用类的其他子函数，如何引用类的其他子函数的变量？
+'''
+# 定义类内部的共享变量：self.a = 6
+
+# 调用类内部其他变量: b = self.a
+
+# 调用类内部其他函数：b = self.func1()
 
         
 '''
