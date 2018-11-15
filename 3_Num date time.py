@@ -35,3 +35,9 @@ b = random.sample(values, 3)  # 随机取出多个数
 '''
 Q: 如何让每次产生的随机数是一样的？
 '''
+import numpy as np
+import random
+random.seed(1)
+a = np.random.randn(2,2)
+
+

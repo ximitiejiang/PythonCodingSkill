@@ -80,17 +80,18 @@ new_Ecar.describe_battery()
 
 '''
 Q: 如何在自定义的类中来定义对象的打印输出？
+__repr__()方法：在实例输出时自动调用，如obj，往往用来放入可以eval()的代码片段
+__str__()方法：在实例打印输出时自动调用，如print(obj)，往往用来放入对实例的基本描述
 '''
 class Pair():
     def __init__(self, x, y):
         self.x = x
         self.y = y
-    def __repr__(self):          # 定义一个__repr__函数，定义实例p的输出显示，即p的显示
+    def __repr__(self):         
         return 'Pair({0.x!r}, {0.y!r})'.format(self)
-    def __str__(self):           # 定义一个__str__函数，定义实例p的打印输出显示，即print(p)的输出显示
+    def __str__(self):           
         return '({0.x!s}, {0.x!s})'.format(self)
-# 一个编写完善的类，一般会定义__repr__和__str__用来给用户和程序员提供更多关于实例的信息
-# 这两个函数都能在特定情况下自动调用
+
 
 p = Pair(3,4)
 print(p)   # 调用的是__str__
@@ -101,7 +102,7 @@ p          # 调用的是__repr__
 Q: 如何自定义一个数据类？
 - 自定义一个数据类
 - 重写__getitem__()函数和__len__()函数
-- __getitem__()用于返回一条数据或一个样本： 在切片调用时自动调用，obj[index]等价于obj.__getitem__(index)
+- __getitem__()用于返回一条数据或一个样本，在切片调用时自动调用，obj[index]等价于obj.__getitem__(index)
 - __len__()用于返回样本数量：在求len()时自动调用，len(obj)等价于obj.__len__()
 
 '''
@@ -170,7 +171,7 @@ Q: 如何对一个类的属性进行包装，增加更多判断和检查？
 （参考python cookbook 8.8）
 
 核心理解：一个属性aa定义好以后，其实默认有3个方法为他服务
-aa.getter()方法，在输出属性时会自动调用他
+__getter()方法，在输出属性时会自动调用他
 aa.setter()方法，在设置属性时会自动调用他
 aa.deleter()方法，在删除属性时会自动调用他
 
@@ -233,7 +234,10 @@ Q: 如何调用父类中已经被子类覆盖的方法？
     - super(B, self).Parent_method()  # 这是python2的写法
     - super().Parent_method()         # 这是python3的写法，两个都是对的
 ''' 
-# 使用super()函数，相当与获得了父类名称的使用权
+# 使用super()函数，相当与获得了父类名称的使用权，
+# 即super() = A, 
+#   super().__init__() = A.__init__()
+#   super().spam() = A.spam()
 class A:
     def spam(self):
         print('A.spam')
@@ -256,3 +260,103 @@ class B(A):
     def __init__(self):
         super().__init__()
         self.y = 1
+        
+        
+'''
+Q. 如何使用__new__()方法
+    该方法用于指定一个类来创建实例，需要返回该实例
+    实例参考：http://www.cnblogs.com/ifantastic/p/3175735.html
+'''
+
+class AAA(object):
+    def __init__(self, *args, **kwargs):
+        print('foo')
+    def __new__(cls, *args, **kwargs):
+        return object.__new__(Stranger, *args, **kwargs)  
+
+class Stranger(object):
+    def __init__(self, *args, **kwargs):
+        print('stranger')
+
+a = AAA()
+print(type(a))    # 可以发现明明是AAA的类，但实际上生成的实例是Stranger类的实例
+
+
+
+'''
+Q. 如何使用__setattr__()和__getattr__()方法？
+    __getattr__()方法：在获得属性时调用，比如a.name, 就调用__getattr__(self,name)
+                       先从self.__dict__中搜索，在init函数添加的属性都自动
+                       在__dict__中，如果没找找到再从__getattr__()方法中搜索
+    __setattr__()方法：在设置属性时调用，比如a.name='Eason'，就调用__setattr__(self, name, 'Eason')
+                       所以在初始化一个实例时，就会调用__setattr__方法把参数加到__dict__里边去
+'''    
+class A:  
+    def __init__(self):  
+        self.gendor = 'male'  
+  
+    def __getattr__(self, item):  
+        '''attr的获得方式有2条：先从self.__dict__中搜索，在init函数添加的属性都
+        自动在__dict__中，然后从__getattr__()方法函数中搜索。本例中gendor是从
+        __dict__找到的，name/age是从__getattr__找到的
+        '''
+        print('this is __getattr__()')
+        if item == 'name':  
+            return 'xyz'  
+        elif item == 'age':  
+            return 26 
+        
+    def __setattr__(self, name, value):
+        print('this is __setattr__')
+        return super().__setattr__(name, value)
+
+a = A()          # 初始化时，通过__setattr__方法把属性加入self.__dict__
+print(a.gendor)  # 搜索a.__dict__的到，不调用__getattr__()
+print(a.name)    # 先搜索self.__dict__，没搜索到，然后调用__getattr__()搜索到
+print(a.age)    
+
+a.school = 'taoliyuan'    
+
+a.__dict__    
+
+
+
+'''
+Q. 区分__getattr__()和__getattribute__()方法？
+    __getattribute__()是新类的方法，每次获得属性都会调用该方法
+    __getattr__()只有在__dict__里边没有该属性才会调用该方法
+'''  
+# 还以这个类为例
+class A:  
+    def __init__(self):  
+        self.gendor = 'male'  
+  
+    def __getattr__(self, item):  
+        print('this is __getattr__()')
+        if item == 'name':  
+            return 'xyz'  
+        elif item == 'age':  
+            return 26 
+        
+    def __setattr__(self, name, value):
+        print('this is __setattr__')
+        return super().__setattr__(name, value)
+    
+#    def __getattribute__(self, item):
+#        print('this is __getattribute__')
+#        print('you visited:', item)
+#        return super().__getattribute__(self,item)
+
+a = A()
+print(a.gendor)  # 该条没有调用__getattr__()
+
+
+'''
+Q. 如何使用__call__()方法？
+'''  
+
+
+
+'''
+Q. 如何使用__str__()方法？
+'''  
