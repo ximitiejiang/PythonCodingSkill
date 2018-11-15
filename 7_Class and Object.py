@@ -316,6 +316,7 @@ print(a.name)    # 先搜索self.__dict__，没搜索到，然后调用__getattr
 print(a.age)    
 
 a.school = 'taoliyuan'    
+a.sub_module = [1,2]    # 支持添加一个属性值为list的属性
 
 a.__dict__    
 
@@ -349,6 +350,40 @@ class A:
 
 a = A()
 print(a.gendor)  # 该条没有调用__getattr__()
+
+
+
+'''
+Q. 区分__getattr__()和getattr()方法？
+    __getattr__
+    getattr(obj, attr_name, not_exist_return_value)
+'''  
+class A:  
+    def __init__(self):  
+        self.gendor = 'male'  
+  
+    def __getattr__(self, item):  
+        print('this is __getattr__()')
+        if item == 'name':  
+            return 'xyz'  
+        elif item == 'age':  
+            return 26 
+        
+    def __setattr__(self, name, value):
+        print('this is __setattr__')
+        return super().__setattr__(name, value)
+    
+    def printit():
+        print('this is print')
+
+a = A()   # 调用__setter__
+a.gendor
+a.apple
+print(getattr(a, 'gendor', 'not exist'))
+print(getattr(a, 'school', 'not exist'))
+getattr(a,'printit')()
+setattr(a,'book',5)
+getattr(a,'book')
 
 
 '''
