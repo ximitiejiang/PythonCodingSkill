@@ -395,3 +395,31 @@ Q. 如何使用__call__()方法？
 '''
 Q. 如何使用__str__()方法？
 '''  
+
+
+
+'''
+Q. 如何使用__iter__？
+- 迭代器的特点：
+- 如果想要创建一个迭代器用在for循环中，则需要对一个类创建__iter__()和next()方法
+'''  
+class Fib(object):
+    '''创建一个斐波那切迭代器
+    '''
+    def __init__(self, n):
+        self.a, self.b = 0, 1 # 初始化两个计数器a，b
+        self.n = n
+
+    def __iter__(self):
+        return self      # 实例本身就是迭代对象，故返回自己
+
+    def next(self):
+        self.a = self.b       # 计算下一个值
+        self.b = self.a + self.b
+        if self.a > self.n:   # 退出循环的条件
+            raise StopIteration()
+        return self.a # 返回下一个值
+
+fib = Fib(10)
+for i in fib:
+    print(i)
