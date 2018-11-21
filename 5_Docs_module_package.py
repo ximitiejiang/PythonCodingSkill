@@ -6,14 +6,35 @@ Created on Fri Aug 24 20:28:01 2018
 @author: suliang
 """
 
-'''
-Q: 如何读写文本数据？
-'''
-with open('xxx.txt', 'rt') as f:  # 用with语句打开文件，只要离开with文件就会自动关闭，省去手动关闭
-    data = f.read()               # f.read()一次性全部读入，但读入的是一个字符串
+''' --------------------------------------------------------------------------
+Q: 如何读取文本数据？
 
-with open(file) as f:            # 
-    data = f.readlines()         # f.readlines()一次性全部读入，但读入的是一个list
+with open() as f 是一个良好的打开文档的习惯，会自动关闭文档
+- f为一个迭代对象, 可以用在for循环和next()两种语句中，
+  同时可以有如下3种操作方法：
+    - f.read()  读取全部数据
+    - f.read(size)
+    - f.readline() 读取1行
+    - f.readlines() 读入所有行
+
+- 读取模式：r(read), w(write), a(apend), 配合b(binary), t(txt), +(read+write)
+    r: 只能读，文件不存在就报错
+    r+: 可读可写，文件不存在就报错，覆盖模式
+    
+    w: 只能写，文件不存在就创建，覆盖模式
+    w+: 可读可写，文件不存在就创建，覆盖模式  (*)  - 可理解为覆盖write的自由模式
+    a: 只能写，文件不存在就创建，追加模式
+    a+: 可读可写，文件不存在就创建，追加模式  (*)  - 可理解为apend的自由模式
+    
+
+'''
+with open('test.txt', 'rt') as f:  # 用with语句打开文件，只要离开with文件就会自动关闭，省去手动关闭
+    a = next(f)
+    print(a)
+    data = f.read()               # f.read()一次性全部读入，但读入的是一个字符串, 还需调用字符串公式进行分割
+
+with open('test.txt', 'rt') as f:            # 
+    data = f.readlines()         # f.readlines()一次性全部读入，但读入的是一个list, 每行一个字符串
     for line in data:
         print(line)
         
@@ -25,16 +46,39 @@ with open(file) as f:            #
         line = line[:-1]
         line = f.readline()  #再次读入下一行，指针会自动下移，知道读取到最后一行变空退出while
 
-# 写文件
+
+''' --------------------------------------------------------------------------
+Q: 如何写文件？
+- 跟读取文件是一样的，只是模式用w, wb分别代表写入文本文件或二进制文件
+- 跟读取文件的模式也是一样的
+'''
 with open('xxx.txt', 'wt') as f:  # 写入模式打开文件
     f.write(text1)               # 写入文件
     
 with open('xxx.txt', 'at') as f:  # 以结尾写入的方式打开，只有'a'和'at'两种模式的指针是在文件末尾
     print(text1, file = f)
-        
 
+def write_txt(results,file_name):
+    '''用于写入一个csv文件，默认路径在checkpoints文件夹
+    '''
+#    import torch
+#    import numpy as np
+#    results = torch.tensor([1,2,3])  # tensor写入形式为'tensor([1,2,3])'
+#    results = 'hello'                # 字符串写入形式为string
+#    results = [1,2,3]                # list的写入形式为[1,2,3]
+#    results = np.array([3,1,2])      # array的写入形式为[1,2,3]
+    with open('/Users/suliang/slcv/checkpoints/111.txt', 'w+') as f:  # 以结尾写入的方式打开，只有'a'和'at'两种模式的指针是在文件末尾
+        print(results, file = f)
 
+    
+''' --------------------------------------------------------------------------
+Q: 如何通过print语句把待输出内容写入文件中？
 '''
+with open('xx.txt', 'rt') as f:
+    print('Hello World!', file = f)  # 加上file关键字即可
+
+
+''' --------------------------------------------------------------------------
 Q: 如何获得文件绝对路径？
 '''
 # 尽可能用os模块，他能很好处理不同操作系统关于路径的差别，较好的可移植性
@@ -44,7 +88,7 @@ fullpath = os.path.expanduser(path)   # 获得完整路径名
 print(fullpath)
 
 
-'''
+''' --------------------------------------------------------------------------
 Q: 如何获得某个路径下所有文件名称的列表？
 '''
 import os
@@ -63,7 +107,7 @@ name_addr = [os.path.join(root, name) for name in names]  # 拼接地址
 print(name_addr)
 
 
-'''
+''' --------------------------------------------------------------------------
 Q: 如何读取csv数据，并进行数据汇总和统计？
 '''
 # python自己建议任何跟数据汇总统计相关的，都用pandas来实现
@@ -72,7 +116,7 @@ df = pd.read_csv('Train_big_mart_III.csv', skip_footer =1)
 df['name'].unique()
 
 
-'''
+''' --------------------------------------------------------------------------
 Q: 如何设置文件的包(package)和模块(module)，并进行模块导入
 假定如下文件结构：
 mypackage/
@@ -108,8 +152,7 @@ from ..packB.bar import BBB # 方式2：导入BBB类
 import packB                # 在packB下面init文件中添加from .bar import BBB
 
 
-
-'''
+''' --------------------------------------------------------------------------
 Q: 如何读取其他文件夹的包？
 '''
 from KidsCoding.kc.tool import PAPER,DRAW,ANT
