@@ -98,11 +98,19 @@ print(pynames)
 root = '/Users/suliang/PythonCodingSkill/abc.py'
 base = os.path.basename(root)   # 获得文件名
 dir = os.path.dirname(root)    # 获得文件路径
-os.path.join(dir, base)        # 拼接文件名
-
+os.path.join(dir, base)        # 拼接文件名: 
 # 生成每个文件的绝对地址
 name_addr = [os.path.join(root, name) for name in names]  # 拼接地址
 print(name_addr)
+"""注意 os.path.join(addr1, addr2, addr3)的用法:
+(1)只认最后一个以/开始的根目录以及之后的拼接目录，该根目录以左的所有目录都会被忽略
+其中根目录是指以/开始的目录
+(2)拼接时结尾的/可有可无，命令会自动调整成正确形式
+"""
+dir1 = os.path.join('/aa/bb/c','/d/e/','f/g/h')
+dir2 = os.path.join('/aa/bb/c','/d/e', 'f/g/h')
+print(dir1)  # 只会从第二个/d/e/开始算起
+print(dir2)
 
 
 ''' --------------------------------------------------------------------------
