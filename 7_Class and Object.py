@@ -164,39 +164,141 @@ p = Point(2,3)
 
 dist = getattr(p, 'distance')(0,0)  # 相当与p.distance(0,0), 但可以采用字符串形式给到getattr(),在某些场合有这种需求
 print(dist)
+# 同样应用案例
+for hook in hooks:
+    getattr(hook, 'before_epoch')(self)
 
-            
+
+'''
+Q. 如何定义类的三种方法：类方法classmethod，静态方法staticmethod，属性方法property
+三者的区别和使用范围是什么？
+关键0：理解类和对象的关系
+    * 类相当于出厂就能动的最小系统机器人，有最小系统下的类属性和类方法
+      而对象相当于已通电全功能版机器人，不仅有类属性类方法，还增加对象属性和普通方法
+    * 对象是类实例化以后的产物，拥有了自己的属性和方法，叫对象属性和普通方法
+
+关键1：区分类属性和对象属性
+    * 类属性：属于类本身的属性，不会改变(相当于核心变量)
+    * 对象属性：属于对象的属性，可以改变
+    
+关键2：区分方法产生目的和调用方式
+    * 静态方法最自由，可以脱离类和对象运行，被类和实例调用
+      (相当与一个独立函数，只是被类和对象来调用)
+    * 类方法也自由，可以脱离对象运行，被类和实例调用
+    * 实例方法只能被实例调用
+      属性方法是一类特殊的实例方法，所以也只能被实例调用
+
+关键3：区分3种方法编写方法   
+     * 静态方法，staticmethod，没有必写隐含参数，不能直接使用类或对象的任何属性/方法，但可传入任何参数
+       但可以传入对象self, 然后再调用对象属性。
+       也可传入类cls，然后调用类属性
+     * 类方法，classmethod，必写的隐含参数是cls，不可以访问对象属性
+     * 普通方法(也叫实例方法)，必写的隐含参数是self，可以访问任何属性
+     * 属性方法属于普通方法，所以必写隐含参数self
+       
+'''
+#----------普通方法案例-------------------------
+class Dog():
+    def __init__(self, name):
+        self.name = name
+        self.__food = None
+    def eat(self, food):   # 普通方法
+        print('%s is eating %s'% (self.name, food))
+d = Dog('Jack') 
+d.eat('pie')    # 普通方法被对象调用
+#----------静态方法案例-------------------------
+class Dog():
+    default_name = 'David'
+    def __init__(self, name):
+        self.name = name
+        self.__food = None
+    @staticmethod
+    def eat(self):  # 静态方法，参数为对象
+        print('%s is eating %s'% (self.name, 'pie'))
+    @staticmethod
+    def run(name): # 静态方法，参数为形参
+        print('%s is running!'% name)
+    def jump(cls):  # 静态方法，参数为类
+        print('%s is running!'% cls.default_name)
+        
+d = Dog('Jack')
+Dog.eat(d)         # 类调用静态方法，传入对象
+d.eat(d)           # 对象调用静态方法，传入对象
+Dog.run('Jack')    # 类调用静态方法，传入新参数
+d.run(d.name)      # 对象调用静态方法，传入对象属性
+Dog.run(Dog.default_name)  # 类调用静态方法，传入类属性
+Dog.jump(Dog)              # 类调用静态方法，传入类
+# ----------类方法案例-----------------------
+class Dog():
+    food = 'bone'
+    def __init__(self, name):
+        self.name = name
+        self.__food = None
+    @classmethod
+    def like(cls, food):   # 普通方法
+        print('dogs like %s'% (food))
+
+Dog.like('food')    # 类调用类方法，传入额外参数
+Dog.like(Dog.food)  # 类调用类方法，传入类属性
+
+d = Dog('Jack')
+d.food = 'pie'
+print(d.food, Dog.food)   # 可以发现，类属性没有被对象改变，只是类属性和对象属性同名
+
+d.like('food')      # 对象调用类方法，传入参数'food'，而不是获取类属性
+d.like(d.food)      # 对象调用类方法，传入对象属性
+d.like(Dog.food)    # 对象调用类方法，传入类属性
+# ----------属性方法案例-----------------------
+class Dog():
+    def __init__(self, name):
+        self.name = name
+        self.food = None
+    @property
+    def like(self):   # 添加属性方法，可以不用写括号
+        print('dogs like %s'% (self.food))
+                      # 属性方法优点是不用写括号，缺点是不能像真正的属性一样赋值。
+    @like.setter      # 但可以通过增加
+    def like(self, food):
+        self.food = food
+    @like.deleter
+    def like(self,food):
+        del self.food
+a = Dog('David')
+a.like = 'pie'  # 调用属性方法的setter函数
+a.like          # 调用属性方法
+del a.like      # 删除属性方法
+
+
 '''
 Q: 如何对一个类的属性进行包装，增加更多判断和检查？
 （参考python cookbook 8.8）
 
-核心理解：一个属性aa定义好以后，其实默认有3个方法为他服务
-__getter()方法，在输出属性时会自动调用他
-aa.setter()方法，在设置属性时会自动调用他
-aa.deleter()方法，在删除属性时会自动调用他
+关键1： 充分理解对象的属性在实现时的调用过程
+要操作一个属性，实际上背后是调用三个函数
+获得属性值：相当于调用getter()函数，在输出属性时会自动调用他
+设置属性值：相当于调用setter()方法，在设置属性时会自动调用他
+删除属性值：相当于调用deleter()方法，在删除属性时会自动调用他
 
-@property本质就是定义getter()方法，只要定义了getter()方法，就能直接调用
-比如一个方法bbb()之前增加@property，就能obj.aaa这样调用，相当于属性化一个函数
-
+关键2：理解@property本质就是定义getter()方法，所以@property之后只能获得属性。
+要想对这个属性进行设置和删除操作，需要额外定义@xx.setter(), @xx.deleter()
 ''' 
 # 对一个函数添加@property,相当与把函数转化为property(属性)，从而可以直接用p.first_name来调用
-# 添加了@property后，根据函数输入的不同，会自动触发getter, setter, deleter方法
-# 
+
 class Person:
     def __init__(self, first_name):
         self.first_name = first_name
     
-    @property             # getter方法，必选
+    @property             # 有这句@property就相当于定义了getter()函数
     def first_name(self):
         return self._first_name
     
-    @first_name.setter     # setter方法，可选
+    @first_name.setter     # 需要自己定义setter()函数
     def first_name(self, value):
         if not isinstance(value, str):
             raise TypeError('Expected a string')
         self._first_name = value
     
-    @first_name.deleter   # deleter方法，可选
+    @first_name.deleter   # 需要自己定义deleter()函数
     def first_name(self):
         raise AttributeError('Can not delete attribute')
 
@@ -205,6 +307,26 @@ p.first_name           # 显示的是属性
 p.first_name = 42      # 调用的是属性同名函数的setter方法，因为输入数字，所以报错
 p.first_name = 'martin'   # 正常
 del p.first_name       # 调用的是属性同名函数的deleter方法
+
+
+'''
+Q. 如何使用类和对象的__dict__方法？
+类.__dict__  返回类里的所有属性，不包含实例
+对象.__dict__ 只返回实例属性，也就是在__init__ 中声明的变量
+'''
+class Dog():
+    default_name = 'Alan'
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+    def who(self, name):
+        print('%s is dog default name, but %s is dog new name'% (Dog.default_name, name))
+    def like(self, food):
+        print('%s likes %s'% (self.name, food))
+
+d = Dog('David', 8)        
+print(Dog.__dict__)
+print(d.__dict__)
 
  
 '''
@@ -266,12 +388,18 @@ class B(A):
 Q. 如何使用__new__()方法
     该方法用于指定一个类来创建实例，需要返回该实例
     实例参考：http://www.cnblogs.com/ifantastic/p/3175735.html
+    
+关键点：
+    充分理解创建一个对象的内部调用过程：
+    * 先调用__new__()方法，基于传入的类来创建对象
+    * 再调用__init__()函数，初始化相关变量
+    可见真正创建对象是由__new__()来完成，而不是由__init__()来完成
 '''
 
 class AAA(object):
     def __init__(self, *args, **kwargs):
         print('foo')
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, **kwargs):  # 传入的是一个类
         return object.__new__(Stranger, *args, **kwargs)  
 
 class Stranger(object):
@@ -376,9 +504,9 @@ class A:
     def printit():
         print('this is print')
 
-a = A()   # 调用__setter__
+a = A()   # 调用__setter__()
 a.gendor
-a.apple
+a.apple   # 先查看__dict__没有，然后调用__getattr__()
 print(getattr(a, 'gendor', 'not exist'))
 print(getattr(a, 'school', 'not exist'))
 getattr(a,'printit')()

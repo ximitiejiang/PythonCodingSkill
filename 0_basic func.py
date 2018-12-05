@@ -77,8 +77,10 @@ Q: list的基本函数？
 '''
 lst = [2,1,2,5,2]
 # 两种增加的方式
-lst.append(9)  # append是在末尾加入一个新元素
+lst.append([1,2])  # append是在末尾加入一个新元素
 lst.extend([1,2])   # extend是加入一串新元素list
+
+lst.insert(2,[1,2])  # 在第index个加入一个新元素
 # 计数
 lst.count(2)  # 统计有多少个2
 # 三种弹出的方式

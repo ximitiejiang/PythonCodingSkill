@@ -87,6 +87,29 @@ print(fullpath)
 
 
 ''' --------------------------------------------------------------------------
+Q: 如何把相对路径转化为绝对路径？又如何把绝对路径转化为相对路径
+
+关键理解1： os.path.abspath只是简单的获得指定文件的绝对路径，而不会关心文件是否存在
+或者可以理解为只是简单的把.和..替换成真实路径，然后拼接后边一段。
+
+关键理解2：'.'和'..'简化理解就是文件夹，并且是不带/的文件夹名。相对路径几种写法
+需要区分文件夹和模块的写法区别，文件夹要带斜杠，模块不带斜杠带.分隔
+    path = './slcv/slcv/cfg/config.py'
+    path = '../slcv/slcv/cfg/config.py'
+    from .config import Config
+    from . import config
+    from ..slcv.config import Config
+    
+'''
+import os
+path = '../slcv/slcv/cfg/config.py'   # 基于当前文件的相对路径
+abspath = os.path.abspath(path)       # 相对路径转绝对路径
+print(abspath)
+
+relpath = os.path.relpath(abspath)    # 绝对路径转相对路径
+print(relpath)
+
+''' --------------------------------------------------------------------------
 Q: 如何获得某个路径下所有文件名称的列表？
 '''
 import os

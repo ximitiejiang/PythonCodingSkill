@@ -22,7 +22,11 @@ print(lst)
 a0.append(4)  # 如果a0内部变化，会导致lst变化，因为append是一种浅复制。
 print(lst)
 
-
+# 同时需要对比跟append相关的2个函数extend和insert
+lst = [1,2,3,4,5,6]
+lst.append([1,2])   # 在末尾添加一个元元素
+lst.extend([1,2])   # 在末尾添加n个元素
+lst.insert(-1,[1,2])  # 在index位置添加一个元素
 
 '''
 Q: 如何理解切片的写法？
@@ -46,12 +50,23 @@ a[1:8]
 a[1:-1:2]
 a[:, 1::4]  
 
+
 '''
 Q: list里边嵌套list是算法里边常见的一种数据结构，如果对这类list进行切片？
 '''
 lst = [[1,2,3],[4,5,6],[7,8,9]]
 for i in range(len(lst[0])):
     featList = [sample[i] for sample in lst]  # 循环是取得list列的标准写法
+
+
+'''
+Q: 创建dict字典最重要的2种方法?
+'''
+# 这是最符合应用习惯的dict生成方法: 广泛用于函数参数列表的输入
+params = dict(type='SGD', lr=0.01, weight_decay=0.1)
+
+# 这是普通dict生成方法
+age = {'leo':18, 'eason':8, 'winnie':16}
 
 
 '''
