@@ -64,6 +64,8 @@ Q: 创建dict字典最重要的2种方法?
 '''
 # 这是最符合应用习惯的dict生成方法: 广泛用于函数参数列表的输入
 params = dict(type='SGD', lr=0.01, weight_decay=0.1)
+# 这是最符合应用习惯的dict添加元素方法
+params.update(decay = 0.02)    # update方法类似与list的extend方法
 
 # 这是普通dict生成方法
 age = {'leo':18, 'eason':8, 'winnie':16}
@@ -277,3 +279,28 @@ Q: 如何把只含一个元素的array或者list转化为标量的float/int？
 '''
 # 先用type()函数查看数据类型，到底是矢量nunpy/list，还是标量float/int
 type(x)  
+
+
+'''
+Q: 如何判断None这种变量？
+方式1：用is/is not判断
+方式2：用x/not x判断
+'''
+# 布尔变量的两种写法：方法1(is/is not语句做判断)，方法2(直接作为判断句)
+x = False
+if x is False: print('x is False')
+if x: print('x is True')
+
+# None的判断可以用方法1： is/is not
+x = None
+if x is None: print('x is None')  # is None
+if x is not None: print('x is not None')
+# None的判断也可以用方法2，此时None/0/空列表[]/空元组()/空字典{}都可以等效于False
+if not x: print('x is None')
+# 最佳实践：尽量用not x这种写法，而不要用==或者is，也就是尽量用方法2(直接判断 if.., if not..)
+
+
+
+
+
+
