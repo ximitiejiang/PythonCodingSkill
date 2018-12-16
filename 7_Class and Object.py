@@ -23,6 +23,49 @@ lamba_       单下划线结尾的属性，是为了防止与内部保留字冲�
 # 对象是什么？就是穿着铠甲的勇士
 
 '''
+Q: 如何完整理解父类和子类的关系？
+参考：https://www.cnblogs.com/cccy0/p/9040192.html, 写得比较完整
+% 初始化      类不能没有__init__，子类没有__init__则自动调用父类__init__
+              如果子类写了自己__init__，则不会init父类，要使用父类属性就需要手动
+              调用父类super().__init__()
+% 调用属性     子类可以调用父类属性，但需确保父类属性初始化，
+               同时不同名可直接调用，同名则需要通过super()调用
+% 调用方法     子类可以调用父类方法，不同名直接调用，同名则通过super()调用
+'''
+class Animal():     # 父类
+    def __init__(self):
+        self.head = 1
+    def drink(self):
+        print('Animal is drinking!')
+        
+class Rabbit(Animal):  # 子类
+    pass
+
+rabbit = Rabbit()
+rabbit.drink()                                  # 关键1：子类可随意调用父类方法
+print('it has {} head'.format(rabbit.head))     # 关键2：子类可随意调用父类属性
+
+class Chick(Animal):
+    def __init__(self):
+        super().__init__()   # 关键5，要使用父类属性就要确保父类初始化
+        self.legs = 4
+    def drink(self):
+        print('Chick is drinking!')
+    def parentdrink(self):
+        super().drink()
+        
+chick = Chick()
+chick.drink()               # 关键3： 子类调用自己的方法(与父类同名方法)，可随便调用
+chick.parentdrink()         # 关键4： 子类调用父类同名方法，需要用super()
+
+                       # 关键5： 子类调用父类属性需要确保父类init
+                       #         如果子类没有自己__init__则自动调用父类__init__()完成初始化
+                       #         如果子类有自己的__init__则需要手动调用父类super.__init__()
+print('it has {} head, and chick has {}legs'.format(chick.head, chick.legs))
+
+
+
+'''
 Q: 如何定义一个最基本的类和方法，以及定义一个实例？
 '''
 class Car():                                 # 类名：后边加不加括号都可以,只有继承类必须加。 class A = class A() = class A(object), 早期python2是要求显式写成A(object)
@@ -170,11 +213,11 @@ for hook in hooks:
 
 
 '''
-Q. 如何定义类的三种方法：类方法classmethod，静态方法staticmethod，属性方法property
+Q. 如何定义类的三种方法：类方法@classmethod，静态方法@staticmethod，属性方法@property
 三者的区别和使用范围是什么？
 关键0：理解类和对象的关系
     * 类相当于出厂就能动的最小系统机器人，有最小系统下的类属性和类方法
-      而对象相当于已通电全功能版机器人，不仅有类属性类方法，还增加对象属性和普通方法
+      而对象相当于已通电全功能版机器人，不仅有类属性/类方法，还增加对象属性和普通方法
     * 对象是类实例化以后的产物，拥有了自己的属性和方法，叫对象属性和普通方法
 
 关键1：区分类属性和对象属性
@@ -185,16 +228,21 @@ Q. 如何定义类的三种方法：类方法classmethod，静态方法staticmet
     * 静态方法最自由，可以脱离类和对象运行，被类和实例调用
       (相当与一个独立函数，只是被类和对象来调用)
     * 类方法也自由，可以脱离对象运行，被类和实例调用
-    * 实例方法只能被实例调用
-      属性方法是一类特殊的实例方法，所以也只能被实例调用
+    * 普通方法只能被实例调用
+      属性方法属于普通方法，所以也只能被实例调用
 
-关键3：区分3种方法编写方法   
-     * 静态方法，staticmethod，没有必写隐含参数，不能直接使用类或对象的任何属性/方法，但可传入任何参数
+关键3：区分3大方法   
+     * 类方法，classmethod，必写的隐含参数是cls，不可以访问对象属性，可以被类和对象调用
+     * 普通方法(也叫实例方法)，必写的隐含参数是self，可以访问任何属性，只可以被对象调用
+         * 属性方法属于普通方法的一直哦哦那个，所以必写隐含参数self
+     * 静态方法，staticmethod，没有必写隐含参数，不可以访问类或对象的任何属性/方法，可以被类和对象调用
        但可以传入对象self, 然后再调用对象属性。
        也可传入类cls，然后调用类属性
-     * 类方法，classmethod，必写的隐含参数是cls，不可以访问对象属性
-     * 普通方法(也叫实例方法)，必写的隐含参数是self，可以访问任何属性
-     * 属性方法属于普通方法，所以必写隐含参数self
+
+关键4：几种特殊方法的典型应用
+     * @property属性方法：是普通方法的一种，主要用来把方法属性化，调用方便省去写括号，a.action
+     * @classmethod类方法：用来获得类的一些基本属性展示
+     * @staticmethod静态方法：用来剥离出来放一些独立逻辑，跟类和对象都不会交互，但可以被大家使用。
        
 '''
 #----------普通方法案例-------------------------
@@ -267,6 +315,17 @@ a = Dog('David')
 a.like = 'pie'  # 调用属性方法的setter函数
 a.like          # 调用属性方法
 del a.like      # 删除属性方法
+
+
+'''
+Q: 如何理解和使用抽象类和抽象方法@abstractmethod?
+'''
+from abc import ABCMeta, abstractmethod
+class Person():
+    __metaclass__ = ABCMeta  # 定义了抽象类
+    def name(self):
+        pass
+
 
 
 '''

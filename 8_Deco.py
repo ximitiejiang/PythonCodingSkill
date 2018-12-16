@@ -62,11 +62,14 @@ say_age(30, 28, 2)
 
 '''
 Q. python自带哪些可用的系统装饰器和装饰器函数？
-
-- @property: 属性化的普通方法(self隐含)，相当与定义了property()作为装饰器函数，里边直接调用getter()函数，所以可不带括号调用
-- @staticmethod: 静态方法(无隐含)，相当与定义了staticmethod()作为装饰器函数，该函数新功能就是对输入做判断，不直接接受对象的属性
-- @classmethod：类方法(cls隐含)，相当与定义了classmethod()作为装饰器函数，该函数新功能就是对输入做判断，不直接接受对象的属性
-
+(这部分详细说明在 7_Class_and_Object)
+@property:      属性化的普通方法(self隐含)，相当与定义了property()作为装饰器
+                函数，里边直接调用getter()函数，所以可不带括号调用
+@staticmethod:  静态方法(无隐含)，相当与定义了staticmethod()作为装饰器函数，
+                该函数新功能就是对输入做判断，不直接接受对象的属性
+@classmethod：  类方法(cls隐含)，相当与定义了classmethod()作为装饰器函数，该
+                函数新功能就是对输入做判断，不直接接受对象的属性
+        
 '''
 class Person():
     @property
@@ -110,3 +113,8 @@ class Sleep:
         time.sleep(2.0)
 s = Sleep()
 s.sleep()
+
+
+
+
+
