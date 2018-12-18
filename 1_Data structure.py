@@ -72,6 +72,24 @@ age = {'leo':18, 'eason':8, 'winnie':16}
 
 
 '''
+Q.怎么使用OrderedDict和defaultDict?
+'''
+# 
+from collections import defaultdict, OrderedDict
+d1 = defaultdict(int)
+name = 'mississippi'
+for k in name:
+    d1[k] += 1        # 使用defaultdict在存储不存在键的值时不会报警
+                      # 但使用其他dict就会报警
+
+
+d2 = OrderedDict(m=2,a=1,c=3)
+d3 = dict(m=2,a=1,c=3)
+
+
+
+
+'''
 Q: 有一个包含N个不同类型元素的序列(list/dic/str)，如何把它分解为N个单独的变量？
 '''
 p = [12,5]

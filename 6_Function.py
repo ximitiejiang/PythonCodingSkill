@@ -25,7 +25,24 @@ recv(1024, True)         # 这种写法报错，因为block是关键字参数而
 recv(1024, block = True) # 必须是关键字参数写法
 
 
-
+"""
+Q. 如何理解*args和**kwargs的真正应用区别？
+关键理解：
+*args可以输入一批数据value，并会被自动转化成列表
+**kwargs可以输入一批数据key=value，并会被自动转化成字典
+"""
+# args的功能是自动把输入参数变成了一个可迭代的list
+def args_test(param1,*args):
+    print("first param is:",param1)
+    index = 1
+    for value in args:
+       print("the "+str(index)+" is:"+str(value))
+       index += 1
+# kwargs的功能是自动把输入参数变成了一个可迭代的dict
+def kwargs_test(param1,**kwargs):
+    print("the first param is: ",param1)
+    for key in kwargs:
+        print("the key is: %s, and the value is: %s" %(key,kwargs[key]))
 
     
 
