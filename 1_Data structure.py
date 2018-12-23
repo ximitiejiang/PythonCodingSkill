@@ -319,6 +319,38 @@ if not x: print('x is None')
 
 
 
+'''
+Q. 如何理解和使用高阶函数map, reduce？
+- 两者功能上有类似地方，都是2个input， 一个fn,一个list
+map(映射)用于把fn map给每个list元素计算输出一个list，
+reduce(浓缩)用于把fn map给每个list元素，但每一轮都是基于上一轮输出和本轮输入组合计算，最后输出一个标量
+参考：https://www.liaoxuefeng.com/wiki/001374738125095c955c1e6d8bb493182103fac9270762a000/00141861202544241651579c69d4399a9aa135afef28c44000
+'''
+input = [1,2,3,4,5]
+def fn(x):
+    return x**2
+out = list(map(fn, input))  # map返回的是一个迭代器
+
+from functools import reduce
+input = [1,2,3,4,5]
+def fn(x,y):
+    return x+y
+out = reduce(fn, input)   # reduce返回一个标量
+
+'''
+Q. 如何理解和使用高阶函数partial？
+在mmdetection的anchor generator中有使用这个partial函数。
+'''
+def addnums(x1,x2,x3):
+    return(x1+x2+x3)
+    
+from functools import partial
+newfunc = partial(addnums, 100)  # 新函数定义，相当与把地一个kwards定义下来
+                                 # 原则是先定义的是kwards，
+
+out = newfunc(2,3)
+
+
 
 
 
