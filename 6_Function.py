@@ -11,10 +11,31 @@ Created on Fri Aug 24 20:29:54 2018
 
 '''
 Q: 怎么编写可接受任意数量的位置参数，或者任意数量的关键字参数？
+1. 核心概念：
+    (1)位置参数def foo(x,y)
+    (2)关键字参数def foo(x=1)
+    (3)可变位置参数def foo(*args)
+    (4)可变关键字参数def foo(**kwargs)
+2. 本质
+    (1)*args：其中args代表元组，*代表拆包操作，*args代表拆包完成的多个位置参数
+        例如：args = (1,2,3)，则*args -> 1,2,3
+    (2)**kwargs：其中kwargs代表字典，**代表拆字典操作，**kwargs代表拆字典完成的多个关键字参数
+        例如：kwargs={'a':1,'b':2}, 则**kwargs -> a=1, b=2
+3. 参数顺序：
+    (1)位置参数 -> *args -> **kwargs
+    (2)位置参数 -> 关键字参数 -> *args -> **kwargs
+
+4. 核心应用：
+    (1)在形参位置，用*args/**kwargs代表可以输入多个位置参数或关键字参数
+    (2)在实参位置，用*/**来解包元组或解包字典
+    (3)用来在继承类中给父类传递参数，super().__init__(*args, **kwargs)
+
 '''
 def avg(*args, **kwargs):  # 位置参数 + 关键字参数(kwargs = keyword args)
-    return(sum(args) / len(args))
-avg(1,2,3,4)    
+    print(args)
+    print(kwargs)
+avg(1,2,3,4)   
+avg(*(1,2), **{'a':3,'b':4})
     # *args代表位置参数，以一个星号开始的位置参数只能作为最后一个位置参数
     # **kwargs代表关键字参数，以两个星号开始的关键字参数只能作为最后一个参数
     # 强制定义了*args后边，只能是关键字参数，也就只能输入成 name = xxx
