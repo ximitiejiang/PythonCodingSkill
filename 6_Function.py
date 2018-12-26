@@ -11,19 +11,30 @@ Created on Fri Aug 24 20:29:54 2018
 
 '''
 Q: 怎么编写可接受任意数量的位置参数，或者任意数量的关键字参数？
+精彩参考：https://www.cnblogs.com/bingabcd/p/6671368.html
 1. 核心概念：
+    核心是2大类，位置参数(同类参数用位置顺序区分，可以不写变量名传参)，
+    关键字参数(必须用变量名+等号传参,同类参数没有顺序，用变量名区分)
     (1)位置参数def foo(x,y)
-    (2)关键字参数def foo(x=1)
+    (2)默认参数def foo(x=1)， 注意默认参数是位置参数的一种形参表现形式，但他不是关键字参数
+    这也是为什么可变位置参数*arg与默认参数的相对位置关系可以交换
+    可以这么理解：形参上只能写 def foo(a,b=2,**kwargs)，没有其他关键字参数的写法；
+    而实参上写foo(1,b=3,c=3,d=4)，则默认参数与关键字参数形式上相同，通过变量名区分
     (3)可变位置参数def foo(*args)
-    (4)可变关键字参数def foo(**kwargs)
+    (4)关键字参数 def foo(*, a) 此时*强制要求之后的变量为关键字参数变量
+    (5)可变关键字参数def foo(**kwargs)
 2. 本质
     (1)*args：其中args代表元组，*代表拆包操作，*args代表拆包完成的多个位置参数
         例如：args = (1,2,3)，则*args -> 1,2,3
     (2)**kwargs：其中kwargs代表字典，**代表拆字典操作，**kwargs代表拆字典完成的多个关键字参数
         例如：kwargs={'a':1,'b':2}, 则**kwargs -> a=1, b=2
-3. 参数顺序：
-    (1)位置参数 -> *args -> **kwargs
-    (2)位置参数 -> 关键字参数 -> *args -> **kwargs
+3. 形参顺序定义：
+    (1)位置参数 -> *args -> 默认参数 -> **kwargs
+    (2)位置参数 -> 默认参数 -> *args -> **kwargs  (即默认参数与*args可变位置参数可以换，其他固定)
+    (3)在*作为分割定义的为关键字参数比如 def foo(a,*args, b, **kwargs)其中b就是关键字参数而不是位置参数，传入必须加等号
+4. 实参识别模式
+    (1)形参定义时除了在*之后和**kwargs被强制定义成关键字参数，其他参数默认都是位置参数/默认参数
+    (2)实参传入时，无论位置参数/默认参数/关键字参数，都可以用等号传入。区别在于位置参数/默认参数还可以直接不带变量名基于位置写数值
 
 4. 核心应用：
     (1)在形参位置，用*args/**kwargs代表可以输入多个位置参数或关键字参数
@@ -46,6 +57,72 @@ recv(1024, True)         # 这种写法报错，因为block是关键字参数而
 recv(1024, block = True) # 必须是关键字参数写法
 
 
+# 一个核心应用: 用*可变位置参数或**可变关键字参数，在函数体运行时传参进去
+# 这样就可以实现从config文件读出turple或者dict，然后通过*/**解包之后直接用作函数实参
+def avg(x=1,y=1,z=1):
+    s= x + y + z
+    return s
+
+data = dict(x=1,y=2,z=3)  # 事先可以在config中准备这些信息
+avg(**data)       # 调用函数时可以很方便的解包参数后作为形参，调用过程代码就很简洁
+avg(1,1,1)
+
+# 区分默认参数与关键字参数
+def foo(a, b=2, **kwargs):     # 形参上的区别：默认参数用=等号的写法，而关键字参数只能有**kwargs的方式，没有等号写法
+    print('position arg a: {}'.format(a))
+    print('moren arg b: {}'.format(b))
+    print('keyword args: {}'.format(kwargs))
+foo(1, b=3, c=4, d=5)         # 实参上：默认参数与关键字参数写法相同，都用等号写法，通过变量名来区分
+
+# 四种参数的位置区别
+def foo(x, *args, a=4, **kwargs): # 默认参数的位置在args之后kwargs之前，此时默认参数的调整需要带名称调整，否则会被位置参数先吃掉
+    print(x)
+    print(a)
+    print(args)
+    print(kwargs)
+foo(1,2,3,4,5,a=5)  # 此时如果不写a=5,则所有数字都被排在前面的默认参数吃掉
+
+def foo(x, a=4, *args, **kwargs): # 默认参数的位置在args之后kwargs之前，此时默认参数调整不需要带名称，因为排在前面优先了。
+    print(x)
+    print(a)
+    print(args)
+    print(kwargs)
+foo(1,2,3,4,5,6)   # 此时即使不写a,由于默认参数在形参定义在前面优先级高，能先吃到一个数，剩下的再全部给位置参数吃掉。
+
+def foo(x,a=4, *, b, **kwargs):  # 此时*只是作为位置参数与关键字参数的分隔符，不代表任何args,也就指定了b为关键字参数
+    print(x)
+    print(a)
+    print(b)
+    print(kwargs)
+foo(1,2,b=6)
+
+
+# 是否有必要区分
+def foo(*, x, **kwargs):
+    print(x)
+    print(kwargs)
+foo(x=2,z=1)       # 形参能识别出来是关键字参数，则必需用等号
+
+
+# 默认都会认为是位置参数，除非通过*之后强制或通过**kwargs强制定义为关键字参数
+data1 = dict(img=1, img_meta=2, gt_label=4)
+def foo1(img, img_meta, loss=True,**kwargs):  # 默认都是位置参数或默认参数
+    print(img)
+    print(img_meta)
+    print(loss)
+    print(kwargs)
+foo1(**data1)                        # 位置参数或默认参数的实参，带不带等号传入都可以
+
+data2 = dict(img=1, img_meta=2, gt_label=4)
+def foo2(img, img_meta, loss=True):  
+    print(img)
+    print(img_meta)
+    print(loss)
+foo2(**data2)                        # 解包数据需要确保形参都能接收，多余的数据需要通过**kwargs接收，否则会报错
+
+
+# 
+
 """
 Q. 如何理解*args和**kwargs的真正应用区别？
 关键理解：
@@ -55,25 +132,43 @@ Q. 如何理解*args和**kwargs的真正应用区别？
 # args的功能是自动把输入参数变成了一个可迭代的list
 def args_test(param1,*args):
     print("first param is:",param1)
-    index = 1
+    index = 2
     for value in args:
        print("the "+str(index)+" is:"+str(value))
        index += 1
+       
+data = (7,5,9,2)
+args_test(7,5,9,2)  # 2种参数传递方式等效
+args_test(*data)    # 2种参数传递方式等效， 这种更常用，调用代码更简洁
+args_test(2, a=1,b=2)
+
 # kwargs的功能是自动把输入参数变成了一个可迭代的dict
 def kwargs_test(param1,**kwargs):
     print("the first param is: ",param1)
     for key in kwargs:
         print("the key is: %s, and the value is: %s" %(key,kwargs[key]))
+        
+data = dict(a=5,b=3)
+kwargs_test(2, a=5, b=3)  # 2种参数传递方式等效
+kwargs_test(2, **data)    # 2种参数传递方式等效， 这种更常用，调用代码更简洁
 
-    
+
+
 
 '''
 Q: 函数返回的多个变量是怎么存在的，怎么获得？
+核心概念：解包传入，打包传出
 '''
-def myfun():
-    return 1, 2, 3
-all = myfun()    # 函数的多个返回值实际上是返回一个元组
-x,y,z = myfun()  # 用多个变量接收函数的多个返回值，实际上是元组的解包
+def myfun(x,y,z):
+    return (x+1, y+2, z+3)  # 注意，传入的参数需要解包传入，即散装传入，但传出是默认打包传出！
+input = (1,2,3)           # 传入前：turple
+output = myfun(*input)    # 解包后传入，传出自动打包为turple(自己再打包也不会嵌套)
+x,y,z = output           # 解包操作赋值给多个变量
+print(x,y,z)
+
+i,j,k = myfun(*input)   #也可以输出直接写成解包形式
+print(i,j,k)
+
 
 
 '''
@@ -100,3 +195,46 @@ print('after f1, value = {}'.format(value))
 value = [0,0]
 f3()
 print('after f3, value = {}'.format(value))
+
+
+# 高阶函数的主题参考：
+# https://www.cnblogs.com/cwp-bg/p/8859260.html
+'''-------------------------------------------------------------
+Q. 高阶函数 - map怎么用？
+iterator = map(func, iterable)
+map的功能是把迭代对象中的元素依次送入函数中，返回一个迭代器(next方法)(python2.x返回list)
+'''
+def ff(x):
+    return x**2
+a = map(ff, [1,2,3])
+for i in a:
+    print(i)
+print(list(map(ff, [1,2,3])))
+
+
+'''-------------------------------------------------------------
+Q. 高阶函数 - reduce怎么用？
+'''
+
+
+
+'''-------------------------------------------------------------
+Q. 高阶函数 - filter怎么用？
+'''
+
+
+
+'''-------------------------------------------------------------
+Q. 高阶函数 - partial怎么用？
+'''
+
+
+
+'''-------------------------------------------------------------
+Q. 高阶函数 - sorted/max/min怎么用？
+'''
+
+
+
+
+
