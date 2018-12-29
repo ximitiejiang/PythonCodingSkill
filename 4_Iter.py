@@ -225,3 +225,44 @@ with open('xxx.txt', 'wt') as f:  # 写入模式打开文件
 lst = [14,6,9]
 next(lst)    
     
+
+
+'''---------------------------------------------------------------------------
+Q: 如何处理map,zip函数返回的迭代对象
+- iter_obj3 = zip(iter_obj1, iter_obj2): 将一组iterable对象打包压缩，返回的是一个iterable对象(即多个对象变一个对象)，每个元素是一个元组
+- *(zip_obj)则解压缩一个对象为多个对象。
+- iter_obj = map(func, iter_obj): 将func作用于一个iter对象的每一个元素，然后返回一个iter对象
+- 
+
+'''
+# zip函数----------------------------
+import numpy as np
+a=[1,2,3]
+b=[4,5,6]
+c=[7,8,9]
+zz=zip(a,b,c)
+print(list(zz))  # list()函数解放迭代对象
+x,y,z=zip(*zz)   # *操作解放压缩对象
+print(x)
+print(y)
+print(z)
+
+# map函数-----------------------------
+def f1(x):
+    return x**2
+def f2(x,y):
+    return x+y
+a1 = [1,2,3]
+a2 = [4,5,6]
+b = map(f1, a1)   # map() 传入1个函数和1个迭代对象参数
+c = map(f2, a1, a2) # map() 传入1个函数和2个迭代对象参数
+print(list(b))
+print(list(c))
+print(*b)
+print(*c)
+
+def foo(*args, **kwargs):
+    print(args)
+    print(*args)
+a = [1,2,3]
+print(foo(a))
