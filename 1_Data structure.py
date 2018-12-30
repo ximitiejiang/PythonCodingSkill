@@ -28,11 +28,32 @@ lst.append([1,2])   # 在末尾添加一个元元素
 lst.extend([1,2])   # 在末尾添加n个元素
 lst.insert(-1,[1,2])  # 在index位置添加一个元素
 
+
+'''
+Q. list/tuple的相加和相乘的效果？
+'''
+
+# 相加
+l1 = [1,2,3]
+l2 = [4,5,6,7,8]
+l3 = l1 + l2     # 只有同种类型数据能相加
+
+d1 = (4,5,6)
+d2 = [1,2,3]
+d3 = dict(a=1,b=2)
+d4 = d1 + (d2, d3)  # 不同类型的数据如果要相加，需要先把不同类数据组合成同类数据
+
+# 相乘
+b1 = [1,2,3]
+b2 = b1 * 3
+
+
+
 '''
 Q: 如何理解切片的写法？
 
 从0开始并且不考虑最后一个元素的方式有如下优点：
-1. lst[:3]就可以直接读出包含了3个元素，这跟range(3),np.arange(3)有相同功效
+1. lst[:3]就可以直接读出包含了3个元素，这跟range(3),np.arange(3)有相同功效，这个可以叫做去尾效应
 2. lst[:3]和lst[3:]正好把list分成两部分，非常直观
 3. lst[start:stop]可以通过起点和终点直接算出包含元素个数n=stop-start
 '''
@@ -91,6 +112,7 @@ d3 = dict(m=2,a=1,c=3)
 
 '''
 Q: 有一个包含N个不同类型元素的序列(list/dic/str)，如何把它分解为N个单独的变量？
+这个叫做解包！
 '''
 p = [12,5]
 q = 'hello'
@@ -128,13 +150,14 @@ sorted_price = sorted(zip(price.values(),price.keys())) # zip()结合sorted()排
 Q: 有一组数据，如何获得最大的或最小的N个元素？
 '''
 num = [1,8,2,23,7,-4,18,23,42,37,2]
-max_3 = num.sorted()[:3]   # 通过先排序再切片的方式获得最大/最小的N个元素
+max_3 = sorted(num)[:3]   # 通过先排序再切片的方式获得最大/最小的N个元素
 # 这种写法非常有意思，可以方便获得从小到大排序和从大到小排序
 min_to_max = num.sorted()[::]
 max_to_min = num.sorted()[::-1]
 
-min_to_max_index = num.argsort()[::]
-max_to_min_index = num.argsort()[::-1]
+import numpy as np
+min_to_max_index = np.argsort(num)[::]
+max_to_min_index = np.argsort(num)[::-1]
 
 '''
 Q: 想创建一个字典，并且希望字典内保持输入时的顺序，而不是默认的key字母顺序？
@@ -342,13 +365,20 @@ Q. 如何理解和使用高阶函数partial？
 在mmdetection的anchor generator中有使用这个partial函数。
 '''
 def addnums(x1,x2,x3):
-    return(x1+x2+x3)
+    return(x1+2*x2+3*x3)
     
 from functools import partial
 newfunc = partial(addnums, 100)  # 新函数定义，相当与把地一个kwards定义下来
                                  # 原则是先定义的是kwards，
 
-out = newfunc(2,3)
+out = newfunc(2,3)   # 默认是固定了第一个参数
+
+
+def test(a,b,c,d):
+    print(a,b,c,d)
+from functools import partial
+newtest = partial(test, b=10, d=20)  # 通过关键字参数可以预先固定中间的参数
+newtest(1,c=2)   # 调用的时候由于b,d已被定义成关键字参数，中间的c也只能基于关键字参数调用
 
 
 
