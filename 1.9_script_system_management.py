@@ -44,3 +44,19 @@ parser.add_argument('--gpu', type=int, default=-1)  # 第三步：添加参数
 parser.add_argument('--pretrained-model', default='voc07')
 parser.add_argument('image', nargs='?', default='example.jpg')
 args = parser.parse_args()                    # 第四步：创建参数对象
+
+
+'''
+Q. 如何创建symlink软连接？
+'''
+$cd slcv
+$mkdir data
+$ln -s /home/ubuntu/MyDatasets/coco
+$ln -s /home/ubuntu/MyDatasets/voc/VOCdevkit
+
+
+
+'''
+Q. 如何在代码中运行命令行指令？
+是否可以使用
+'''
