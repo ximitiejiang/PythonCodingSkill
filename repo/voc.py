@@ -50,37 +50,34 @@ img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
 data = dict(
     imgs_per_gpu=4,
     workers_per_gpu=2,
-    train=dict(
-        type='RepeatDataset',
-        times=10,
-        dataset=dict(
-            type=dataset_type,
-            ann_file=[
-                data_root + 'VOC2007/ImageSets/Main/trainval.txt',
-                data_root + 'VOC2012/ImageSets/Main/trainval.txt'
-            ],
-            img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/'],
-            img_scale=(300, 300),
-            img_norm_cfg=img_norm_cfg,
-            size_divisor=None,
-            flip_ratio=0.5,
-            with_mask=False,
-            with_crowd=False,
-            with_label=True,
-            test_mode=False,
-            extra_aug=dict(
-                photo_metric_distortion=dict(
-                    brightness_delta=32,
-                    contrast_range=(0.5, 1.5),
-                    saturation_range=(0.5, 1.5),
-                    hue_delta=18),
-                expand=dict(
-                    mean=img_norm_cfg['mean'],
-                    to_rgb=img_norm_cfg['to_rgb'],
-                    ratio_range=(1, 4)),
-                random_crop=dict(
-                    min_ious=(0.1, 0.3, 0.5, 0.7, 0.9), min_crop_size=0.3)),
-            resize_keep_ratio=False)),
+    train=dict(      # 暂时吧repeated dataset去掉，便于验证vocdataset类
+        type=dataset_type,
+        ann_file=[
+            data_root + 'VOC2007/ImageSets/Main/trainval.txt',
+            data_root + 'VOC2012/ImageSets/Main/trainval.txt'
+        ],
+        img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/'],
+        img_scale=(300, 300),
+        img_norm_cfg=img_norm_cfg,
+        size_divisor=None,
+        flip_ratio=0.5,
+        with_mask=False,
+        with_crowd=False,
+        with_label=True,
+        test_mode=False,
+        extra_aug=dict(
+            photo_metric_distortion=dict(
+                brightness_delta=32,
+                contrast_range=(0.5, 1.5),
+                saturation_range=(0.5, 1.5),
+                hue_delta=18),
+            expand=dict(
+                mean=img_norm_cfg['mean'],
+                to_rgb=img_norm_cfg['to_rgb'],
+                ratio_range=(1, 4)),
+            random_crop=dict(
+                min_ious=(0.1, 0.3, 0.5, 0.7, 0.9), min_crop_size=0.3)),
+        resize_keep_ratio=False)),
     val=dict(
         type=dataset_type,
         ann_file=data_root + 'VOC2007/ImageSets/Main/test.txt',
