@@ -191,3 +191,27 @@ paper = PAPER(size=[6,8])
 ant = ANT(paper)
 
 ant.move(2)
+
+
+
+''' --------------------------------------------------------------------------
+Q: 如何一次性导入多个类的集合？
+'''
+# models作为一个package包，在他的__init__文件中
+#先导入所有类，然后打包成__all__变量
+from .base import BaseDetector
+from .single_stage import SingleStageDetector
+from .two_stage import TwoStageDetector
+from .rpn import RPN
+from .fast_rcnn import FastRCNN
+from .faster_rcnn import FasterRCNN
+from .mask_rcnn import MaskRCNN
+from .cascade_rcnn import CascadeRCNN
+from .retinanet import RetinaNet
+
+__all__ = [
+    'BaseDetector', 'SingleStageDetector', 'TwoStageDetector', 'RPN',
+    'FastRCNN', 'FasterRCNN', 'MaskRCNN', 'CascadeRCNN', 'RetinaNet'
+]
+
+# 然后在其他文件中引用
