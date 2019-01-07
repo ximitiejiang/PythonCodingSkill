@@ -68,13 +68,16 @@ class VOCDataset():
                  flip_ratio=0.5,
                  with_label=True,
                  resize_keep_ratio=True):
-        # 载入txt文件
+        
+        # 载入txt文件读取图片清单
         ann_file_path = os.path.join(img_prefix, ann_file)
         img_list = []
         with open(ann_file_path) as f:  # 打开txt文件
-            data = f.readlines()   # 分行文件相当于‘/n’做分隔
-            for line in data:
+            lines = f.readlines()   # 一次性读入，分行，每行末尾包含‘\n’做分隔
+            for line in lines:
                 img_list.append(line.strip('\n'))
+                
+        #
     
     def load_ann_file(self):
         pass
@@ -169,18 +172,22 @@ def get_datasets(data_info, parrents, n_repeat=0):
         obj
     """
     dset_info = Dict(data_info)       # 得到数据集
-    dset_type = dset_info.pop('dset_type')
-    ann_file = dset_info.ann_file
-    img_prefix = dset_info.img_prefix
-    
-    
+    dset_type = dset_info.dset_type
     
     dsets = []
     if isinstance(dset_info.ann_file, (list,tuple)):
         assert len(dset_info.ann_file)==len(dset_info.img_prefix)
-        for _ in len(dset_info.ann_file):
-            dset = obj_generator(parrents, dset_type, dset_info)
-            dsets.append(dset)      
+        for i in len(dset_info.ann_file):
+            # 创建类的形参参数字典
+            dset_params = Dict()
+            dset_params.ann_file = dset_info.ann_file[i]
+            dset_params.img_prefix = dset_info.img_prefix[i]
+            dset_params.img_scale = dset_info.img_scale
+            dset_params.img_norm_cfg = dset_info.img_norm_cfg
+            
+            dset = obj_generator(parrents, dset_type, dset_params)
+            dsets.append(dset)
+            
     if n_repeat:
         return RepeatDataset(ConcatDataset(dsets), n_repeat)
     else:
