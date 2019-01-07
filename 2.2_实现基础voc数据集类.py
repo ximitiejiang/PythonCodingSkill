@@ -44,10 +44,14 @@ class VOCDataset():
                  flip_ratio,
                  with_label=True,
                  resize_keep_ratio=True):
-        # 载入ann list
+        # 载入txt文件
         ann_file_path = os.path.join(img_prefix, ann_file)
-        with open(ann_file) as f:
-            f.readline
+        img_list = []
+        with open(ann_file) as f:  # 打开txt文件
+            data = f.readlines()   # 分行文件相当于‘/n’做分隔
+            for line in data:
+                img_list.append(line.strip('\n'))
+                
             
     
     def load_ann_file(self):
@@ -66,6 +70,7 @@ if __name__ == '__main__':
     cfg = cfg_from_file(path)
     data_cfg = cfg.data
     data_root = cfg.data_root
+    ann_file = os.path.join(data_root, cfg.data.)
     
     trainset = VOCDataset(data_cfg.train.ann_file, 
                           data_cfg.train.img_prefix,
