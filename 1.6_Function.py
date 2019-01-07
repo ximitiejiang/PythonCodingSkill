@@ -235,6 +235,60 @@ Q. 高阶函数 - sorted/max/min怎么用？
 '''
 
 
+'''-------------------------------------------------------------
+Q. bisect库里边的二分法排序如何实现
+1. 核心理解：2大类命令，bisect用于查找，insort用于插入
+    bisect.bisect(list, data)查找如果插入对应index是多少，默认在相同元素右侧
+    bisect.bisect_right(list, data)在相同元素右侧
+    bisect.bisect_left(list, data)在相同元素左侧
+    bisect.insort(list, data)插入数据，默认在相同元素右侧
+    bisect.insort_right(list, data)在相同元素右侧插入输入
+    bisect.insort_left(list, data)在相同元素左侧插入输入
+2. 查找
+'''
+import bisect
+import random
+random.seed(1)
+print('---  --- --------')
+l = []
+for i in range(1, 15):
+    r = random.randint(1, 100)   # 随机生成一个数
+    position = bisect.bisect(l, r)  # 在数组l中查找数字r的index返回，但不执行插入操作
+    bisect.insort(l, r)             # 在数组l中插入r
+    print('%3d  %3d' % (r, position), l)
 
 
+l1 = [1,2,3,4,5,6,7]
+p = bisect.bisect_right(l1, 4)  # 查找
+bisect.insort(l1, 4)    # 插入，如果存在相同数，则放在左侧
+print(l1)
 
+# 二分排序法：用bisect查找比循环算法以及递归算法都要更快
+# 参考：http://python.jobbole.com/86609/
+def binary_search_loop(lst,x):  
+    """普通循环二分法查找"""
+    low, high = 0, len(lst)-1  
+    while low <= high:  
+        mid = (low + high) / 2  
+        if lst[mid] < x:  
+            low = mid + 1  
+        elif lst[mid] > x:  
+            high = mid - 1
+        else:
+            return mid  
+    return None
+
+def binary_search_bisect(lst, x):
+    """bisect查找"""
+    from bisect import bisect_left
+    i = bisect_left(lst, x)
+    if i != len(lst) and lst[i] == x:
+        return i
+    return None
+
+# 对比2种内置命令查找index的方法：
+import numpy as np
+lst = [1,4,6,7,10,13,15,18,21,32,42,55]
+print(np.where(np.array(lst)==13))
+
+print(bisect.bisect_left(lst, 13))

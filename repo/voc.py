@@ -1,3 +1,6 @@
+"""测试用例，用于voc数据集，ssd模型参数
+"""
+
 # model settings
 input_size = 300
 model = dict(
@@ -77,7 +80,7 @@ data = dict(
                 ratio_range=(1, 4)),
             random_crop=dict(
                 min_ious=(0.1, 0.3, 0.5, 0.7, 0.9), min_crop_size=0.3)),
-        resize_keep_ratio=False)),
+        resize_keep_ratio=False),
     val=dict(
         type=dataset_type,
         ann_file=data_root + 'VOC2007/ImageSets/Main/test.txt',

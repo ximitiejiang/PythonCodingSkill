@@ -9,6 +9,11 @@ Created on Sun Dec  2 20:08:59 2018
 Q. 如何利用断言进行初步的参数判断？
 核心理解1：为什么要用断言，是为了防止错误的输入导致了无法检查正误的输出，自己会以为输出是正确的。
           所以先用断言把错误的输入拦截下来，避免程序运行。
+理解2：assert跟if一样，都是用于条件判断，assert相当于(确保)，为True则继续执行，为False则报错
+理解3：常见条件判断都可以用在if/assert语句中
+    - isinstance(data, (list, tuple))
+    - str in dict.keys()
+    - len(data) == 2
 '''
 a = 'hello'
 assert isinstance(a, str) and 'e' in a

@@ -370,8 +370,8 @@ del p.first_name       # 调用的是属性同名函数的deleter方法
 
 '''
 Q. 如何使用类和对象的__dict__方法？
-类.__dict__  返回类里的所有属性，不包含实例
-对象.__dict__ 只返回实例属性，也就是在__init__ 中声明的变量
+核心理解1：__dict__是存放所有属性的地方，python中所有对象都有__dict__属性，除了几个内置数据类型int/float/list/dict
+核心理解2：在类的__dict__存放了类属性和类方法，而在对象__dict__中只存放对象属性(临时变量是不存放的)
 '''
 class Dog():
     default_name = 'Alan'
@@ -542,8 +542,8 @@ print(a.gendor)  # 该条没有调用__getattr__()
 
 '''
 Q. 区分__getattr__()和getattr()方法？
-    __getattr__
-    getattr(obj, attr_name, not_exist_return_value)
+1. 关键1：getattr()是直接访问__dict__去查找属性，如果没有找到才会调用__getattr__()继续查找
+2. 关键2：getattr()函数可以设置属性不存在的默认返回值而不会报错
 '''  
 class A:  
     def __init__(self):  
@@ -560,22 +560,24 @@ class A:
         print('this is __setattr__')
         return super().__setattr__(name, value)
     
-    def printit():
+    def printit(self):
         print('this is print')
 
 a = A()   # 调用__setter__()
-a.gendor
-a.apple   # 先查看__dict__没有，然后调用__getattr__()
-print(getattr(a, 'gendor', 'not exist'))
-print(getattr(a, 'school', 'not exist'))
-getattr(a,'printit')()
+a.gendor  # 先查看__dict__有，所以没有调用__getattr__()
+a.apple   # 先查看__dict__没有，所以调用__getattr__()
+print(getattr(a, 'gendor', 'not exist'))   # getattr()函数可以获得已有属性
+print(getattr(a, 'school', 'not exist'))   # __dict__没有所以调用__getattr__查看
+getattr(a,'printit')()                    # getattr()函数可以获得已有方法
 setattr(a,'book',5)
 getattr(a,'book')
 
 
 '''
 Q. 如何使用__call__()方法？
+核心理解1：__call__方法可以把类像函数一样调用，
 '''  
+
 
 
 
@@ -610,3 +612,93 @@ class Fib(object):
 fib = Fib(10)
 for i in fib:
     print(i)
+
+
+'''-------------------------------------------------------------
+Q. 特殊方法之__add__和__radd__
+理解1：__add__/__radd__都是用来重载运算符的，就是把+赋予更多功能
+理解2：a + b，首先调用a的方法a.__add__(b)，如果a没有重写该方法，则调用b的方法b.__radd__(a)
+如果a,b都没有重写这两个方法之一，则报错
+'''
+class A():
+    def __add__(self, x):
+        print('A__add__')
+    
+    def __radd__(self, x):
+        print('A__radd__')
+
+class B():
+    pass
+
+a = A()
+b = B()
+
+a + b  # 先调用a的__add__方法，存在所以输出
+b + a  # 先调用b的__add__方法，不存在所以继续调用a的__radd__方法，存在所以输出
+
+
+'''-------------------------------------------------------------
+Q. 特殊属性之__dict__
+核心理解1：__dict__是存放所有属性的地方，python中所有对象都有__dict__属性，除了几个内置数据类型int/float/list/dict
+核心理解2：在类的__dict__存放了类属性和类方法，而在对象__dict__中只存放对象属性(临时变量是不存放的)
+'''
+class A():
+    j = 1
+    k = 2
+    def __init__(self):
+        self.j = 3
+        self.k = 4
+        m = 5
+        n = 6
+
+a = A()
+
+print(A.__dict__)
+print(a.__dict__)
+
+
+'''-------------------------------------------------------------
+Q. 特殊属性之__file__
+核心理解1：__file__是存放当前文件名
+'''
+print(__file__)
+
+
+'''-------------------------------------------------------------
+Q. 特殊方法之getattr()， setattr(), hasattr()以及与__getattr__, __setattr__的区别
+getattr()函数本质上是调用对象的__getattr__()方法
+setattr()函数本质上是调用对象的__setattr__()方法
+'''
+class AA():
+    name = 'Eason'
+
+# getattr()    
+a = AA()
+print(getattr(a,'name'))   # 获得某属性，注意属性名需要用引号
+print(getattr(a, 'work', 'HelloKitty'))  # 可以设置没有返回缺省值
+
+# setattr()
+setattr(a, 'age', 10)
+print(getattr(a, 'age'))
+print(a.age)
+
+# hasattr()
+hasattr(a, 'name')
+hasattr(a, 'gender')
+
+
+'''-------------------------------------------------------------
+Q. 特殊类Dict
+- 可以实现用访问属性的方式来访问字典，并且支持嵌套字典
+'''
+from addict import Dict
+
+d1 = Dict(a=1, b=2)
+d1.a
+
+d2 = dict(a=2,b=dict(c=3,d=4),e=4)
+d2 = Dict(d2)
+d2.b.d
+
+d3 = Dict(a=1, b=dict(c=2,d=3),e=5)
+d3.b.d
