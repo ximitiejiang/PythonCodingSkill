@@ -6,5 +6,9 @@ Created on Mon Jan  7 15:39:05 2019
 @author: ubuntu
 """
 
-def build():
+def build_detector():
     pass
+
+
+if __name__ == '__main__':
+    

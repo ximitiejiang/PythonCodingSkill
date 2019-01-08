@@ -40,25 +40,10 @@ class Config():
     @staticmethod    
     def fromfile(path):
         """从文件提取一个dict，送入Config
-        """
-        path = os.path.abspath(path)
-        if os.path.isfile(path):
-            filename = os.path.basename(path)
-            dirname = os.path.dirname(path)
-            
-            sys.path.insert(0,dirname)
-            data = import_module(filename[:-3])
-            sys.path.pop(0)
-            
-            _cfg_dict = {name: value for name, value in data.__dict__.items()
-                        if not name.startswith('__')}
-        return Config(_cfg_dict)
-
-# 方案2,一个更简单的Config, 直接定义成Dict，但功能不能更多定制
-class Config_2(Dict):    
-    @staticmethod    
-    def fromfile(path):
-        """从文件提取一个dict，送入Config
+        Args:
+            path(str)
+        Returns:
+            obj(Dict)
         """
         path = os.path.abspath(path)
         if os.path.isfile(path):
@@ -78,7 +63,7 @@ if __name__=='__main__':
     rootpath = os.path.dirname(__file__)
     sys.path.insert(0, rootpath)
     # 方式1
-    path = './repo/voc.py'
+    path = 'cfg_ssd300_voc.py'
     cfg = Config.fromfile(path)
     cfg1 = cfg.model.backbone.type
     # 方式2

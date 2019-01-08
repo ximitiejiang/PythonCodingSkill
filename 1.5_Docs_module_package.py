@@ -244,5 +244,40 @@ pickle.load(path)
 
 ''' --------------------------------------------------------------------------
 Q: 如何读取xml文件
+通过ElementTree模块解析xml文件成一棵树：tree = ET.parse(path)
+obj.findall('tagname'): 返回list, 是所有tag匹配的element对象的合集
+obj.find('tagname'): 返回对象，是第一个tag匹配的element对象
+obj.text: 如果obj已经是最后一级tag，则可以用.text命令取出内部数据。
 
 '''
+import sys, os
+#sys.path.insert(0, os.path.dirname(__file__))
+import xml.etree.ElementTree as ET
+xml_path = './repo/000001.xml'
+tree = ET.parse(xml_path)  # 读取并解析xml文件为一棵树(tree)，为ElementTree对象
+root = tree.getroot()      # 找到树根,也是一个Element对象
+#访问
+obj = root.find('object') #返回地一个匹配tag的对象
+len(obj)  # 显示有几个tags
+
+objs = root.findall('object')  # 返回所有匹配tag的对象
+len(objs)  # 显示有几个obj
+
+bbox=[]
+for ob in objs:
+    xmin = int(ob.find('bndbox').find('xmin').text)  # 逐层搜索，可写成嵌套方式
+    ymin = int(ob.find('bndbox').find('ymin').text)
+    xmax = int(ob.find('bndbox').find('xmax').text)
+    ymax = int(ob.find('bndbox').find('ymax').text)
+    bbox.append([xmin,ymin,xmax,ymax])
+
+n1 = objs[0].find('name')
+
+print(objs[1].find('name').text)
+print(obj.find('pose').text)
+print(int(objs[0].find('bndbox').find('xmin').text) + 
+      int(objs[0].find('bndbox').find('ymin').text))
+
+
+bboxes = np.array(bboxes, ndmin=2) - 1
+            labels = np.array(labels)

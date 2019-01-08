@@ -71,4 +71,14 @@ while True:
     print('\tFormatted name:' + formatted_name + '.')
 
 
+'''
+Q. ipdb的几个核心调试命令？
+'''
+n      # 运行下一句next
+s      # 进入函数体内
+u      # 往上跳一层查看
+d      # 往下跳一层查看
+l      # 定位到当前运行语句
+b 100  # 在本文件第100行设立断电
+c      # 一直运行直到下一个断点
 

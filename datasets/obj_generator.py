@@ -25,7 +25,7 @@ def obj_generator(parrents, obj_type, obj_info=None):
     obj_type = getattr(parrents, obj_type)  # 获得类
     if obj_info:
         assert isinstance(obj_info, dict)
-        return obj_type(**obj_info)    # 返回带参对象(为什么报错？)
+        return obj_type(**obj_info)    # 返回带参对象
     else:
         return obj_type()              # 返回不带参对象
     
