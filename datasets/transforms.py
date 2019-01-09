@@ -10,6 +10,10 @@ Created on Mon Jan  7 15:28:35 2019
 3. mask变换的逻辑：
 
 """
+import numpy as np
+import cv2
+from datasets.color_transforms import bgr2rgb
+
 __all__ = ['ImageTransforms', 'BboxTransforms']
 
 
@@ -83,6 +87,11 @@ def imrescale(img, scale, return_scale=False, interpolation='bilinear'):
     else:
         return rescaled_img
 
+def imnormalize(img, mean, std):
+    pass
+    
+
+
 class ImageTransforms():
 
     def __init__(self, mean, std, to_rgb=True, size_divisor=None):
@@ -108,27 +117,43 @@ class ImageTransforms():
         """
         # scale
         if keep_ratio:
-            imrescale()
+            img, scale_factor = imrescale(img, scale, return_scale=True)
+        else:
+            img, w_scale, h_scale = imresize(img, scale, return_scale=True)
+            scale_factor = np.array([w_scale, h_scale, w_scale, h_scale],
+                                    dtype=np.float32)
+        img_shape = img.shape
         # normalize
+        img = imnormalize(img, self.mean, self.std, self.to_rgb)
         # bgr2rgb
+        img = bgr2rgb(img)
         # pad to multiple
+        
         # flip
+        
         # transpose
+        img = img.transpose(2,0,1) # (h,w,c) to (c,h,w)
         # to tensor
+        return img
     
 # ---------------------------------------------------------------------------    
 class BboxTransforms():
     """bbox变换类"""
-    def __init__(self):
+    def __init__(elf, max_num_gts=None):
         pass
-    def __call__(self):
+    def __call__(self, bboxes, img_shape, scale_factor, flip=False):
         # scale
+        
         # flip
+        
         # to tensor
+        
+        return bboxes
 
 # ---------------------------------------------------------------------------
 class MaskTransform():
     """mask变换类"""
+    pass
 
 
 if __name__=='__main__':

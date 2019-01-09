@@ -11,8 +11,9 @@ from color_transforms import bgr2hsv, hsv2bgr
 from models.head_support import bbox_overlaps    
 
 class PhotoMetricDistortion(object):
-    """随机调整图像的brightness/contrast/saturation/hue/
-    随机0不调整，1调整，调整值也是随机从调整范围中获取
+    """随机调整图像的brightness/contrast/saturation/hue/swap channel (只影响图片)
+    随机调整亮度/随机亮度变化，随机调整对比度调整顺序/随机对比度比例，
+    随机饱和度比例，随机色相增量和角度，随机rgb三个通道顺序
     brightness: img(bgr) + delta
     contrast: img(bgr)*alpha
     saturation: img(hsv)[...,1]*alpha
@@ -81,7 +82,7 @@ class PhotoMetricDistortion(object):
 
 
 class Expand(object):
-    """随机放大图片n倍，然后把原图随机放到大图某位置
+    """随机放大图片n倍，然后随机把原图放到大图某位置 (影响bbox)
     """
     def __init__(self, mean=(0, 0, 0), to_rgb=True, ratio_range=(1, 4)):
         if to_rgb:

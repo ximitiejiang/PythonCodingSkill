@@ -11,7 +11,7 @@ Created on Sun Jan  6 17:19:02 2019
 
 """
 
-class AttrDict(dict):
+class AttributionDict(dict):
     """实现一个简版属性式访问的字典"""
     def __init__(self):
         pass
