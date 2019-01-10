@@ -211,7 +211,8 @@ class ImageTransforms():
     
 # ---------------------------------------------------------------------------    
 class BboxTransforms():
-    """bbox变换类"""
+    """bbox变换类: 需先做scale再做flip，
+    """
     def __init__(self, max_num_gts=None):
         self.max_num_gts = max_num_gts
         
