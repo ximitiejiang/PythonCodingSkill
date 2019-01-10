@@ -173,9 +173,9 @@ class VOCDataset():
         bboxes = self.bbox_transforms(ann['bboxes'],img_shape, scale_factor) #
         
         # debug
-        from visualization.img_show import img_bbox_label_show
+        from visualization.img_show import imshow_bbox
         img1 = img.transpose(1,2,0)
-        img_bbox_label_show(img1,bboxes)
+        imshow_bbox(img1,bboxes)
         
         # 生成img_meta
         img_meta = dict()
@@ -303,7 +303,5 @@ if __name__ == '__main__':
     
     # 
     trainset = get_datasets(cfg.data.train, VOCDataset, 0)
-    
-    #TODO: transforms to be finished
-    data = trainset[3000]  # idx=6000(属于voc2012)的图片有点奇怪
+    data = trainset[3000]  # idx=3000包含3个bboxes
         

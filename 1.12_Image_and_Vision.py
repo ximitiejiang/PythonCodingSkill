@@ -7,7 +7,7 @@ Created on Tue Jan  8 22:52:47 2019
 """
 
 '''
-Q. opencv/cv2的基本操作
+Q. opencv/cv2的基本画图：直线，矩形，圆形？
 '''
 import cv2
 import numpy as np
@@ -89,6 +89,7 @@ np.floor(30/4) # floor代表下取整
 
 '''-----------------------------------------------------------------
 Q. 如何绘制bbox？
+- 用cv2的cv2.rectangle()是把图片直接先画在img上，然后就可以直接显示img即可
 '''
 import cv2
 cv2.rectangle(img, left_top, right_bottom, box_color, thickness)
@@ -102,6 +103,20 @@ Q. bbox变换？
 import numpy as np
 a = np.array([[1,2,3,4,5,6],[7,8,9,10,11,12]])
 np.clip(a, 5,)
+
+
+'''-----------------------------------------------------------------
+Q. cv2的图片读写
+- 读图：cv2.imread(path): 应用广泛，能直接得到bgr，比PIL少需要一步转换
+- 写图：cv2.imwrite(path,img,params)
+- 显示图： plt.imshow(path):这个比cv2.imshow()更方便，不用延时检验之类的操作
+'''
+import matplotlib.pyplot as plt
+
+cv2.imread(path)
+
+cv2.imwrite(file_path, img, params)
+
 
 '''-----------------------------------------------------------------
 Q. 图片处理过程？

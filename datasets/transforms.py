@@ -190,7 +190,7 @@ class ImageTransforms():
                                     dtype=np.float32)
         img_shape = img.shape
         
-        # bgr2rgb，颜色转换务必在normalization之前否则报错，因为颜色转换基于(0~255)
+        # bgr2rgb，颜色转换务必在normalization之前否则因负数报错，因为颜色转换基于(0~255)
         if self.to_rgb:
             img = bgr2rgb(img)
         # normalize
@@ -271,7 +271,7 @@ if __name__=='__main__':
     
     if id == 2: # 验证BboxTransforms
         import pickle
-        from visualization.img_show import img_bbox_label_show
+        from visualization.img_show import imshow_bbox
         
         path_img = '../repo/test9_img.txt'
         path_bboxes = '../repo/test9_bboxes.txt'
@@ -293,7 +293,7 @@ if __name__=='__main__':
         
 #        img_bbox_label_show(img, bboxes)
         
-        img_bbox_label_show(img1.transpose(1,2,0),bboxes1)
+        imshow_bbox(img1.transpose(1,2,0),bboxes1)
         
         
         
