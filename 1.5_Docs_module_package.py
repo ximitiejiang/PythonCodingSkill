@@ -234,12 +234,16 @@ __all__ = [
 
 ''' --------------------------------------------------------------------------
 Q: 如何保存变量和加载变量
+pickle.dump(var_name, f_handle)
+var = pickle.load(f_handle)
+其中f_handle = open('file_path', 'type'), type可以是r/rb/rt/r+, w/wb/wt/w+, a/ab/at/a+
 '''
 import pickle
+bboxes = [[263, 211, 324, 339], [165, 264, 253, 372], [241, 194, 295, 299]]
 # 保存变量
-pickle.dump('', path)
+pickle.dump(bboxes, open('bboxes.txt','wb'))
 # 加载变量
-pickle.load(path)
+bb1 = pickle.load(open('bboxes.txt','rb'))
 
 
 ''' --------------------------------------------------------------------------

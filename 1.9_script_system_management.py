@@ -60,3 +60,17 @@ $ln -s /home/ubuntu/MyDatasets/voc/VOCdevkit
 Q. 如何在代码中运行命令行指令？
 是否可以使用
 '''
+
+
+
+
+'''
+Q. 如何设置ipython中显示的图片是单独显示而不是嵌入在命令行？
+参考：https://blog.csdn.net/mozai147/article/details/79850065
+'''
+#命令行输入：代表嵌入式显示
+%matplotlib inline
+#命令行输入：代表独立显示
+%matplotlib qt5
+# spyder中设置：inline代表嵌入显示，qt5代表独立显示
+Tools > Preferences > IPython Console > Graphics > Graphics backend

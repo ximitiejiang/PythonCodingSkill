@@ -6,6 +6,28 @@ Created on Tue Jan  8 22:52:47 2019
 @author: suliang
 """
 
+'''
+Q. opencv/cv2的基本操作
+'''
+import cv2
+import numpy as np
+from matplotlib import pyplot as plt
+
+img = np.zeros((512,512), np.uint8)
+cv2.line(img,(0,0),(200,300),255,5)            # 直线：起点/终点
+cv2.line(img,(200,300),(511,300),255,5)
+plt.imshow(img,'gray')
+
+img = np.zeros((512,512,3),np.uint8)
+cv2.rectangle(img,(100,100),(200,300),(55,255,155),5)  # 矩形：左上角点/右下角点
+plt.imshow(img,'brg')
+
+img = np.zeros((512,512,3),np.uint8)
+cv2.circle(img,(200,200),200,(55,255,155),5)   # 圆形：圆心/半径
+plt.imshow(img,'brg')
+
+
+
 '''-----------------------------------------------------------------
 Q. RGB与HSV的区别？
 '''
@@ -33,6 +55,53 @@ Q. 图片处理中几个变换基础以及读取和显示的方法差别？
 '''
 
 
+'''-----------------------------------------------------------------
+Q. 图片flip的函数？
+- 采用np.flip()作为翻转函数，翻转前后size不变
+- axis=0表示沿行变化方向，也就是垂直翻转，axis=1表示沿列变化方向，也就是水平翻转
+'''
+import numpy as np
+from numpy import random
+data = random.randint(5,size=(2,4))
+data2 = np.flip(data, axis=0)  # axis=0表示沿行变换方向翻，也就是垂直翻
+data3 = np.flip(data, axis=1)  # axis=1沿水平翻
+
+img = random.randint(0,255,size=(100,300,3)) # (h,w,c)
+img1 = np.flip(img, axis=1)
+import matplotlib.pyplot as plt
+plt.subplot(121)
+plt.title('origi img')
+plt.imshow(img)
+plt.subplot(122)
+plt.title('flipped img')
+plt.imshow(img1)
+
+
+'''-----------------------------------------------------------------
+Q. 图片pad的函数
+- 用np.ceil判断尺寸
+'''
+np.ceil(30/4)  # ceil代表上取整
+np.floor(30/4) # floor代表下取整
+30 % 4    #代表取余
+30 // 4   #代表取整的商(等效于np.floor)
+
+
+'''-----------------------------------------------------------------
+Q. 如何绘制bbox？
+'''
+import cv2
+cv2.rectangle(img, left_top, right_bottom, box_color, thickness)
+
+cv2.putText(img, label_text, )
+
+
+'''-----------------------------------------------------------------
+Q. bbox变换？
+'''
+import numpy as np
+a = np.array([[1,2,3,4,5,6],[7,8,9,10,11,12]])
+np.clip(a, 5,)
 
 '''-----------------------------------------------------------------
 Q. 图片处理过程？

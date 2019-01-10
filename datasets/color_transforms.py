@@ -8,7 +8,7 @@ Created on Wed Jan  9 10:16:08 2019
 
 import cv2
 
-__all__ =['bgr2rgb', 'rgb2bgr', 'bgr2hsv', 'hsv2bgr','bgr2gray', 'gray2bgr']
+__all__ = ['bgr2rgb', 'rgb2bgr', 'bgr2hsv', 'hsv2bgr','bgr2gray', 'gray2bgr']
 
 def convert_color_factory(src, dst):
     """

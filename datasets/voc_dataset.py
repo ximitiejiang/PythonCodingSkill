@@ -166,9 +166,16 @@ class VOCDataset():
             bboxes_ignore=bboxes_ignore.astype(np.float32),
             labels_ignore=labels_ignore.astype(np.int64))
         
-        # transform
-        img = self.img_transforms(img, scale=self.img_scale, flip=True, keep_ratio=True)
-        ann = self.bbox_transforms(ann)
+        # img transform: scale/2rgb/norm/flip/padding/transpose -> (c,h,w)-rgb
+        img, img_shape, pad_shape, scale_factor = self.img_transforms(
+            img, scale=self.img_scale, flip=True, keep_ratio=True) 
+        # bbox transform: scale/flip/num_filter_if_need 
+        bboxes = self.bbox_transforms(ann['bboxes'],img_shape, scale_factor) #
+        
+        # debug
+        from visualization.img_show import img_bbox_label_show
+        img1 = img.transpose(1,2,0)
+        img_bbox_label_show(img1,bboxes)
         
         # 生成img_meta
         img_meta = dict()
@@ -298,5 +305,5 @@ if __name__ == '__main__':
     trainset = get_datasets(cfg.data.train, VOCDataset, 0)
     
     #TODO: transforms to be finished
-    data = trainset[6000]  # idx=6000(属于voc2012)的图片有点奇怪
+    data = trainset[3000]  # idx=6000(属于voc2012)的图片有点奇怪
         
