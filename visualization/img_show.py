@@ -21,12 +21,12 @@ def imshow(img, win_name='img', wait_time=0):
     cv2.waitKey(wait_time)  # 0 means showing img until key pressed
 
 
-def imshow_bbox(img, 
+def imshow_bboxes(img, 
                 bboxes,
                 labels=None,
                 class_names=None,
-                b_colors=(255,0,0),
-                t_colors=(255,0,0),
+                b_colors=(0,255,0),
+                t_colors=(0,255,0),
                 font_scale=0.5,
                 thickness=2):
     """show img，bboxes, labels

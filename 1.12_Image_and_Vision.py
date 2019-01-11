@@ -90,6 +90,8 @@ np.floor(30/4) # floor代表下取整
 '''-----------------------------------------------------------------
 Q. 如何绘制bbox？
 - 用cv2的cv2.rectangle()是把图片直接先画在img上，然后就可以直接显示img即可
+关键理解：图片的坐标系是左上角是(0,0), 往右是x正方向，往下是y正方向(可通过画图看出来)
+    而bbox的坐标形式[xmin,ymin,xmax,ymax]对应就是xmin,ymin显示为bbox的左上角，xmax,ymax显示为bbox的右下角
 '''
 import cv2
 cv2.rectangle(img, left_top, right_bottom, box_color, thickness)
@@ -116,6 +118,41 @@ import matplotlib.pyplot as plt
 cv2.imread(path)
 
 cv2.imwrite(file_path, img, params)
+
+
+'''
+Q. 为什么cv2经常报一个错：TypeError: Layout of the output array img is 
+incompatible with cv::Mat (step[ndims-1] != elemsize or step[1] != elemsize*nchannels)
+参考：https://www.cnblogs.com/ocean1100/p/9496775.html
+https://www.jianshu.com/p/cc3f4baf35bb
+核心原因：cv2里边很多函数都是一种输入等于输出的函数，比如传入cv2.rectangle,
+传入img,最终也会输出img，而如果输入的是img.transpose()这是一种浅拷贝，但会改变
+内存的方式变为不连续，而输出以后是原来的img，他是连续内存，这就造成了冲突。
+查看内存方式是img.flags(这是numpy提供的函数)
+所以 解决办法是确保输入和输出是一致的: 先做完对img的所有操作(numpy/transpose/astype...)
+然后img = img.copy()，用这个d.copy()对array完成深度拷贝得到新的img去做绘图就不会报错！
+
+'''
+import cv2
+import numpy as np
+# --------------------错误实例：-------------------------------
+img = cv2.imread('repo/test.jpg')[:,:,::-1]  #bgr2rgb, 浅拷贝
+#拷贝img至img_copy
+img_copy = img.copy()
+#输入要画的框
+box = np.array([0, 12, 13, 18, 2, 20, 3, 40])
+#画框
+cv2.polylines(img_copy[:, :, ::-1], box.astype(np.int32).reshape(-1,1,2),
+              isClosed=True, color=(255,255,0), thickness=2)
+# --------------------正确实例：-------------------------------
+img = cv2.imread('repo/test.jpg')
+#拷贝img至img_copy
+img = img[:,:,::-1].copy()
+#输入要画的框
+box = np.array([0, 12, 13, 18, 2, 20, 3, 40])
+#画框
+cv2.polylines(img, box.astype(np.int32).reshape(-1,1,2),
+              isClosed=True, color=(255,255,0), thickness=2)
 
 
 '''-----------------------------------------------------------------

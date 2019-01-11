@@ -16,9 +16,11 @@ __all__ = ['VOCDataset']
 
 from importlib import import_module
 from addict import Dict
+import torch
 import os, sys
 import bisect
 import numpy as np
+from numpy import random
 import xml.etree.ElementTree as ET
 import cv2
 from transforms import ImageTransforms, BboxTransforms
@@ -73,16 +75,21 @@ class VOCDataset():
                  img_norm_cfg,
                  size_divisor=None,
                  flip_ratio=0.5,
+                 with_crowd =True,
                  with_label=True,
                  resize_keep_ratio=True):
         
         self.ann_file = ann_file
         self.img_prefix = img_prefix
         self.img_infos = self.load_ann_file(ann_file, img_prefix)
-        self.img_scale = img_scale
+        self.img_scales = img_scale
         self.img_norm_cfg = img_norm_cfg
+        self.size_divisor = size_divisor
+        self.flip_ratio = flip_ratio
+        self.with_crowd = with_crowd
+        self.with_label = with_label
         
-        self.img_transforms = ImageTransforms(**self.img_norm_cfg)
+        self.img_transforms = ImageTransforms(size_divisor=self.size_divisor, **self.img_norm_cfg)
         self.bbox_transforms = BboxTransforms()
         self.cat2label = {key: i for i, key in enumerate(self.CLASSES)}
     
@@ -123,9 +130,9 @@ class VOCDataset():
      
     def prepare_img_and_ann(self, img_infos, idx):
         # 读取单张图片
-        img = cv2.imread(img_infos[0]['img_path']) # (h,w,c) - bgr
+        img = cv2.imread(img_infos[idx].img_path) # (h,w,c)-bgr-(0~255 uint8)
         # 读取单个xml中的bbox数据
-        tree = ET.parse(img_infos[0].xml_path)
+        tree = ET.parse(img_infos[idx].xml_path)
         root = tree.getroot()
         bboxes = []         # 存放difficult =0的数据
         labels = []  
@@ -136,7 +143,7 @@ class VOCDataset():
             label = self.cat2label[name]
             difficult = int(obj.find('difficult').text)
             bnd_box = obj.find('bndbox')
-            bbox = [
+            bbox = [   
                 int(bnd_box.find('xmin').text),
                 int(bnd_box.find('ymin').text),
                 int(bnd_box.find('xmax').text),
@@ -146,8 +153,8 @@ class VOCDataset():
                 bboxes_ignore.append(bbox)
                 labels_ignore.append(label)
             else:
-                bboxes.append(bbox)
-                labels.append(label)
+                bboxes.append(bbox)     # list [[int64]]
+                labels.append(label)    # list [int64]
         if not bboxes: # 如果没有difficult=0的数据，则创建空数组
             bboxes = np.zeros((0, 4))
             labels = np.zeros((0, ))
@@ -161,26 +168,40 @@ class VOCDataset():
             bboxes_ignore = np.array(bboxes_ignore, ndmin=2) - 1
             labels_ignore = np.array(labels_ignore)
         ann = dict(
-            bboxes=bboxes.astype(np.float32),
-            labels=labels.astype(np.int64),
+            bboxes=bboxes.astype(np.float32),  # array [[float32]]
+            labels=labels.astype(np.int64),    # array [int64]
             bboxes_ignore=bboxes_ignore.astype(np.float32),
             labels_ignore=labels_ignore.astype(np.int64))
+#        # TODO: debug
+#        from visualization.img_show import imshow_bboxes
+#        from class_names import get_class_names
+#        img = img.copy()
+#        imshow_bboxes(img,bboxes,labels,get_class_names('voc'))
         
-        # img transform: scale/2rgb/norm/flip/padding/transpose -> (c,h,w)-rgb
+        # img transform: scale/2rgb/norm/flip/padding/transpose -> (c,h,w)-rgb-(-123.675,255 float64)
+        rand_flip = True if random.uniform(0,1) < self.flip_ratio else False
+        rand_img_scale = self.img_scales  # TODO: 暂时对scales不随机
+        
         img, img_shape, pad_shape, scale_factor = self.img_transforms(
-            img, scale=self.img_scale, flip=True, keep_ratio=True) 
+            img, scale=rand_img_scale, flip=rand_flip, keep_ratio=True) 
+        img = img.copy()
         # bbox transform: scale/flip/num_filter_if_need 
-        bboxes = self.bbox_transforms(ann['bboxes'],img_shape, scale_factor) #
+        gt_bboxes = self.bbox_transforms(ann['bboxes'],img_shape, scale_factor,flip=rand_flip) #
         
-        # debug
-        from visualization.img_show import imshow_bbox
-        img1 = img.transpose(1,2,0)
-        imshow_bbox(img1,bboxes)
-        
+        ori_shape = (img_infos[0].height,img_infos[0].width,3)
         # 生成img_meta
-        img_meta = dict()
+        img_meta = Dict(
+            ori_shape = ori_shape,
+            img_shape = img_shape,
+            pad_shape = pad_shape,
+            scale_factor = scale_factor,
+            flip = rand_flip)
         # 生成data
-        data = dict(img = img, img_meta = img_meta, ann = ann)
+        data = Dict(img = torch.tensor(img), 
+                    img_meta = img_meta, 
+                    gt_bboxes = torch.tensor(gt_bboxes))
+        if self.with_label:
+            data.gt_labels = torch.tensor(labels)
         
         return data
         
@@ -303,5 +324,14 @@ if __name__ == '__main__':
     
     # 
     trainset = get_datasets(cfg.data.train, VOCDataset, 0)
-    data = trainset[3000]  # idx=3000包含3个bboxes
-        
+    data = trainset[8900]  # idx=3300, 在ssd的pad_shape = 225,300,3结果不对,是因为ssd不需要pad
+                           # idx=8300, 有1马2人
+                           # idx=8900，有多辆车
+    img = data.img.numpy().transpose(1,2,0).astype(np.int32)
+    img = img.copy()
+    labels = data.gt_labels.numpy()
+    bboxes = data.gt_bboxes.numpy().astype(np.int32)
+    
+    from visualization.img_show import imshow_bboxes
+    from class_names import get_class_names
+    imshow_bboxes(img, bboxes, labels, class_names = get_class_names('voc'))

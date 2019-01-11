@@ -222,7 +222,8 @@ class BboxTransforms():
         gt_bboxes = bboxes * scale_factor
         # flip
         # TODO: clip?
-        gt_bboxes = bbox_flip(gt_bboxes, img_shape, flip_type='h')
+        if flip:
+            gt_bboxes = bbox_flip(gt_bboxes, img_shape, flip_type='h')
         # padding
         if self.max_num_gts:
             num_gts = gt_bboxes.shape[0]
@@ -272,7 +273,8 @@ if __name__=='__main__':
     
     if id == 2: # 验证BboxTransforms
         import pickle
-        from visualization.img_show import imshow_bbox
+        from visualization.img_show import imshow_bboxes
+        from class_names import get_class_names
         
         path_img = '../repo/test9_img.txt'
         path_bboxes = '../repo/test9_bboxes.txt'
@@ -292,9 +294,11 @@ if __name__=='__main__':
         
         bboxes1 = tsfm2(bboxes, img_shape, scale_factor, flip=True)
         
-#        img_bbox_label_show(img, bboxes)
+#        imshow_bboxes(img, bboxes, labels, get_class_names('voc'))  # (0-255)
         
-        imshow_bbox(img1.transpose(1,2,0),bboxes1)
+#        imshow_bboxes(img1.transpose(1,2,0),bboxes1)  # (-123.675, 255)
+        img2 = img1.transpose(1,2,0)
+        imshow_bboxes(img2,bboxes1,labels,get_class_names('voc'))
         
         
         
