@@ -2,8 +2,8 @@ import logging
 
 import torch.nn as nn
 
-from .weight_init import constant_init, normal_init, kaiming_init
-from ..runner import load_checkpoint
+from ..backbone_support.weight_init import constant_init, normal_init, kaiming_init
+from ..backbone_support.checkpoint import load_checkpoint
 
 
 def conv3x3(in_planes, out_planes, dilation=1):
@@ -85,7 +85,7 @@ class VGG(nn.Module):
         start_idx = 0
         vgg_layers = []
         self.range_sub_modules = []
-        for i, num_blocks in enumerate(self.stage_blocks):
+        for i, num_blocks in enumerate(self.stage_blocks): #based on arch_setting
             num_modules = num_blocks * (2 + with_bn) + 1
             end_idx = start_idx + num_modules
             dilation = dilations[i]
