@@ -18,6 +18,11 @@ Q: 如何在不修改目标函数的基础上，监控目标函数？
 核心理解1：书写逻辑是先做个装饰函数@new_func，再在new_func中定义wrapper()函数并返回wrapper函数名
            最后考虑wrapper()函数写法做2件事(新功能+原函数返回)
 核心理解2： 参数传入的是原函数名，参数传出的也是wrapper函数名，而不是函数调用
+
+核心理解3：装饰器任务是高阶函数，对函数进行二次加工，所以整个设计过程是：
+            1. 先写一对嵌套def分别得到原函数f和原函数参数，
+            2. 然后操作函数f(*args,**kwargs)的返回值，可以直接返回，可以加工返回，可以不返回，可以加别的额外语句
+            3. 最后返回wrapper
 '''
 # 早期处理方法：新定义了一个debug监控函数来调用目标函数，并在监控函数内不增加需要的手段
 def debug(func):
@@ -86,7 +91,7 @@ import time
 def timeit(func):
     def wrapper(*args, **kwargs):
         start = time.time()
-        func()
+        func(*args, **kwargs)
         print('this function lasts time: {}'.format(time.time()-start))
     return wrapper
 

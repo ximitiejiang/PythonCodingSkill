@@ -172,11 +172,11 @@ class VOCDataset():
             labels=labels.astype(np.int64),    # array [int64]
             bboxes_ignore=bboxes_ignore.astype(np.float32),
             labels_ignore=labels_ignore.astype(np.int64))
-#        # TODO: debug
-#        from visualization.img_show import imshow_bboxes
-#        from class_names import get_class_names
-#        img = img.copy()
-#        imshow_bboxes(img,bboxes,labels,get_class_names('voc'))
+        # TODO: debug
+        from visualization.img_show import imshow_bboxes
+        from class_names import get_class_names
+        img = img.copy()
+        imshow_bboxes(img,bboxes,labels,get_class_names('voc'))
         
         # img transform: scale/2rgb/norm/flip/padding/transpose -> (c,h,w)-rgb-(-123.675,255 float64)
         rand_flip = True if random.uniform(0,1) < self.flip_ratio else False
@@ -324,7 +324,7 @@ if __name__ == '__main__':
     
     # 
     trainset = get_datasets(cfg.data.train, VOCDataset, 0)
-    data = trainset[8900]  # idx=3300, 在ssd的pad_shape = 225,300,3结果不对,是因为ssd不需要pad
+    data = trainset[3300]  # idx=3300, 在ssd的pad_shape = 225,300,3结果不对,是因为ssd不需要pad
                            # idx=8300, 有1马2人
                            # idx=8900，有多辆车
     img = data.img.numpy().transpose(1,2,0).astype(np.int32)
@@ -332,6 +332,6 @@ if __name__ == '__main__':
     labels = data.gt_labels.numpy()
     bboxes = data.gt_bboxes.numpy().astype(np.int32)
     
-    from visualization.img_show import imshow_bboxes
-    from class_names import get_class_names
-    imshow_bboxes(img, bboxes, labels, class_names = get_class_names('voc'))
+#    from visualization.img_show import imshow_bboxes
+#    from class_names import get_class_names
+#    imshow_bboxes(img, bboxes, labels, class_names = get_class_names('voc'))

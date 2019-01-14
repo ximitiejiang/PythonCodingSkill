@@ -94,6 +94,9 @@ class Module(object):
     dump_patches = False
     _version = 1
     def __init__(self):
+        self._parameters = OrderedDict() # 存放每个层的参数
+        self._buffers = OrderedDict()    # 存放中间计算变量
+        self._modules = OrderedDict()    # 存放子模型
         continue
     def forward(self, *input):
         """这个方法用于主要的前向计算,是__call__方法实际调用的函数"""
@@ -159,7 +162,25 @@ class Module(object):
     def _slow_forward(self, *input, **kwargs):
         continue
     def __call__(self, *input, **kwargs):
-        continue
+        """这是model在运行的核心过程："""
+        for hook in self._forward_pre_hooks.values():  # 先运行_forward_pre_hooks里边的hook
+            hook(self,input)
+        if torch._C._get_tracing_state():
+            result = 
+        else:
+            result = self.forward(*input, **kwargs)
+        for hook in self._forward_hooks.values():     # 再运行_forward_hooks里边的hook
+            hook_result = hook()
+        if len(self._backward_hooks)>0:               # 再运行_backward_hooks
+            var = result                              # 对forward结果进行判断
+            while not isinstance(var, torch.Tensor):  
+                if isinstance(var, dict):
+                    var= next()
+                else:
+                    var = var[0]
+            grad_fn = var.grad_fn
+            
+        return result
     def __setstate__(self, state):
         continue
     def __getattr__(self, name):
@@ -278,17 +299,18 @@ class Conv2d(_ConvNd):
 # ------level4: layers函数------  
 import torch.nn.functional as F
 F.conv2d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1)
-    """对输入的多层图片数据进行卷积计算，返回tensor"""
-# ------level5: Sequential类------ 
+"""对输入的多层图片数据进行卷积计算，返回tensor"""
+# ------level5: Sequential类/ModuleList类/ModuleDict类------ 
 class Sequential(Module):
-    """作为容器，有自己的_modules(OrderedDict)属性,存放所有子modules"""
+    """作为modules子类，额外实现setitem/getitem作为切片手段,实现类似list的操作
+    但跟list不同的是，创建时(init)接收的形参是解包后的元素或者OrderedDict，显得更像个初等函数"""
     def __init__(self, *args):
         super(Sequential, self).__init__()
-        if len(args) == 1 and isinstance(args[0], OrderedDict): # 支持解包list [OrderedDict]参数
+        if len(args) == 1 and isinstance(args[0], OrderedDict): # 支持解包list [OrderedDict]参数，即直接丢OrderedDict进去
             for key, module in args[0].items():
                 self.add_module(key, module)
         else:
-            for idx, module in enumerate(args):       # 也支持解包list[module1, module2..]
+            for idx, module in enumerate(args):       # 也支持解包list[module1, module2..]，即直接丢解包后的module进去
                 self.add_module(str(idx), module)
     def _get_item_by_idx(self, iterator, idx):
         """Get the idx-th item of the iterator"""
@@ -298,23 +320,88 @@ class Sequential(Module):
             raise IndexError('index {} is out of range'.format(idx))
         idx %= size
         return next(islice(iterator, idx, None))
+    def __getitem__(self, idx):
+        continue
     def __setitem__(self, idx, module):
         """nn.Sequential()依靠__setitem__方法把子module加到父module的属性中去"""
         key = self._get_item_by_idx(self._modules.keys(), idx)
         return setattr(self, key, module)
+    def __delitem__(self, idx):
+        continue
+    def __len__(self):
+        return len(self._modules)
+    def __dir__(self):
+        continue
     def forward(self, input):
         for module in self._modules.values():
             input = module(input)
         return input
-
-
+    
+class ModuleList(Module): 
+    """"借用module类的基本方法模拟出list的效果 (实现extend/append/insert)"""
+    def __init__(self, modules):
+        if modules is not None:
+            self += modules    # 使用自定义iadd重载运算符
+    def _get_abs_string_index(self, idx):
+        continue
+    def __getitem__(self, idx):
+        continue
+    def __setitem__(self,idx,module):
+        continue
+    def __delitem__(self, idx):
+        continue
+    def __len__(self):
+        return len(self._modules)
+    def __iter__(self):
+        return iter(self._modules.values())
+    def __iadd__(self):
+        return self.extend(modules)
+    def __dir__(self):
+        continue
+    def insert(self):
+        continue
+    def append(self,module):
+        self.add_module(str(len(self)),module)
+    def extend(self, modules):
+        continue
+    
+class ModuleDict(Module):
+    """"借用module类的基本方法模拟出dict的效果 (实现items/values/keys/update)"""
+    def __init__(self, modules):
+        if modules is not None:
+            self.update(modules)
+    def __getitem__(self, key):
+        return self._modules[key]
+    def __setitem__(self,idx,module):
+        self.add_module(key,module)
+    def __delitem__(self, idx):
+        del self._modules[key]
+    def __len__(self):
+        return len(self._modules)
+    def __iter__(self):
+        return iter(self._modules)
+    def clear(self):
+        continue
+    def pop(self,key):
+        continue
+    def keys(self, modules):
+        return self._modules.keys()
+    def items(self):
+        return self._modules.items()
+    def values(self):
+        return self._modules.values()
+    def update(self):
+        continue
 '''------------------------------module-----------------------------------
 Q. 如何创建module容器？
 1. 可以用nn.Sequential(), nn.Sequential(), 前者传入的是list解包后的元素，后者传入的是list解包后的OrderedDict()
     后者可以方便增加名称       - 有实现forward()函数
 2. 可以用nn.Modulelist(list) - 但forward()需要自己分层写
 3. 可以用nn.ModuleDict(dict) - 但forward()需要自己分层写
+(3个容器区别：只有Sequential已有现成forward对子module进行了串联，其他2种没有，
+如果需要特殊串并联，建议用ModuleList/ModuleDict)
 '''
+import torch.nn as nn
 # 方式1: 直接输入每一层进sequential
 model1 = nn.Sequential(nn.Conv2d(2,2,3),
                       nn.ReLU())
@@ -330,11 +417,28 @@ print(model3)
 model4 = nn.Sequential(OrderedDict(conv1=nn.Conv2d(1,2,3),
                                   re1=nn.ReLU()))
 print(model4)
-# 方式5: ModuleList
-model5 = nn.ModuleList([])
+# 方式5: ModuleList, 配合list的所有方法(append/extend/insert)
+layers = [nn.Conv2d(2,2,3) for i in range(10)]
+model5 = nn.ModuleList(lst)
+print(model5)
+# 方式6: ModuleDict，配合dict的所有方法(pop/keys()/values()/update)
+layers = dict(conv1 = nn.Conv2d(2,4,3),
+              conv2 = nn.Conv2d(4,4,3),
+              conv3 = nn.Conv2d(4,2,3))
+model6 = nn.ModuleDict(layers)
+print(model6)
 
-# 方式6: ModuleDict
-model6 = nn.ModuleDict(dict)
+# 基于ModuleList/ModuleDict需要额外实现forward
+class aNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+        ms = nn.ModuleList([nn.Conv2d(2,2,3) for i in range(5)])
+    def forward(x):
+        for i, m in enumerate(ms):
+            if i // 2==0:
+                x = m(x)
+            else:
+                x = nn.ReLU(m(x))
 
 
 '''-----------------------------------------------------------------------

@@ -169,6 +169,41 @@ d1 = np.array([1,2,3])
 d1.dtype                    # dtype查看： 后置不带括号，list不适用
 d2 = d1.astype(np.float32)  # 先转array，然后用astype()
 
+# 对python中对象类型的判断，可以用type(),但更推荐用isinstance(obj, (type_tuple))
+# 因为实际使用中type()的逻辑不太符合需求:
+# type()区分较严格，把子类对象和父类认为是不同类型，但大多数应用情况我们希望是同类
+# isinstance()通常把子类对象也归属于父类
+class A:
+    pass
+class B(A):
+    pass
+type(A())==A   # 对象永远属于类  (对象是类的汗毛变的，永远属于类)
+type(B) == A   # 继承类不属于父类  (继承类是类的儿子，但实际是2家人)
+type(B())==A   # False,继承对象的类不属于父类 (type严格区分)
+
+isinstance(A(),A) # 对象永远属于类
+isinstance(B,A)   # 继承类不属于父类
+isinstance(B(),A)  # True,继承对象属于父类  (isinstance符合实际，子类的汗毛也属于父类)
+# 具体类别
+# python: int, float, str, bool, list, dict, tuple
+# numpy: np.int64, np.float64
+
+a1 = 0.2         # float
+a2 = [1,2]       # list
+a3 = dict(a=1)   # dict
+a4 = 'hello'     # str
+a5 = True        # bool
+a6 = (3,4)       # tuple
+isinstance(a6,tuple)
+
+import numpy as np
+b1 = np.array(2.0)            # numpy.ndarray, [float],标量类型跟python同步
+b2 = np.array([1,2])          # [np.int64]，数组元素类型跟np同步(int64,float64)
+b3 = np.array([1.2,2.3])      # [np.float64]，数组元素类型跟np同步(int64,float64)
+isinstance(b1, numpy.ndarray)
+isinstance(b1.item(), float)
+isinstance(b2[0], np.int64)
+isinstance(b3[0], np.float64)
 
 
 '''------------------------------------------------------------------------
