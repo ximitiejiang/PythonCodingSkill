@@ -77,7 +77,7 @@ b1.is_contiguous()  # transpose后不连续
 
 
 
-
+# %%
 '''-------------------------------module----------------------------------
 Q.在pytorch中model的本质是什么，有哪几种model
 1. 核心概念：所有layer/model核心都是nn.module的继承，module基类包含了
@@ -165,21 +165,25 @@ class Module(object):
         """这是model在运行的核心过程："""
         for hook in self._forward_pre_hooks.values():  # 先运行_forward_pre_hooks里边的hook
             hook(self,input)
-        if torch._C._get_tracing_state():
-            result = 
+        if torch._C._get_tracing_state():  # 这个应该是调试用的
+            result = self._slow_forward(*input, **kwargs)
         else:
-            result = self.forward(*input, **kwargs)
+            result = self.forward(*input, **kwargs)   # 计算模型输出
         for hook in self._forward_hooks.values():     # 再运行_forward_hooks里边的hook
             hook_result = hook()
         if len(self._backward_hooks)>0:               # 再运行_backward_hooks
-            var = result                              # 对forward结果进行判断
+            var = result                              
             while not isinstance(var, torch.Tensor):  
                 if isinstance(var, dict):
-                    var= next()
+                    var= next((v for v in var.values() if isinstance(v, torch.Tensor)))
                 else:
                     var = var[0]
             grad_fn = var.grad_fn
-            
+            if grad_fn is not None:
+                for hook in self._backward_hooks.values():
+                    wrapper = functools.partial(hook, self)  # 把backward hook函数先绑定一个self形参
+                    functools.update_wrapper(wrapper, hook)  # 更新hook的相关原始属性给wrapper
+                    grad_fn.register_hook(wrapper)
         return result
     def __setstate__(self, state):
         continue
@@ -392,6 +396,7 @@ class ModuleDict(Module):
         return self._modules.values()
     def update(self):
         continue
+# %%
 '''------------------------------module-----------------------------------
 Q. 如何创建module容器？
 1. 可以用nn.Sequential(), nn.Sequential(), 前者传入的是list解包后的元素，后者传入的是list解包后的OrderedDict()
@@ -464,9 +469,55 @@ for name, param in l1.named_parameters():
     print(name,': ',param)
 
 
-
-
-
+'''-------------------------------module----------------------------------
+Q.在pytorch中几个基础模型的创建方式
+1. vgg
+2. resnet
+'''
+# ---------vgg-----------------
+import torch.nn as nn
+class VGG(nn.Module):
+    arch_settings = {
+            11: (1, 1, 2, 2, 2),
+            13: (2, 2, 2, 2, 2),
+            16: (2, 2, 3, 3, 3),
+            19: (2, 2, 4, 4, 4)}  # 记住2,2,4,4,4,这个vgg19是最常用
+    def make_vgg_block(self):     # 记住每个block结构(conv3x3+bn+relu)*n + maxpool
+        block = []
+        block.append(nn.Conv2d(inplane, outplane, 3, padding=padding, dilation=dilation))
+        if bn:
+            block.append(nn.BatchNorm2d())
+        block.append(nn.ReLU())
+        return block
+    
+    def __init__(self,depth, with_bn=True,dilations=[1,1,1,1,1],out_indics=[]):
+        self.out_indics = out_indics
+        for d, b in arch.items():
+            if d == depth:
+                blocks = b
+        layers = []
+        for block in blocks:
+            layers.append(make_vgg_block())
+        self.model = nn.Sequential(*layers)
+        
+    def forward(self,x):
+        out = []
+        features = model(x)
+        for layer in self.out_indics:
+            out.append(features[layer])
+        
+# ----------resnet----------------
+class Resnet(nn.Module):
+    arch_settings = {
+            50:(1,1,1,1),
+            101:(1,2,2,2)}
+    def make_resnet_block(self):
+        pass
+    def __init__(self):
+        pass
+    def __forward__(self):
+        pass
+    
 '''-------------------------------module----------------------------------
 Q.在pytorch中mmodule参数初始化方法有哪些，有什么区别？
 1. 包含：

@@ -18,6 +18,8 @@ def conv3x3(in_planes, out_planes, dilation=1):
 
 def make_vgg_layer(inplanes, planes, num_blocks, dilation=1, with_bn=False,
                    ceil_mode=False):
+    """create vgg block: (conv3x3 + bn + relu) * n + maxpool
+    """
     layers = []
     for _ in range(num_blocks):
         layers.append(conv3x3(inplanes, planes, dilation))
@@ -151,6 +153,9 @@ class VGG(nn.Module):
             return tuple(outs)
 
     def train(self, mode=True):
+        """重写nn.Module的train()方法，用于设置在eval模式下bn层设置和bn参数冻结模式
+        以及在train模式下其他层的冻结参数设置
+        """
         super(VGG, self).train(mode)
         if self.bn_eval:
             for m in self.modules():

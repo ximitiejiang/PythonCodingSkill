@@ -245,8 +245,19 @@ Q. 高阶函数 - filter怎么用？
 
 '''-------------------------------------------------------------
 Q. 高阶函数 - partial怎么用？
+1. 核心理解：partial可以理解为一个wrapper, 用于事先把部分参数跟原函数封装起来，调用起来就可以更少输入参数，更简洁
+   作为wrapper，也就可以使用update_wrapper(wrapper, src_func)做属性更新
 '''
+from functools import partial, update_wrapper
+def func(name, age):
+    """this is func __doc__"""
+    print('my name is {}, my age is {}'.format(name, age))
 
+wrapper = partial(func, age = 36)
+update_wrapper(wrapper, func)
+
+wrapper('eason')
+print(wrapper.__doc__)
 
 
 '''-------------------------------------------------------------
