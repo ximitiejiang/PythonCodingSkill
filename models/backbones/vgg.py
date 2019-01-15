@@ -2,8 +2,8 @@ import logging
 
 import torch.nn as nn
 
-from ..backbone_support.weight_init import constant_init, normal_init, kaiming_init
-from ..backbone_support.checkpoint import load_checkpoint
+from models.backbone_support.weight_init import constant_init, normal_init, kaiming_init
+from models.backbone_support.checkpoint import load_checkpoint
 
 
 def conv3x3(in_planes, out_planes, dilation=1):
@@ -172,3 +172,19 @@ class VGG(nn.Module):
                     mod.eval()
                     for param in mod.parameters():
                         param.requires_grad = False
+
+
+if __name__ == '__main__':
+    vgg19 = VGG(depth=19,
+                 with_bn=True,
+                 num_classes=20,
+                 num_stages=5,
+                 dilations=(1, 1, 1, 1, 1),
+                 out_indices=(0, 1, 2, 3, 4),
+                 frozen_stages=-1,
+                 bn_eval=False,
+                 bn_frozen=False,
+                 ceil_mode=False,
+                 with_last_pool=True)
+    print(vgg19)
+

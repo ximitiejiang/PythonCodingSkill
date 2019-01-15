@@ -82,8 +82,8 @@ b1.is_contiguous()  # transpose后不连续
 Q.在pytorch中model的本质是什么，有哪几种model
 1. 核心概念：所有layer/model核心都是nn.module的继承，module基类包含了
 2. 基类module的核心属性：
-    _buffers(OrderedDict)，对应变量buffers(iterator)，存放所有
-    _parameters(OrderedDict)，对应parameters(iterator)，存放所有
+    _buffers(OrderedDict)，对应变量buffers(iterator)，存放所有buffers
+    _parameters(OrderedDict)，对应parameters(iterator)，存放所有模型参数
     _modules(OrderedDict)，对应modules(iterator)，存放所有子模型
 3.module的核心运行逻辑
     >创建新的子模型时：conv1=nn.Conv2d(2,2,3), 则调用__setattr__更新_modules,_parameters,_buffers
@@ -398,15 +398,19 @@ class ModuleDict(Module):
         continue
 # %%
 '''------------------------------module-----------------------------------
-Q. 如何创建module容器？
+Q. 如何创建module容器, 以及组合module容器？
 1. 可以用nn.Sequential(), nn.Sequential(), 前者传入的是list解包后的元素，后者传入的是list解包后的OrderedDict()
     后者可以方便增加名称       - 有实现forward()函数
 2. 可以用nn.Modulelist(list) - 但forward()需要自己分层写
 3. 可以用nn.ModuleDict(dict) - 但forward()需要自己分层写
-(3个容器区别：只有Sequential已有现成forward对子module进行了串联，其他2种没有，
-如果需要特殊串并联，建议用ModuleList/ModuleDict)
+(3个容器区别：Sequential是一个完整的带forward的module子类，可直接作为children module。而其他2中ModuleList/ModuleDict适合
+先创建类，实现forward方法，然后在加入到一个主module中作为children module。)
+
+4. 组合module容器
+    >可以借用module的方法model.add_module(): 组合后的module作为子模型被加入_modules的字典中作为child_module
 '''
 import torch.nn as nn
+from collections import OrderedDict
 # 方式1: 直接输入每一层进sequential
 model1 = nn.Sequential(nn.Conv2d(2,2,3),
                       nn.ReLU())
@@ -444,8 +448,18 @@ class aNet(nn.Module):
                 x = m(x)
             else:
                 x = nn.ReLU(m(x))
-
-
+        return x
+# 添加子模型
+model1 = nn.Sequential(OrderedDict(
+        conv1 = nn.Conv2d(3,64,3),
+        bn1 = nn.BatchNorm2d(64),
+        relu1 = nn.ReLU()))
+model2 = nn.Sequential(OrderedDict(
+        conv1 = nn.Conv2d(64,64,3),
+        bn1 = nn.BatchNorm2d(64),
+        relu1 = nn.ReLU()))
+model.add_module('level2', sub_module)
+print(model)
 '''-----------------------------------------------------------------------
 Q.如何便捷获取module的属性？
 1. 通过module的3大字典属性_modules, _parameters, _buffers
@@ -477,28 +491,36 @@ Q.在pytorch中几个基础模型的创建方式
 # ---------vgg-----------------
 import torch.nn as nn
 class VGG(nn.Module):
+    """vgg模型的实现："""
     arch_settings = {
             11: (1, 1, 2, 2, 2),
             13: (2, 2, 2, 2, 2),
             16: (2, 2, 3, 3, 3),
             19: (2, 2, 4, 4, 4)}  # 记住2,2,4,4,4,这个vgg19是最常用
-    def make_vgg_block(self):     # 记住每个block结构(conv3x3+bn+relu)*n + maxpool
-        block = []
-        block.append(nn.Conv2d(inplane, outplane, 3, padding=padding, dilation=dilation))
-        if bn:
-            block.append(nn.BatchNorm2d())
-        block.append(nn.ReLU())
-        return block
+    def make_vgg_layer(self, num_blocks):     # 记住每个block结构(conv3x3+bn+relu)*n + maxpool
+        layer = []
+        for i in range(num_blocks):
+            layer.append(nn.Conv2d(inplane, outplane, 3, padding=padding, dilation=dilation))
+            if bn:
+                layer.append(nn.BatchNorm2d())
+            layer.append(nn.ReLU())
+        layer.append(nn.MaxPool2d())
+        return layer
     
-    def __init__(self,depth, with_bn=True,dilations=[1,1,1,1,1],out_indics=[]):
+    def __init__(self,depth, 
+                 with_bn=True,
+                 dilations=[1,1,1,1,1],
+                 out_indics=[],
+                 with_last_pool=false):
         self.out_indics = out_indics
-        for d, b in arch.items():
-            if d == depth:
-                blocks = b
+        blocks = arch_settings.get(depth)
         layers = []
         for block in blocks:
-            layers.append(make_vgg_block())
-        self.model = nn.Sequential(*layers)
+            layers.extend(make_vgg_layer(block))
+        if not with_last_pool:
+            layers.pop(-1)
+        vgg_layer = nn.Sequential(*layers)
+        
         
     def forward(self,x):
         out = []
@@ -507,10 +529,26 @@ class VGG(nn.Module):
             out.append(features[layer])
         
 # ----------resnet----------------
+class BasicBlock:
+    """可以先用moduleList实现子模块,，但需要实现forward，然后作为children module加入主模型"""
+    def __init__(self):
+        pass
+    def forward(self):
+        pass
+
+class BottleNeck():
+    def __init__(self):
+        pass
+    def forward(self):
+        pass
+    
 class Resnet(nn.Module):
     arch_settings = {
-            50:(1,1,1,1),
-            101:(1,2,2,2)}
+        18: (BasicBlock, (2, 2, 2, 2)),
+        34: (BasicBlock, (3, 4, 6, 3)),
+        50: (Bottleneck, (3, 4, 6, 3)),
+        101: (Bottleneck, (3, 4, 23, 3)),
+        152: (Bottleneck, (3, 8, 36, 3))}
     def make_resnet_block(self):
         pass
     def __init__(self):
