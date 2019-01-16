@@ -88,7 +88,7 @@ class VGG(nn.Module):
         vgg_layers = []
         self.range_sub_modules = []
         for i, num_blocks in enumerate(self.stage_blocks): #based on arch_setting
-            num_modules = num_blocks * (2 + with_bn) + 1
+            num_modules = num_blocks * (2 + with_bn) + 1  #(conv+relu+bn)*blocks + maxpool
             end_idx = start_idx + num_modules
             dilation = dilations[i]
             planes = 64 * 2**i if i < 4 else 512
@@ -186,5 +186,12 @@ if __name__ == '__main__':
                  bn_frozen=False,
                  ceil_mode=False,
                  with_last_pool=True)
-    print(vgg19)
+#    print(vgg19)
+    sub=[[],[]]
+    for i,(_, module) in enumerate(vgg19.named_children()):
+        for name,_ in module.named_children():
+            sub[i].append(name)
+    print(len(sub[0]), len(sub[1]))   # 2个children module，分别包含53 + 7个层(作为更下一级children module)
+        
 
+    

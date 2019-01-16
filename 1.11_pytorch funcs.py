@@ -75,6 +75,9 @@ b0 = torch.tensor(random.randint(1,10,size=(3,4)))
 b1 = b0.transpose(1,0)
 b1.is_contiguous()  # transpose后不连续
 
+'''
+Q. 对tensor的求和？
+'''
 
 
 # %%
@@ -82,9 +85,33 @@ b1.is_contiguous()  # transpose后不连续
 Q.在pytorch中model的本质是什么，有哪几种model
 1. 核心概念：所有layer/model核心都是nn.module的继承，module基类包含了
 2. 基类module的核心属性：
-    _buffers(OrderedDict)，对应变量buffers(iterator)，存放所有buffers
-    _parameters(OrderedDict)，对应parameters(iterator)，存放所有模型参数
-    _modules(OrderedDict)，对应modules(iterator)，存放所有子模型
+    model._buffers，为OrderedDict变量，以下为相关函数：
+        对应model.buffers(), 为iterator，存放所有buffers
+        对应model.named_buffers(): 为iterator，存放带名称buffers
+    model._parameters，为(OrderedDict)，以下为相关函数：
+        对应model.parameters(): 为iterator，存放所有模型参数
+        对应model.named_parameters(): 为iterator，存放带名称模型参数
+    model._modules，为(OrderedDict)，以下为相关函数：
+        对应model.named_modules，为(iterator)，是返回了所有有名称的module，包含了主模型/子模型/层
+        对应model.modules，为(iterator)，从named_modules得到生成器
+        还有model.named_chilren()，为iterator，是返回了子模型module
+        还有model.children()，从named_children得到生成器
+
+3. 基类module的重要方法：
+    >model.add_module(name, new_model)用来添加子模型，等小于添加一个module的属性，比如model.sub_module_name = new_module
+        所以self.add_module(name, new_model)等价于self.name = new_model
+        可用来添加子模型
+    >model.apply(fn)用来对每个子module实施fn,
+        可用来init_weight
+    >model.cuda(device=fn)用来调用_apply()把所有模型/子模型的参数都实施该fn(param.data)，
+        可用来把模型参数传入device
+    >model.load_state_dict() 用来加载已有模型的所有参数到本模型
+        可用来导入预训练参数
+    >model.train() 用于把module以及子模型的sefl.training标志位设置为True
+        可用来实施training的指示
+    >model.zero_grad() 用于把self.parameters里边所有参数的grad都设置为0
+        可用来初始化梯度grad
+
 3.module的核心运行逻辑
     >创建新的子模型时：conv1=nn.Conv2d(2,2,3), 则调用__setattr__更新_modules,_parameters,_buffers
     >
@@ -438,7 +465,7 @@ model6 = nn.ModuleDict(layers)
 print(model6)
 
 # 基于ModuleList/ModuleDict需要额外实现forward
-class aNet(nn.Module):
+class Net(nn.Module):
     def __init__(self):
         super().__init__()
         ms = nn.ModuleList([nn.Conv2d(2,2,3) for i in range(5)])
@@ -449,22 +476,45 @@ class aNet(nn.Module):
             else:
                 x = nn.ReLU(m(x))
         return x
+
 # 添加子模型
-model1 = nn.Sequential(OrderedDict(
-        conv1 = nn.Conv2d(3,64,3),
-        bn1 = nn.BatchNorm2d(64),
-        relu1 = nn.ReLU()))
-model2 = nn.Sequential(OrderedDict(
-        conv1 = nn.Conv2d(64,64,3),
-        bn1 = nn.BatchNorm2d(64),
-        relu1 = nn.ReLU()))
-model.add_module('level2', sub_module)
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+        self.level1 = nn.Sequential(OrderedDict(   # 添加子模型的方式1：直接设置属性
+                conv1 = nn.Conv2d(3,64,3),
+                bn1 = nn.BatchNorm2d(64),
+                relu1 = nn.ReLU()))
+        
+        self.add_module('level2', nn.Sequential(OrderedDict(   # 添加子模型的方式2：add_module()函数，等效于添加属性
+                conv1 = nn.Conv2d(64,64,3),
+                bn1 = nn.BatchNorm2d(64),
+                relu1 = nn.ReLU())))
+        
+    def forward(self,x):
+        x = self.level1(x)
+        x = self.level2(x)
+        return x
+model = Net()
+
+# 以下为了验证2种添加子模型的方式是完全等价，可以查看_modules/named_modules()/...
 print(model)
+print(model._modules.keys())
+names = []
+for name, module in model.named_modules():
+    names.append(name)
+print('total name len:{}'.format(len(names)))  # 输出主模型/子模型/层模型，只有主模型没有名字
+print(names)
+
+
+
 '''-----------------------------------------------------------------------
 Q.如何便捷获取module的属性？
 1. 通过module的3大字典属性_modules, _parameters, _buffers
 2. 通过生成器方法modules(), parameters(), buffers(), children() - 只提供值
 3. 通过生成器方法named_modules(), named_parameters(), name_buffers(), named_children() - 提供(名称,数值)
+方法3使用最方便(因为里边包含了name/param比较全)，而named_children()比named_modules()更方便，因为named_modules()里边模型太完整不方便调用
 '''
 # 单层模型
 import torch.nn as nn
@@ -472,15 +522,38 @@ l1 = nn.Linear(2, 2)
 l1._modules.keys()
 l1._parameters.keys()
 l1._buffers.keys()
+list(l1.named_modules())
+list(l1.named_children())  # 单层没有named_children()
 
 # 多层模型
-model = nn.Sequential(OrderedDict(conv1 = nn.Conv2d(2,2,3),
-                                  relu1 = nn.ReLU()))
-model._modules.keys()
-for child in model.children():
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.level1 = nn.Sequential(OrderedDict(
+                conv1 = nn.Conv2d(3,64,3),
+                bn1 = nn.BatchNorm2d(64),
+                relu1 = nn.ReLU()))
+        self.level2 = nn.Conv2d(64,3,3)
+    def forward(self,x):
+        x = self.level1(x)
+        x = self.level2(x)
+        return x
+model = Net()
+
+model._modules.keys()                          # _modules里边保存的是子模型(类似named_children,不过一个是dict一个是iterator)
+
+for module in model.named_modules():           # named_modules()输出所有主模型/子模型/层,其中主模型没名字，其他都预设用属性的名字
+    print(module)
+for name, module in model.named_modules():     # named_modules()每一个输出元素是tuple(name, module)
+    print(name)    
+
+for child in model.named_children():            # named_children()只输出子模型 
     print(child)
-for name, param in l1.named_parameters():
-    print(name,': ',param)
+for name, module in model.named_children():     # named_children()每一个输出元素是tuple(name, module)
+    print(name)
+    
+for name, param in model.named_parameters():    # named_parameters()每一个输出元素是tuple(name, parameter)
+    print(name)
 
 
 '''-------------------------------module----------------------------------
@@ -555,6 +628,32 @@ class Resnet(nn.Module):
         pass
     def __forward__(self):
         pass
+
+
+
+'''-------------------------------module----------------------------------
+Q.在pytorch中conv2d的基本计算过程以及各个参数的作用？
+'''
+m = nn.Conv2d(3,3,3)
+from numpy import random
+random.seed(11)
+a = random.uniform(0,1, size=(3,5,5))
+input = torch.tensor(a)
+output = m(input)
+print(output)
+
+
+
+'''
+Q. 对于下采样时conv2d/maxpool的设置区别？
+'''
+# 作为下采样功能：
+# 可以用conv2d/maxpool，对应s=2, 但两者由于计算w/h方式不同所以kernel size一般不同
+# conv2d的k-size取3, (w-3+2)/2+1为整数，maxpool的k-size取2, (w-2)/2+1为整数
+conv1 = nn.Conv2d()
+maxpool1 = nn.MaxPool2d()
+
+
     
 '''-------------------------------module----------------------------------
 Q.在pytorch中mmodule参数初始化方法有哪些，有什么区别？

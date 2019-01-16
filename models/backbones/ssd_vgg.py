@@ -3,15 +3,15 @@ import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mmcv.cnn import (VGG, xavier_init, constant_init, kaiming_init,
-                      normal_init)
-from mmcv.runner import load_checkpoint
+from models.backbones.vgg import VGG
+from models.backbone_support.weight_init import xavier_init, constant_init, kaiming_init,normal_init
+from models.backbone_support.checkpoint import load_checkpoint
 
 
 class SSDVGG(VGG):
     """继承VGG：init部分修改模型结构(增加额外层)，修改init_weight方式，重写forward"""
-    # 300
-    # 512
+    # 300 代表输入图像的尺寸为300x300
+    # 512 代表输入图像的尺寸为512x512
     extra_setting = {
         300: (256, 'S', 512, 128, 'S', 256, 128, 256, 128, 256),
         512: (256, 'S', 512, 128, 'S', 256, 128, 'S', 256, 128, 'S', 256, 128),
@@ -25,9 +25,9 @@ class SSDVGG(VGG):
                  out_indices=(3, 4),
                  out_feature_indices=(22, 34),
                  l2_norm_scale=20.):
-        super(SSDVGG, self).__init__(
+        super(SSDVGG, self).__init__(      # 不使用原有VGG的bn层
             depth,
-            with_last_pool=with_last_pool,
+            with_last_pool=with_last_pool, # 不使用VGG最后一层maxpool
             ceil_mode=ceil_mode,
             out_indices=out_indices)
         assert input_size in (300, 512)
@@ -95,12 +95,12 @@ class SSDVGG(VGG):
         kernel_sizes = (1, 3)
         num_layers = 0
         outplane = None
-        for i in range(len(outplanes)):
-            if self.inplanes == 'S':
-                self.inplanes = outplane
+        for i in range(len(outplanes)):  # (256,'s',512,128,'s',256,128,256,128,256)
+            if self.inplanes == 'S':     # 初始self.inplanes=1024来自增加的最后一层conv2d
+                self.inplanes = outplane 
                 continue
             k = kernel_sizes[num_layers % 2]
-            if outplanes[i] == 'S':
+            if outplanes[i] == 'S':           #
                 outplane = outplanes[i + 1]
                 conv = nn.Conv2d(
                     self.inplanes, outplane, k, stride=2, padding=1)
@@ -129,3 +129,14 @@ class L2Norm(nn.Module):
     def forward(self, x):
         norm = x.pow(2).sum(1, keepdim=True).sqrt() + self.eps
         return self.weight[None, :, None, None].expand_as(x) * x / norm
+
+
+if __name__ == '__main__':
+    ssdvgg = SSDVGG(input_size=300,
+                 depth=19,
+                 with_last_pool=False,
+                 ceil_mode=True,
+                 out_indices=(3, 4),
+                 out_feature_indices=(22, 34),
+                 l2_norm_scale=20.)
+    print(ssdvgg)
