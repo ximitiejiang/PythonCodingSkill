@@ -665,5 +665,112 @@ net = nn.Sequential(nn.Linear(2, 2), nn.Linear(2, 2))
 net.apply(init_weight)
 
 
+'''-------------------------------module----------------------------------
+Q.在pytorch中的data paralle模块如何实施
+'''
+# 熟悉Data Parallel类
+# 原始pytorch执行流程：data parallel -> forward -> scatter -> scatter_kwargs -> scatter -> scatter_mape -> Scatter.apply()
+# 新的mmdetection流程：MMdataParallel -> forward -> scatter(*) -> scatter_kwargs(*) - > scatter(*) -> scatter_map(*) -> Scatter.forward(*)
+class DataParallel(nn.Module):
+    def __init__(self, module, device_ids=None, output_device=None, dim=0):
+        continue
+    def forward(self, *inputs, **kwargs):
+        if not self.device_ids:
+            return self.module(*inputs, **kwargs)
+        inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)  # 调用self.scatter
+        if len(self.device_ids) == 1:
+            return self.module(*inputs[0], **kwargs[0])
+        
+        # 复制模型：replicate()函数，包含复制主模型(__dict__/_parameters/_buffers/_modules)，复制子模型(_modules/_parameters/_buffers)
+        replicas = self.replicate(self.module, self.device_ids[:len(inputs)])  
+        # 并行计算: 首先需要线程锁threading.Lock()，同时创建多线程，
+        outputs = self.parallel_apply(replicas, inputs, kwargs)
+        return self.gather(outputs, self.output_device)
+    def scatter(self,inputs, kwargs, device_ids):
+        """这是pytorch原有的scatter()"""
+        return scatter_kwargs(inputs, kwargs, device_ids, dim =self.dim)
+    
+    def scatter():
+        """这个是子类MMDataParallel的scatter()重写函数，调用的也是重写的scatter_kwargs
+        如果是MMDataParallel类(继承DataParallel)则用这个scatter覆盖了父类scatter()
+        """
+        return scatter_kwargs(inputs, kwargs, device_ids, dim=self.dim)
 
+def scatter_kwargs():
+    """这个也是重写的，但跟pytorch的原函数一样"""
+    inputs = scatter(inputs, target_gpus, dim) if inputs else []
+    kwargs = scatter(kwargs, target_gpus, dim) if kwargs else []
+    if len(inputs) < len(kwargs):
+        inputs.extend([() for _ in range(len(kwargs) - len(inputs))])
+    elif len(kwargs) < len(inputs):
+        kwargs.extend([{} for _ in range(len(inputs) - len(kwargs))])
+    inputs = tuple(inputs)
+    kwargs = tuple(kwargs)
+    return inputs, kwargs
+
+def scatter(inputs, target_gpus, dim=0):
+    """这个也是重写的，增加对DataContainer的支持"""
+    def scatter_map(obj):
+        if isinstance(obj, torch.Tensor):
+            return OrigScatter.apply(target_gpus, None, dim, obj)  # OrigScatter是pytorch原有Scatter类
+        if isinstance(obj, DataContainer):    # 新增对DataContainer的数据对象的支持
+            if obj.cpu_only:
+                return obj.data
+            else:
+                return Scatter.forward(target_gpus, obj.data)  # 重写Scatter()类，并加了一个forward()方法
+        if isinstance(obj, tuple) and len(obj) > 0:
+            return list(zip(*map(scatter_map, obj)))
+        if isinstance(obj, list) and len(obj) > 0:
+            return list(map(list, zip(*map(scatter_map, obj))))
+        if isinstance(obj, dict) and len(obj) > 0:
+            return list(map(type(obj), zip(*map(scatter_map, obj.items()))))
+        return [obj for targets in target_gpus]
+    # After scatter_map is called, a scatter_map cell will exist. This cell
+    # has a reference to the actual function scatter_map, which has references
+    # to a closure that has a reference to the scatter_map cell (because the
+    # fn is recursive). To avoid this reference cycle, we set the function to
+    # None, clearing the cell
+    try:
+        return scatter_map(inputs)
+    finally:
+        scatter_map = None
+        
+class Scatter(Function): # 原版scatter继承自Function基类
+    """这是pytorch的原版Scatter类, 没有apply方法，Scatter.apply()是继承自
+    Function父类的父类_C._FunctionBase，也就是C语言写的
+    """
+    @staticmethod
+    def forward():
+        continue
+    @staticmethod
+    def backward():
+        continue
+    
+class Scatter(object):  # 重写Scatter跟原版Scatter没有关系，不是继承
+    """这是重写的Scatter类，仅包含一个forward()函数，处理DataContainer数据类型"""
+    @staticmethod
+    def forward(target_gpus, input):
+        input_device = get_input_device(input)
+        streams = None
+        if input_device == -1:
+            # Perform CPU to GPU copies in a background stream
+            streams = [_get_stream(device) for device in target_gpus]
+
+        outputs = scatter(input, target_gpus, streams)
+        # Synchronize with the copy stream
+        if streams is not None:
+            synchronize_stream(outputs, target_gpus, streams)
+
+        return tuple(outputs)
+
+# step1: 对model进行wrap成DataParallel(model)
+model = DataParallel(model)
+# step2: 对input进行scatter()
+inputs = Scatter.forward()
+# step3: 对model进行复制replica()
+def replica():
+    continue
+# step4: 对多model多参数进行多线程并行计算
+def parallel_apply():
+    continue
 
