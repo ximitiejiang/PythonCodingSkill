@@ -2,8 +2,8 @@ import logging
 
 import torch.nn as nn
 
-from ..backbone_support.weight_init import constant_init, normal_init, kaiming_init
-from ..backbone_support.checkpoint import load_checkpoint
+from models.backbone_support.weight_init import constant_init, normal_init, kaiming_init
+from models.backbone_support.checkpoint import load_checkpoint
 
 
 def conv3x3(in_planes, out_planes, dilation=1):
@@ -18,6 +18,8 @@ def conv3x3(in_planes, out_planes, dilation=1):
 
 def make_vgg_layer(inplanes, planes, num_blocks, dilation=1, with_bn=False,
                    ceil_mode=False):
+    """create vgg block: (conv3x3 + bn + relu) * n + maxpool
+    """
     layers = []
     for _ in range(num_blocks):
         layers.append(conv3x3(inplanes, planes, dilation))
@@ -86,7 +88,7 @@ class VGG(nn.Module):
         vgg_layers = []
         self.range_sub_modules = []
         for i, num_blocks in enumerate(self.stage_blocks): #based on arch_setting
-            num_modules = num_blocks * (2 + with_bn) + 1
+            num_modules = num_blocks * (2 + with_bn) + 1  #(conv+relu+bn)*blocks + maxpool
             end_idx = start_idx + num_modules
             dilation = dilations[i]
             planes = 64 * 2**i if i < 4 else 512
@@ -151,6 +153,9 @@ class VGG(nn.Module):
             return tuple(outs)
 
     def train(self, mode=True):
+        """重写nn.Module的train()方法，用于设置在eval模式下bn层设置和bn参数冻结模式
+        以及在train模式下其他层的冻结参数设置
+        """
         super(VGG, self).train(mode)
         if self.bn_eval:
             for m in self.modules():
@@ -167,3 +172,26 @@ class VGG(nn.Module):
                     mod.eval()
                     for param in mod.parameters():
                         param.requires_grad = False
+
+
+if __name__ == '__main__':
+    vgg19 = VGG(depth=19,
+                 with_bn=True,
+                 num_classes=20,
+                 num_stages=5,
+                 dilations=(1, 1, 1, 1, 1),
+                 out_indices=(0, 1, 2, 3, 4),
+                 frozen_stages=-1,
+                 bn_eval=False,
+                 bn_frozen=False,
+                 ceil_mode=False,
+                 with_last_pool=True)
+#    print(vgg19)
+    sub=[[],[]]
+    for i,(_, module) in enumerate(vgg19.named_children()):
+        for name,_ in module.named_children():
+            sub[i].append(name)
+    print(len(sub[0]), len(sub[1]))   # 2个children module，分别包含53 + 7个层(作为更下一级children module)
+        
+
+    

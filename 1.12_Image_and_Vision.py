@@ -8,6 +8,8 @@ Created on Tue Jan  8 22:52:47 2019
 
 '''
 Q. opencv/cv2的基本画图：直线，矩形，圆形？
+1. 在opencv中绘制等效于在img上直接绘制并跟img合成一张图，所有命令需要传入img
+2. 显示建议用plt.imshow，比用cv2的更简单，不需要延时检测
 '''
 import cv2
 import numpy as np
@@ -155,26 +157,22 @@ cv2.polylines(img, box.astype(np.int32).reshape(-1,1,2),
               isClosed=True, color=(255,255,0), thickness=2)
 
 
+
 '''-----------------------------------------------------------------
 Q. 图片处理过程？
 '''
 path=''
 # 1. read - (h,w,c) - bgr(0~255)
-
 # 2. extra augment - (h,w,c) - bgr(0~255)
-
 # 3. scale or resize - (h,w,c) - bgr(0~255) - 影响bbox
-
 # 4. normalization - (h,w,c) - bgr(-2.x~2.x)
-
 # 5. bgr to rgb - (h,w,c) - rgb(-2.x~2.x)
-
 # 6. padding - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
-
 # 7. flip or rotate - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
-
 # 8. transpose - (c,h,w) - bgr(-2.x~2.x)
-
 # 9. to tensor - (c,h,w) - bgr(-2.x~2.x) - 影响bbox
 
 
+'''-----------------------------------------------------------------
+Q. 图片处理过程？
+'''
