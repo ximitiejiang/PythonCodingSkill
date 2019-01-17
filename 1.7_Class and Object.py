@@ -705,3 +705,70 @@ d2.b.d
 
 d3 = Dict(a=1, b=dict(c=2,d=3),e=5)
 d3.b.d
+
+
+
+'''
+Q.如何使用Mixin类？
+产生原因1: 通常继承就应该是一对一的关系，多对一继承就会导致混乱，所以如果缺失有一个类需要从多个类进行继承，
+在python中就使用Mixin类的方法来实现。但mixin类仅作为辅助继承类，不是子类的父类，也不具备产生独立对象的能力
+产生原因2: 有一些独立的强大方法，希望用来扩展某些类，
+产生原因3: 对父类原本的方法不太满意，在Mixin中用super()调用，同时增加辅助功能（有点类似装饰器）
+
+1. Mixin类是一个功能，而不是一类对象。他不能直接实例化，
+2. Mixin类责任单一，多个功能就应该多个Mixin类
+3. 多重继承的子类即使没有Mixin类，也是能工作，只是少了点功能
+4. Mixin类一般没有状态，即没有__init__函数，也没有实例变量。可以通过添加__slots__=()来
+5. Mixin类中使用super()函数是必要的，这时super()会在继承的子类中基于MRO方法解析顺序从下一个类中调用
+
+'''
+# 基类
+class Animal(object):  
+    pass
+# 大类:
+class Mammal(Animal): # 初级子类1
+    def like_to_eat(self):
+        print('it likes milk!')
+class Bird(Animal):  # 初级子类2
+    pass
+# Mixin类
+class RunnableMixin(object):
+    def run(self):
+        print('Running...')
+class FlyableMixin(object):
+    def fly(self):
+        print('Flying...')
+# 新子类
+class Dog(RunnableMixin, Mammal):
+    pass
+
+d = Dog()
+d.run()  # d对象父类是Mammal，但还从Runnable类中获得额外的方法
+d.like_to_eat()
+
+# 另一个Mixin的例子from mmdetection.two_stage_detector
+class RPNTestMixin(object):
+    """这个Mixin类用于被detector类继承，提供一些测试方法"""
+
+    def simple_test_rpn(self, x, img_meta, rpn_test_cfg):
+        rpn_outs = self.rpn_head(x)
+        proposal_inputs = rpn_outs + (img_meta, rpn_test_cfg)
+        proposal_list = self.rpn_head.get_bboxes(*proposal_inputs)
+        return proposal_list
+
+    def aug_test_rpn(self, feats, img_metas, rpn_test_cfg):
+        imgs_per_gpu = len(img_metas[0])
+        aug_proposals = [[] for _ in range(imgs_per_gpu)]
+        for x, img_meta in zip(feats, img_metas):
+            proposal_list = self.simple_test_rpn(x, img_meta, rpn_test_cfg)
+            for i, proposals in enumerate(proposal_list):
+                aug_proposals[i].append(proposals)
+        # after merging, proposals will be rescaled to the original image size
+        merged_proposals = [
+            merge_aug_proposals(proposals, img_meta, rpn_test_cfg)
+            for proposals, img_meta in zip(aug_proposals, img_metas)
+        ]
+        return merged_proposals    
+    
+    
+    
