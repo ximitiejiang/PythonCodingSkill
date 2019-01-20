@@ -578,10 +578,33 @@ getattr(a,'book')
 
 '''
 Q. 如何使用__call__()方法？
-核心理解1：__call__方法可以把类像函数一样调用，
+核心理解1：__call__方法可以把类的对象像函数一样调用，
+核心理解2：__call__只针对对象，所以__call__之前肯定先会实例化
+    所以需要区分call和init，一个是针对对象(call)，一个是针对类(init)
 '''  
+import torch.nn as nn
+class Registry(object):
+    def __init__(self):
+        print('this is init')
+        self.module_dict={}
+    
+    def __call__(self, class_type):
+        print('this is call')
+        module_name = class_type.__name__
+        self.module_dict[module_name] = class_type
+        return class_type
 
+registry = Registry()        
 
+@registry                  # 这里只能用对象做调用
+class ResNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forwrad(self):
+        pass
+print(registry.module_dict)
+#model = ResNet()
+print(registry.module_dict)
 
 
 '''
@@ -707,13 +730,147 @@ d3 = Dict(a=1, b=dict(c=2,d=3),e=5)
 d3.b.d
 
 
-
+'''------------------------------------------------------------------------
+Q. 如何实现多重继承，继承顺序是什么？
+1. 经典类和新式类的区别：python3以后，所有类都是隐式继承object，都是新式类
+2. 两种常见继承结构：
+   >并行继承：如果一个类继承自两个父类，而两个父类分别继承自不相关另两个父类，这种继承体系并行不相干，称为并行继承。
+   >钻石继承：如果一个类继承自两个父类，而两个父类又来自同一基类，这种继承体系很像个钻石或者菱形，所以叫钻石继承或者菱形继承。
+   新式类由于都是继承自object, 所以任何多重继承都是钻石继承
+3. 所有继承的顺序是基于MRO(方法解析顺序)所定义的算法来决定的，其中MRO所使用的算法在python中经历很多变化
+   早期mro采用DFS(深度优先)，后来mro改为BFS(广度优先)，现在mro统一成C3算法(不是很多人说的广度优先，只是恰巧在部分情况跟广度优先结果相同)
+   比如两种经典结构中，并行继承结构如果用c3算法得到结果跟深度优先一样，菱形继承结构如果用C3算法得到的结果跟广度优先一样。
+4. mor采用c3算法主要是为了解决单调性(并行继承时应该单线到底称为单调性)和继承无法重写(钻石继承应该确保平行的另一父类能够被访问)的问题
+   C3算法同时避免了DFS和BFS的问题，就像DFS和BFS的合体一样，非常惊艳
+5. mro顺序得到后的应用重点：
+   >在初始化时，因为super()是按mro顺序寻找父类，所以最终是基于mro相反的顺序初始化类的链条
+   >在寻找某方法时，按照mro的顺序从最先找到的父类方法作为执行方法。
+   
+参考：http://python.jobbole.com/85685/  (讲清楚了DFS/BFS/C3的差异)
+https://www.jianshu.com/p/71c14e73c9d9  (提出了init与mro顺序正好相反)
 '''
+# 并行继承结构
+class E():pass
+class D():pass
+class C(E):pass
+class B(D):pass
+class A(B,C):pass
+A.__mro__   # mro为A,B,D,C,E,O 类似DFS
+
+# 菱形继承结构
+class D():pass
+class C(D):pass
+class B(D):pass
+class A(B,C):pass
+A.__mro__   # mro为A,B,C,D,O 类似BFS
+
+# 先来一个简单的
+class A():
+    def __init__(self):
+        print('A init')
+class B(A):
+    def __init__(self):
+        super().__init__()
+        print('B init')
+class C(A):
+    def __init__(self):
+        super().__init__()
+        print('C init')
+    def say(self):
+        print('say C')
+class D(B, C):
+    def __init__(self):
+        super().__init__()
+        print('D init')
+
+D.__mro__   # D的mro顺序是D,B,C,A,O
+d = D()     # d init的顺序正好跟mro相反，可以理解为用super()搜索__init__函数，最终先停在A，A执行完回退到C，就这样按照mro相反顺序回退执行__init__
+d.say()     # d引用say()方法，但自己没有这个方法，所以按照mro顺序去找(D,B,C,A)，先在C找到了
+
+# 修改上面例子，增加计算
+class A():
+    def __init__(self):
+        self.value = 1
+        print('A init, value = {}'.format(self.value))
+class B(A):
+    def __init__(self):
+        super().__init__()
+        self.value *= 2
+        print('B init, value = {}'.format(self.value))
+class C(A):
+    def __init__(self):
+        super().__init__()
+        self.value += 5
+        print('C init, value = {}'.format(self.value))
+class D(B, C):
+    def __init__(self):
+        super().__init__()
+        print('D init, value = {}'.format(self.value))
+# 传统初始化方法基于深度优先，碰到重复类就保留最后一个，则应该是D-B-A-O-C-A-O保留最后一个成为D-B-C-A-O
+# 新式类初始化基于C3算法: L[D] = D + [L[B], L[C],B,C] = D + [[B, A, O] + [C, A, O],B,C] 
+#                                                    = D + B + C + A + O        
+foo = D()
+print(foo.value)    
+D.__mro__   # D class的mro顺序如同上面计算的D,B,C,A,O, 但为什么显示的打印过程不是这样的？？？
+
+# 另一个更复杂的多重继承
+class X(object):
+    pass
+class Y(object):
+    pass
+class A(X,Y):
+    pass
+class B(Y,X):
+    pass
+class C(A,B):
+    pass
+c = C()
+# 传统深度遍历为C-A-X-O-Y-O-B-Y-O-X-O，保留最后一个变为C-A-B-Y-X-O
+# 缺陷是子类居然改变了积累的方法搜索顺序
+# 采用C3算法进行线性化计算初始化顺序的过程：知道L的公式，知道merge的过程(依次检查第i个表的第一个元素，不在后端则输出并删除)
+# 计算时关键是merge那步：检查第一个列表的第一个元素，如果没出现在其他列表尾部则输出并从全部列表删除，然后重复再来。
+# 直到列表为空则完成list构建，直到不能找到可输出的且列表不为空则说明无法构建继承关系则报错。
+#    L[O] = O, L[X]=[X,O], 
+#    L[C(B1..Bn)]= [C] + merge(L[B1], L[B2].., B1, B2,..)
+L[A] = A + merge(L[X], L[Y], X, Y) 
+     = A + merge([X, O], [Y, O], X, Y)
+     = A + X + Y + O                 # 这个类似广度优先，但实际不是只是恰巧一样
+L[B] = B + merge(L[Y], L[X], Y, X) 
+     = B + merge([Y, O], [X, O], Y, X)
+     = B + Y + X + O
+L[C] = C + merge(L[A], L[B])
+     = C + merge([A, X, Y, O], [B,Y,X,O], A, B)
+     = C + A + merge([X, Y, O], [B,Y,X,O], B)   # 第一个列表的X出现在了第二个列表的后端，非法了，所以跳到第二个列表的头部取B
+     = C + A + B + merge([X, Y, O], [Y,X,O])    # 地一个列表的X，第二个列表的Y都非法了，所以报错
+     = 无法继续计算，报错
+
+# 计算一个正确的
+class X(object):
+    pass
+class Y(object):
+    pass
+class A(X,Y):
+    pass
+class B(X,Y):
+    pass
+class C(A,B):
+    pass
+c = C()
+C.__mro__
+#
+L[C] = C + merge(L[A], L[B],A,B) = C + merge([A,X,Y,O], [B,X,Y,O],A,B)
+     = C + A + B + X + Y + O
+
+
+
+'''-------------------------------------------------------------------------
 Q.如何使用Mixin类？
-产生原因1: 通常继承就应该是一对一的关系，多对一继承就会导致混乱，所以如果缺失有一个类需要从多个类进行继承，
-在python中就使用Mixin类的方法来实现。但mixin类仅作为辅助继承类，不是子类的父类，也不具备产生独立对象的能力
-产生原因2: 有一些独立的强大方法，希望用来扩展某些类，
-产生原因3: 对父类原本的方法不太满意，在Mixin中用super()调用，同时增加辅助功能（有点类似装饰器）
+Python是支持多重继承的，但多重集成的问题在于继承关系混乱，有限顺序不明确，相同方法冲突不明确。
+所以不同语言采用不同解决方案，java只能有一个父类但多个interface，而python的优化方法就是Mixin方法，
+松本行弘的程序世界建议原则是：常规继承采用单一继承，第二个以上的父类采用Mixin抽象类，继承是i am, 而mixin是i can。
+
+具体领域1: 有一些独立的强大方法，希望用来扩展某些类，
+具体领域2: 对父类原本的方法不太满意，在Mixin中用super()调用，同时增加辅助功能（有点类似装饰器）
 
 1. Mixin类是一个功能，而不是一类对象。他不能直接实例化，
 2. Mixin类责任单一，多个功能就应该多个Mixin类
@@ -743,7 +900,7 @@ class Dog(RunnableMixin, Mammal):
     pass
 
 d = Dog()
-d.run()  # d对象父类是Mammal，但还从Runnable类中获得额外的方法
+d.run()            # d没有run方法，基于mro先从Mixin类找，获得额外的方法
 d.like_to_eat()
 
 # 另一个Mixin的例子from mmdetection.two_stage_detector
@@ -766,9 +923,27 @@ class RPNTestMixin(object):
         # after merging, proposals will be rescaled to the original image size
         merged_proposals = [
             merge_aug_proposals(proposals, img_meta, rpn_test_cfg)
-            for proposals, img_meta in zip(aug_proposals, img_metas)
-        ]
+            for proposals, img_meta in zip(aug_proposals, img_metas)]
         return merged_proposals    
     
-    
+# 还有一个比较复杂的Mixin例子：https://blog.csdn.net/u012814856/article/details/81355935
+class Displayer():
+    def display(self, message):
+        print('this is Displayer class with message: {}'.format(message))
+        
+
+class LoggerMixin(): 
+    def log(self, message): 
+        print('this is LoggerMixin class with log: {}'.format(message))       
+    def display(self, message):
+        super().display(message)
+        self.log(message)
+        
+class MySubClass(LoggerMixin, Displayer):
+    def log(self, message):
+        print('this is MySubClass with log: {}'.format(message))
+        
+subclass = MySubClass()
+subclass.display("this is a message")   # 先找到父类LoggerMixin, 通过super()到Displayer类的display()函数
+                                        # 然后执行父类loggerMixin的self.log()函数，但此时的self是MySubClass而不是LoggerMixin，所以是调用MySubClass的log()
     

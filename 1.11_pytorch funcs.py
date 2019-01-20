@@ -667,6 +667,12 @@ net.apply(init_weight)
 
 '''-------------------------------module----------------------------------
 Q.在pytorch中的data paralle模块如何实施
+主要分如下几步：
+1. 对model封装，得到Data Parallelmodel, 重写forwrad()，在forward()中定义如下步骤
+2. 先对数据进行scatter
+3. 再对模型进行replicas
+4. 再进行并行输出计算parallel_apply
+5. 最后再组合输出gather
 '''
 # 熟悉Data Parallel类
 # 原始pytorch执行流程：data parallel -> forward -> scatter -> scatter_kwargs -> scatter -> scatter_mape -> Scatter.apply()
@@ -772,5 +778,8 @@ def replica():
     continue
 # step4: 对多model多参数进行多线程并行计算
 def parallel_apply():
+    continue
+# step5: 对多输出进行gather
+def gather():
     continue
 

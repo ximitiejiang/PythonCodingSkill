@@ -75,16 +75,133 @@ def say_age(father=0.0, mother=0.0, son=0.0):
 say_age(30, 28, 2)
 
 
+'''----------------------------------------------------------------------
+Q. 装饰器实际的执行过程？
+0. 核心：
+    >装饰器是放置在函数定义处，所以接收的是一个函数名func，跟实参无关，返回的也是一个函数名wrapper
+    >外层的return wrapper必不可少，否则函数消失了；内层的return可以没有，取决原始函数是否需要返回值 (***)
+    
+1. 包装后test=additional_test(test), test(a,b)=additional_test(test)(a,b)
+2. 执行test()的实际过程：首先执行additional_test第一句print, 然后中间wrapper函数定义自动跳过
+   然后执行第二句print, 然后返回wrapper函数给到test(2,8)这行,也就变成执行wrapper(2,8),
+   然后执行wrapper中的print,然后执行最后的test(2,8)
+'''
+def additional_test(func):
+    
+    print('start wrap')
+    def wrapper(*args, **kwargs):
+        print('additional test result is {}'.format(sum(args)))
+        func(*args, **kwargs)
+        
+    print('start additional test')
+    return wrapper
+    
+@additional_test
+def test(a,b):
+    print('test result is {}'.format(a**2 + b**2))
+    return a**2+b**2
+
+test(2,8)
+
+
+'''------------------------------------------------------------------------
+Q. 多层装饰器嵌套时的执行顺序是怎么样的？
+1. 多个装饰器可以用函数嵌套理解：test = func1(func2(test))，先把内层的返回函数获得，然后再外层，然后再从外层依次解析wrapper；
+想当于一个先内后外(去两层func皮)，再外后内(执行两个wrapper)的过程
+所以执行过程是：
+    先func2(test)运行，打印pos1, 然后跳过函数定义，打印pos2
+    然后返回func2的wrapper到func1
+    然后执行func1, 打印pos3, 跳过函数提定义，打印pos4
+    然后返回func1的wrapper到主代码
+    执行func1的wraper()打印pos5，然后执行wrapper内的函数，跳转到func2的wrapper内
+    执行pos 6, 然后执行func1 wrapper内的test()执行pos 7
+'''
+def func1(src):
+    print('func1 started')   # pos 3
+    def wrapper(*args, **kwargs):
+        print('wrapper1')    # pos 5
+        return src(*args, **kwargs)
+        
+    print('func1 finished')  # pos 4
+    return wrapper
+
+def func2(src):
+    print('func2 started')  # pos 1
+    def wrapper(*args, **kwargs):
+        print('wrapper2')   # pos 6
+        return src(*args, **kwargs)
+        
+    print('func2 finished') # pos 2
+    return wrapper
+  
+@func1
+@func2
+def test():
+    print('test')   # pos 7
+
+test()     #最终输出顺序是： pos 1,2,3,4,5,6
+
+
+
 '''------------------------------------------------------------------------
 Q. 更普遍而本质的方式理解装饰器：就是传入一个对象(可以是一个类/一个函数)？
-1. 装饰器本身：可以是一个嵌套函数，也可以是一个对象的方法
-2. 装饰器的目标：可以是一个函数，此时装饰器传入的是函数；也可以是类，此时装饰器传入的是类
+1. 装饰器本身：本质是一个可以接收参数的函数，所以可以是函数，也可以是带__call__的类，也可以是对象的方法
+2. 传入装饰器的参数：可以是一个函数，从而组成嵌套函数；也可以是类名(cls)；也可以是对象
+3. 各种特殊装饰器，本质都要理解为嵌套函数的传递。
 '''
 
+# 普通装饰器，本身是一个嵌套函数，传入一个原函数
 
 
+# 特殊装饰器1：本身是一个类的对象的方法，传入一个类  (注册类或者注册函数Registry()应该是一个很流行的设计方法)
+import torch.nn as nn
+class Registry(object):
+    def __init__(self, name):
+        self._name = name
+        self._module_dict = dict()
+    def _register_module(self, module_class):
+        if not issubclass(module_class, nn.Module):
+            raise TypeError(
+                'module must be a child of nn.Module, but got {}'.format(
+                    type(module_class)))
+        module_name = module_class.__name__
+        if module_name in self._module_dict:
+            raise KeyError('{} is already registered in {}'.format(
+                module_name, self.name))
+        self._module_dict[module_name] = module_class
+    def register_module(self, cls):  # 装饰器函数：传入一个类cls，返回一个类cls
+        self._register_module(cls)
+        return cls
+    
+    # 下面这段是更简洁的写法：传入
+#    def register_module(self, class_type):
+#        module_name = class_type.__name__
+#        self._module_dict[module_name] = class_type
+#        return class_type
+        
+backbones = Registry('backbones')  # 创建一个Registry对象
+@backbones.register_module         # 挂一个装饰器：用对象的方法作为装饰器，传入的是一个类名，比如ResNet
+class ResNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+    def forwrad(self):
+        pass
+model = ResNet()
 
+# 特殊装饰器2：类装饰器，本身是一个类，传入一个原函数
+class Deco():
+    def __init__(self, func):
+        print('func name is {}'.format(func.__name__))
+        self._func = func
+    def __call__(self):
+        print('this is class decorator with new function')
+        self._func()
+        
+@Deco        
+def ori():
+    print('this is original func')
 
+ori()  # 
 
 '''-------------------------------------------------------------------------
 Q. python自带哪些可用的系统装饰器和装饰器函数？
@@ -116,8 +233,9 @@ p = Person()
 p.name
 
 
-"""
+"""----------------------------------------------------------------
 Q. 如何用装饰器作为在调试时计时器？
+
 """
 import time
 def timeit(func):
@@ -134,46 +252,61 @@ def func():
 func()
 
 
-'''------------------------------------------------------------------------
-Q. 多层装饰器嵌套时的执行顺序是怎么样的？
-'''
-def func1(src):
-    print('func1')
-    def wrapper(*args, **kwargs):
-        print('wrapper1') 
-        src(*args, **kwargs)
-    return wrapper
-
-def func2(src):
-    print('func2')
-    def wrapper(*args, **kwargs):
-        print('wrapper2') 
-        src(*args, **kwargs)
-    return wrapper
-
-        
-@func2
-@func1   # 先执行上面的wrapper2然后下面的wrapper1
-def test():
-    print('test')
-
-test()     #最终输出顺序是： func1 -> func2 -> wrapper2 -> wrapper1 -> test
-
-
 """-----------------------------------------------------------------------
 Q. 如何设计带参装饰器？
+- 带参装饰器可等效于：func(*dargs,**dkwargs)(f)
 """
-def func(*dargs, **dkwargs):
+def func(*dargs, **dkwargs):    # 带参装饰器的参数
+    def deco(f):                    # 传入原函数
+        def wrapper(*args, **kwargs):  # 传入原函数参数
+            print('this is dec parameter {} and {}'.format(dargs, dkwargs))
+            print('this is wrapper parameter {} and {}'.format(args, kwargs))
+            return f(*args, **kwargs)
+        return wrapper
+    return deco
     
+@func(1,a=2)            # 带参装饰器，等效于：test = func(1,a=2)(test)
+def test(m, n =10):
+    return m + n
 
+test(20, n=10)
 
-@func(1,a=2)
-def test():
+# 这种带参装饰器可以参考函数方法链
+class add(int):
+    def __call__(self, n):
+        return add(self+n)
+add()(2)(3)  # 第括号是class的实例化，第二个括号是__call__函数形成的函数调用模式的形参，第三个括号是返回的加法函数的参数。
+             # 带参装饰器也类似于此
+
+"""-------------------------------------------------------------------------
+Q. 如何设计类装饰器，有什么用？
+1. 类装饰器是用类来作为装饰器，封装函数，增加额外功能。本质跟函数装饰器相同，
+2. 类装饰器的__init__相当于函数装饰器的外层，用来获得函数名称
+   类装饰器的__call__相当于函数装饰器的wraper，用来获得函数参数，实现函数调用，以及增加额外功能。
+3. 类装饰器通过init获得函数，通过call调用函数。
+"""
+class Deco():
+    def __init__(self, func):
+        print('func name is {}'.format(func.__name__))
+        self._func = func
+    def __call__(self, *args, **kwargs):
+        print('this is class decorator with new function')
+        return self._func(*args, **kwargs)
+        
+@Deco        # 等效于ori = Deco(ori), ori(a,b) = Deco(ori)(a,b)
+def ori(a, b):
+    print('this is original func, sum = {}'.format(a+b))
+
+ori(1,3)  # 等效于调用了Deco(ori)(), 其中Deco(ori)是类装饰器的初始化，调用了__init__
+         # 然后初始化后的对象执行__call__方法，Deco(ori)()
+
 
 
 
 """-------------------------------------------------------------------------
 Q. 如何对类的方法添加装饰器？
+- 相当与需要装饰器传入参数为对象，此时形参用me_instance代替
+
 """
 def timeit(func):
     def wrapper(me_instance):  # wrapper()函数传入的参数，需要是一个对象，要用me_instance代替
