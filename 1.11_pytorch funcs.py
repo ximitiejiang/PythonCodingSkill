@@ -681,9 +681,14 @@ class DataParallel(nn.Module):
     def __init__(self, module, device_ids=None, output_device=None, dim=0):
         continue
     def forward(self, *inputs, **kwargs):
+        """data parallel的计算过程通过forward体现如下：scatter()/replicas()
+        /parallel_apply()/gatter()，通过？？进入module"""
         if not self.device_ids:
             return self.module(*inputs, **kwargs)
         inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)  # 调用self.scatter
+        
+        # 这句话挺好的，这样可以在data parallel模式下直接进入模型，否则进入threading模式找不到进入模型的人入口
+        # 用来调试单步运行是很好的入口
         if len(self.device_ids) == 1:
             return self.module(*inputs[0], **kwargs[0])
         
@@ -771,15 +776,82 @@ class Scatter(object):  # 重写Scatter跟原版Scatter没有关系，不是继�
 
 # step1: 对model进行wrap成DataParallel(model)
 model = DataParallel(model)
-# step2: 对input进行scatter()
+# step2: 对input进行scatter(), 最终链接到_C._FunctionBase的C代码，暂时看不到
 inputs = Scatter.forward()
-# step3: 对model进行复制replica()
+# step3: 对model进行复制replica()，也就是复制module的_parameters/_buffers/_modules
 def replica():
     continue
 # step4: 对多model多参数进行多线程并行计算
 def parallel_apply():
-    continue
+    lock = threading.Lock()
+    results ={}
+    def _worker():
+        try:
+            with torch.cuda.device(device):
+                if not isinstance(input, (list, tuple)):
+                    input = (input,)
+                output = module(*input, **kwargs)
+            with lock:              # 如果获得线程锁
+                results[i] = output  # 则保存输出
+        except Exception as e:
+            with lock:
+                results[i] = e
+    if len(modules) > 1:
+        threads = [threading.Thread(target=_worker, args=()) for i, (module, input, kwargs, device) in 
+                   enumerate(zip(modules, inputs, kargs_tup, devices))]
+        for thread in threads:   # 循环打开，加入，线程
+            thread.start()
+        for thread in threads:
+            thread.join()
+    return outputs
 # step5: 对多输出进行gather
 def gather():
-    continue
+    def gather_map(outputs):
+        out = outputs[0]
+        if isinstance(out, torch.Tensor):
+            return Gather.apply(target_device, dim, *outputs)
+    try:
+        return gather_map(outputs)
+    finally:
+        gather_map = None
+
+
+'''-------------------------------module----------------------------------
+Q.在pytorch中distributed模块进行分布式计算的基础是什么？
+'''
+import torch.distributed as dist
+import os
+# step1: 分布式训练初始化
+def init_dist(launcher, backend='nccl', **kwargs):
+    if mp.get_start_method(allow_none=True) is None:
+        mp.set_start_method('spawn')
+    if launcher == 'pytorch':
+        _init_dist_pytorch(backend, **kwargs)
+    elif launcher == 'mpi':
+        _init_dist_mpi(backend, **kwargs)
+    elif launcher == 'slurm':
+        _init_dist_slurm(backend, **kwargs)
+    else:
+        raise ValueError('Invalid launcher type: {}'.format(launcher))
+        
+def _init_dist_pytorch(backend, **kwargs):
+    # TODO: use local_rank instead of rank % num_gpus
+    rank = int(os.environ['RANK'])
+    num_gpus = torch.cuda.device_count()
+    torch.cuda.set_device(rank % num_gpus)
+    dist.init_process_group(backend=backend, **kwargs)
+
+# step2: 分布式训练信息汇总
+def get_dist_info():
+    if dist._initialized:
+        rank = dist.get_rank()
+        world_size = dist.get_world_size()
+    else:
+        rank = 0
+        world_size = 1
+    return rank, world_size
+
+
+
+
 

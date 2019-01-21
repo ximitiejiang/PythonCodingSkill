@@ -146,6 +146,7 @@ test()     #最终输出顺序是： pos 1,2,3,4,5,6
 '''------------------------------------------------------------------------
 Q. 更普遍而本质的方式理解装饰器：就是传入一个对象(可以是一个类/一个函数)？
 1. 装饰器本身：本质是一个可以接收参数的函数，所以可以是函数，也可以是带__call__的类，也可以是对象的方法
+2. 装饰器在@deco这一步运行时，就已经运行，并准备好了相关返回的wrapper
 2. 传入装饰器的参数：可以是一个函数，从而组成嵌套函数；也可以是类名(cls)；也可以是对象
 3. 各种特殊装饰器，本质都要理解为嵌套函数的传递。
 '''
@@ -262,8 +263,8 @@ def func(*dargs, **dkwargs):    # 带参装饰器的参数
             print('this is dec parameter {} and {}'.format(dargs, dkwargs))
             print('this is wrapper parameter {} and {}'.format(args, kwargs))
             return f(*args, **kwargs)
-        return wrapper
-    return deco
+        return wrapper      # 需要2层函数返回
+    return deco             # 需要2层函数返回
     
 @func(1,a=2)            # 带参装饰器，等效于：test = func(1,a=2)(test)
 def test(m, n =10):

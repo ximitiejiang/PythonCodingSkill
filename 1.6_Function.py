@@ -327,4 +327,79 @@ print(bisect.bisect_left(lst, 13))
 
 '''-------------------------------------------------------------
 Q. 什么叫函数的闭包，有什么作用？
+1. 全局变量(在模块/函数/class外部的，叫做全局变量)
+2. 闭包：就是记住了嵌套作用域变量值的函数，形成一个闭合的存储包，他有点像一个类的实例，有自己的属性值和方法。
+   而闭包更简单只是一个带部分参数值的函数对象。
+3. 
+
+参考：https://segmentfault.com/a/1190000007321972
 '''
+
+# 理解闭包先要理解python中如何划分局部变量和全局变量
+num = 100
+def func():
+    num += 50      # 创建或修改num变量时：需要先赋值，这里没有赋值过所以报错
+    print(num)
+func()
+# 微调后的代码：
+num = 100
+def func():
+    x = num +50    # 使用且不修改num变量时：先局部找，找不到再全局找
+    print(x)  
+# 二次微调后的代码：
+num = 100
+def func():
+    num = 50
+    x = num +20    # 相同变量名如果既有全局的也有局部的，则优先取局部变量
+    print(x)
+# 三次微调后的代码：
+num = 100
+def func():
+    global num
+    num += 50     # 在局部函数想要修改全局变量，需要采用global声明
+    print(num)
+func()
+
+# ------------闭包------------
+# 普通闭包：通常函数作用域内的变量在函数结束后自动小时，但闭包能够把函数作用域中的变量永久保留
+# 所以闭包就是记住嵌套作用域变量值的函数，形成一个闭合的存储包。主要是指内层函数为闭包，在函数运行结束后，依然存在存储包
+def func():
+    x = 30
+    def wrapper():
+        return x +100   # 局部变量没找到，从外层找，找到后放入闭包持久保存
+    return wrapper
+
+func()()               # 执行函数func()返回的是一个函数对象，然后要执行返回的函数对象就要再加一对括号
+func().__closure__     # 闭包函数名会多一个__closure__属性，该属性是一个元组，每个元组元素都是一个cell对象放置外部变量
+func().__closure__[0].cell_contents
+
+# 普通装饰器，也是一种闭包
+def deco(f):
+    def wrapper(*args, **kwargs):
+        print('this is wrapper')
+        f(*args, **kwargs)          # 从外层找到变量对象f作为局部变量使用
+    return wrapper                  # 这个wrapper函数对象就已经是一个闭包，里边包含了传入的一个函数对象
+@deco
+def ori():
+    print('this is ori')
+ori()  
+ori.__closure__[0].cell_contents   
+
+# 带参装饰器，更是一种闭包
+def func(a,b):
+    def deco(f):
+        c = 10
+        def wrapper(*args, **kwargs):
+            f(*args, **kwargs)
+            print('my age is {}'.format(c+a+b))
+        return wrapper
+    return deco
+@func(1,2)    # 等效于ori = func(1,2)= deco = 
+def ori():
+    print('this is ori')
+ori()
+ori.__closure__[0].cell_contents
+ori.__closure__[1].cell_contents
+ori.__closure__[2].cell_contents
+ori.__closure__[3].cell_contents
+
