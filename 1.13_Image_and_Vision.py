@@ -5,8 +5,97 @@ Created on Tue Jan  8 22:52:47 2019
 
 @author: suliang
 """
+"""
+Q. 如何让matplotlib在spyder显示的图片单独窗口显示而不是显示在命令行
+"""
+# 方式1: spyder中设置
+# Tools > Preferences > IPython Console > Graphics > Graphics backend
 
+# 方式2
+# %matplotlib qt5
+
+
+
+'''-----------------------------------------------------------------------
+Q. 读取图片/显示图片/写入图片？
 '''
+import cv2
+# 读取：一般用cv2.imread(), 直接得到bgr图
+img = cv2.imread('messi5.jpg',1) # 1为彩色图，0为灰度图，-1为？
+# 显示：一般用plt.imshow(),也可用cv2自带的
+
+# 写入图片
+cv2.imwrite('messigray.png',img)
+
+'''-----------------------------------------------------------------
+Q. cv2的图片读写
+- 读图：cv2.imread(path): 应用广泛，能直接得到bgr，比PIL少需要一步转换
+- 写图：cv2.imwrite(path,img,params)
+- 显示图： plt.imshow(path):这个比cv2.imshow()更方便，不用延时检验之类的操作
+'''
+import matplotlib.pyplot as plt
+
+cv2.imread(path)
+
+cv2.imwrite(file_path, img, params)
+
+
+
+'''-----------------------------------------------------------------------
+Q. 读取和显示视频
+参考：https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_gui/py_video_display/py_video_display.html#display-video
+'''
+import matplotlib.pyplot as plt
+cap = cv2.VideoCapture(0)   # 创建视频帧捕捉对象, 0为device index，会同时打开摄像头
+
+while(True):
+    if not cap.isOpened(): # 有时cap没有初始化capture对象，可通过isOpen()进行检查，如果不对则重新初始化
+        cap.open()    
+    ret, frame = cap.read()     # Capture frame-by-frame, 返回True/False和帧，
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    plt.imshow(gray)
+    break
+cap.release()  # 释放捕捉，会同时关闭摄像头
+
+# 播放视频
+cap = cv2.VideoCapture('vtest.avi')
+while(cap.isOpened()):
+    ret, frame = cap.read()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    plt.imshow(gray)
+    break
+cap.release()
+
+# 保存视频
+cap = cv2.VideoCapture(0)
+# Define the codec and create VideoWriter object
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+out = cv2.VideoWriter('output.avi',fourcc, 20.0, (640,480))
+while(cap.isOpened()):
+    ret, frame = cap.read()
+    if ret==True:
+        frame = cv2.flip(frame,0)
+        out.write(frame)
+        cv2.imshow('frame',frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    else:
+        break
+cap.release()
+out.release()
+cv2.destroyAllWindows()
+
+
+
+'''------------------------------------------------------------------------
+Q. 如何在opencv控制鼠标
+'''
+events = [i for i in dir(cv2) if 'EVENT' in i]
+print(events)
+
+
+
+'''------------------------------------------------------------------------
 Q. opencv/cv2的基本画图：直线，矩形，圆形？
 1. 在opencv中绘制等效于在img上直接绘制并跟img合成一张图，所有命令需要传入img
 2. 显示建议用plt.imshow，比用cv2的更简单，不需要延时检测
@@ -16,8 +105,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 img = np.zeros((512,512), np.uint8)
-cv2.line(img,(0,0),(200,300),255,5)            # 直线：起点/终点
-cv2.line(img,(200,300),(511,300),255,5)
+cv2.line(img,(0,0),(200,300),(255,0,0),5)            # 直线：起点/终点
+cv2.line(img,(200,300),(511,300),(0,0,255),5)
 plt.imshow(img,'gray')
 
 img = np.zeros((512,512,3),np.uint8)
@@ -27,6 +116,9 @@ plt.imshow(img,'brg')
 img = np.zeros((512,512,3),np.uint8)
 cv2.circle(img,(200,200),200,(55,255,155),5)   # 圆形：圆心/半径
 plt.imshow(img,'brg')
+
+font = cv2.FONT_HERSHEY_SIMPLEX
+cv2.putText(img,'OpenCV',(10,500), font, 4,(255,255,255),2,cv2.LINE_AA)
 
 
 
@@ -55,6 +147,17 @@ Q. 图片处理中几个变换基础以及读取和显示的方法差别？
 2. 图片读取和显示方案的差别
     
 '''
+
+
+
+'''-----------------------------------------------------------------
+Q. 如何定义图片的位置？
+1. 图片左上角0，0， 水平向右为w正方向，垂直往下为h正方向
+2. 读取进来一般是(h,w,c)或者(w,h)两种尺寸的图片
+3. ROI是指region of intrest
+'''
+
+
 
 
 '''-----------------------------------------------------------------
@@ -109,17 +212,7 @@ a = np.array([[1,2,3,4,5,6],[7,8,9,10,11,12]])
 np.clip(a, 5,)
 
 
-'''-----------------------------------------------------------------
-Q. cv2的图片读写
-- 读图：cv2.imread(path): 应用广泛，能直接得到bgr，比PIL少需要一步转换
-- 写图：cv2.imwrite(path,img,params)
-- 显示图： plt.imshow(path):这个比cv2.imshow()更方便，不用延时检验之类的操作
-'''
-import matplotlib.pyplot as plt
 
-cv2.imread(path)
-
-cv2.imwrite(file_path, img, params)
 
 
 '''
