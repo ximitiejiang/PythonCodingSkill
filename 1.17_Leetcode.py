@@ -205,16 +205,24 @@ print(results)
 # %%  LC-729
 """实现一个Calendar类来存放日程，要包含一个book预订方法，输入[start,end)前闭后开
 如果日程不冲突，返回true,否则返回false, start和end的取值范围是实数[0,10^9]
+
+1. 实数的科学计数法表示方法：1.0e9代表实数乘以10的9次方
+2. 
 """
 class MyCalendar():
     def __init__(self):
-        self.booked = []
+        self.booked = [(0.0,0.0), (1.0e9+1,1.0e9+1)]
     def book(self, start, end):
-        pass
-        
+        for i, bkd in enumerate(self.booked):
+            if start >= bkd[1] and end <= self.booked[i+1][0]:
+                self.booked.insert(i+1,(start, end))
+                return True
+            elif i == len(self.booked)-1:
+                return False
+            
 obj = MyCalendar()
-obj.book(10,20)
-obj.book(20,35)
-obj.book(25,40)
+print(obj.book(10,20))
+print(obj.book(20,35))
+print(obj.book(25,40))
         
         
