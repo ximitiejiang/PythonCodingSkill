@@ -11,7 +11,7 @@ Created on Tue Jan 22 15:18:35 2019
 
 from math import sqrt, pi
 def relative_df(f, r):
-    """ 计算趋肤深度df = 6.61/(sqrt(f)) mm
+    """ 计算趋肤深度df = 6.61/(sqrt(f)) cm
     Args:
         f(hz)
     Returns:
@@ -24,18 +24,6 @@ def relative_df(f, r):
         print('df is big enough, no affect to cable')
     else:
         print('df will affect cable S')
-    return df
-
-def new_df(f):  # f 取MHz
-    """修正公式： df(um) = sqrt(p/(pi*f0*ur*u0))， 
-    但这种算出来的0.05单丝直径的线df都大于r了，相当于没影响，所以也不能用。
-    https://www.pasternack.com/t-calculator-skin-depth.aspx
-    Args:
-        p(uOhms cm, 1.678), fo(Mhz), ur(0.999991), u0(4*pi*e-7)
-    Returns:
-        df(um)
-    """
-    df = sqrt(1.678/(100*pi*f*0.999991*4*pi*1e-7))
     return df
 
 def relative_S(r,df):
@@ -62,21 +50,21 @@ def relative_R(p,l,r,df,f):
     return (rf, r0)
     
 if __name__ == '__main__':
-#    f = 200e3   # hz
+#    f = 200e3  # hz
     f = 85e3    # 85khz
     p = 0.01749 # Ohms.m/mm2
     l = 0.15    # cable lenth
-    r = 1.4     # cable radim(r=1.4大概6mm2的导线)
+    r = 1.4     # cable radius(r=1.4大概6mm2的导线)
     
     df = relative_df(f,1)
     sf, s = relative_S(r,df)
-
+    
     rf, r0 = relative_R(p,l,r,df,f)
     print('df = {:.6f}mm'.format(df))
     print('S= {:.6f}mm2, Sf = {:.6f}mm2'.format(s, sf))
     print('Res={:.6f}Ohms, Resf = {:.6f}Ohms'.format(r0, rf))
     
-    # case 2: 发现计算趋肤深度的公式有问题，对于很细的线，趋肤深度很薄的那种计算出来是负数，不对的
+    # case 2: 该趋肤深度的公式仅针对整根电缆，对于很细的单丝漆包线线计算出来不对的
     print('--'*20)
     f = 85e3    # 85khz
     p = 0.01749 # Ohms.m/mm2    1.678
@@ -86,7 +74,7 @@ if __name__ == '__main__':
     
     df = relative_df(f,1)
     sf, s = relative_S(r,df)
-
+    
     rf, r0 = relative_R(p,l,r,df,f)
     print('df = {:.6f}mm'.format(df))
     print('S= {:.6f}mm2, Sf = {:.6f}mm2'.format(s, sf))
@@ -94,6 +82,18 @@ if __name__ == '__main__':
     print('Total_Res={:.6f}Ohms, total_Resf = {:.6f}Ohms'.format(num*r0, num*rf))
     
     # case 3: 另一种计算趋肤深度的公式，对很细的线也不行，因为算出来df已经超过单丝直径了
+    def new_df(f):  # f 取MHz
+        """修正公式： df(um) = sqrt(p/(pi*f0*ur*u0))， 
+        但这种算出来的0.05单丝直径的线df都大于r了，相当于没影响，所以也不能用。
+        https://www.pasternack.com/t-calculator-skin-depth.aspx
+        Args:
+            p(uOhms cm, 1.678), fo(Mhz), ur(0.999991), u0(4*pi*e-7)
+        Returns:
+            df(um)
+        """
+        df = sqrt(1.678/(100*pi*f*0.999991*4*pi*1e-7))
+        return df
+
     print('--'*20)
     print('new_df = {}um'.format(new_df(0.085)))
     ndf = new_df(0.085)/1000 # um to mm
