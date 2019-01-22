@@ -191,7 +191,14 @@ if __name__ == '__main__':
     for i,(_, module) in enumerate(vgg19.named_children()):
         for name,_ in module.named_children():
             sub[i].append(name)
-    print(len(sub[0]), len(sub[1]))   # 2个children module，分别包含53 + 7个层(作为更下一级children module)
-        
+    print(len(sub[0]), len(sub[1]))   # 2个children module，分别包含53 + 7个层
+    
+    from numpy import random
+    import torch
+    import matplotlib.pyplot as plt
+    fake_img = random.uniform(-2.2,2.1, size=(3,300,300)) # (c,h,w)
+    plt.imshow(fake_img.transpose(1,2,0))  # (h,w,c)
+    fake_img = torch.tensor(fake_img.transpose(2,0,1)).unsqueeze(0) # (1,c,h,w)
+    outs = vgg19(fake_img)
 
     

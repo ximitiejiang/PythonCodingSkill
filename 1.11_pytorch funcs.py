@@ -44,10 +44,34 @@ b1 = b0.item()              # 单tensor转标量
 
 
 '''------------------------------------------------------------------------
+Q. tensor的维度转换
+1. 维度变换：t.transpose(), t.permute()
+2. 维度加减：t.view(), t.reshape(), t.squeeze(), t.unsqueeze()
+'''
+from numpy import random
+import torch
+d0 = random.randint(0,255, size=(300,500))
+t0 = random.randint(0,255, size=(3,300,500)) # (c,h,w)
+
+
+
+# 维度变换
+d1 = torch.tensor(d0) 
+d2 = d1.transpose(1,0)  # transpose()只能用于2维
+
+t1 = torch.tensor(t0)  # (c,h,w)
+t2 = t1.permute(1,2,0)  # (h,w,c), permute()可以用于更多维
+
+# 维度增减
+t3 = t2.view()
+
+
+
+'''------------------------------------------------------------------------
 Q. tensor的转置跟python不太一样，如何使用，如何避免not contiguous的问题？
 1. python 用transpose(m,n,l)可以对3d进行转置，但tensor的transpose(a,b)只能转置2d
    要转置3d需要用permute()
-2. 不连续问题解决办法：
+2. 不连续问题解决办法：由于pytorch的transpose/permute会导致不连续的问题，解决方案如下
     >data.contiguous()函数
     >data[...,[2,1,0]]切片运算
     >reshape()函数
