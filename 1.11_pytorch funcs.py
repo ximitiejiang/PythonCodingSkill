@@ -55,17 +55,28 @@ t0 = random.randint(0,255, size=(3,300,500)) # (c,h,w)
 
 
 
-# 维度变换
+# 维度变换顺序
 d1 = torch.tensor(d0) 
 d2 = d1.transpose(1,0)  # transpose()只能用于2维
 
 t1 = torch.tensor(t0)  # (c,h,w)
 t2 = t1.permute(1,2,0)  # (h,w,c), permute()可以用于更多维
 
+# 行或者列变换顺序
+
 # 维度增减
-t3 = t2.view()
+b0 = torch.tensor([[1,2,3,4,5,6],[4,5,6,7,8,9]])  # (2,3)
+b1 = b0.unsqueeze(0)                  # (1,2,3)     
+b2 = b1.squeeze(0)
 
+b3 = b0.unsqueeze(1)
+b4 = b3.squeeze(1)
 
+b5 = b0.reshape(1,-1)  # (1, n)，相当于展平
+b6 = b0.reshape(6,-1)
+
+b7 = b0.view(-1,1)     # (n, 1)  view跟reshape功能一样，
+                       # 但view是专供tensor，reshape适用范围更广，且reshape不怕有contiguous问题的数据
 
 '''------------------------------------------------------------------------
 Q. tensor的转置跟python不太一样，如何使用，如何避免not contiguous的问题？
@@ -99,8 +110,61 @@ b0 = torch.tensor(random.randint(1,10,size=(3,4)))
 b1 = b0.transpose(1,0)
 b1.is_contiguous()  # transpose后不连续
 
+
+'''-------------------------------------------------------------------------
+Q. 对tensor的堆叠
+1. python堆叠用np.stack(), np.concatenate()
+2. tensor堆叠用torch.stack(), torch.cat()
+3. 都是1维堆叠用stack, 二维堆叠用concatenate，横竖同时堆叠用repeat
+'''
+t1 = torch.tensor([1,2,3,4,5])
+t2 = torch.tensor([6,7,8,9,10])
+t3 = torch.stack((t1,t2),0)  # 注意 torch使用dim关键字代替了numpy的axis
+
+t4 = torch.tensor([[1,2,3,4,5],[6,7,8,9,10]])
+t5 = torch.tensor([[11,12,13,14,15],[16,17,18,19,20]])
+t6 = torch.cat((t4,t5),0)
+t7 = torch.cat((t4,t5),1)
+
+t8 = t4.repeat(2,3)
+
+# 对比numpy的堆叠
+import numpy as np
+d1 = [1,2,3,4,5]
+d2 = [6,7,8,9,10]
+d3 = np.stack((d1,d2),0)  # numpy使用axis关键字
+
+d4 = [[1,2,3,4,5],[6,7,8,9,10]]
+d5 = [[11,12,13,14,15],[16,17,18,19,20]]
+d7 = np.concatenate((d4,d5),0)
+d8 = np.concatenate((d4,d5),1)
+
+
+'''-------------------------------------------------------------------------
+Q. 对tensor的广播式扩展，跟堆叠有什么区别？
+1. repeat是把同一个数据堆叠，而stack/cat是把不同数据堆叠
+2. t.repeat(m,n)是把原数据堆叠成m行，n列，这是更便捷的行列同时堆叠，而stack/cat是一次只能往一个方向堆叠
+'''
+t1 = torch.tensor([1,2,3,4,5])
+t2 = torch.tensor([6,7,8,9,10])
+t3 = torch.stack((t1,t2),0)  # stack在行方向上堆叠
+
+t4 = t1.repeat(2,1).transpose(1,0)
+
+
+
 '''
 Q. 对tensor的求和？
+'''
+
+
+'''------------------------------------------------------------------------
+Q. 对checkpoint/state_dict的加载与保存操作如何进行？
+'''
+
+# %%
+'''-------------------------------module----------------------------------
+Q. 在深入各个子模型之前，如何跑一个最小系统？
 '''
 
 
@@ -131,7 +195,7 @@ Q.在pytorch中model的本质是什么，有哪几种model
         可用来把模型参数传入device
     >model.load_state_dict() 用来加载已有模型的所有参数到本模型
         可用来导入预训练参数
-    >model.train() 用于把module以及子模型的sefl.training标志位设置为True
+    >model.train() 用于把module以及子模型的self.training标志位设置为True
         可用来实施training的指示
     >model.zero_grad() 用于把self.parameters里边所有参数的grad都设置为0
         可用来初始化梯度grad
@@ -242,7 +306,10 @@ class Module(object):
         continue
     def __setattr__(self, name, value):
         """定义了setattr方法，所以module.conv1=nn.conv2d()才能实现
-        每次创建新的子模型，就会更新_parameters/"""
+        每次创建新的子模型，就会更新_parameters/
+        同时add_module()能把module注册进_modules，而model.module_name = moduel也
+        因为__setattr__的定义能够把module注册进_modules里去，两者等效
+        """
         self.register_parameter(name, value)
         modules[name] = value
         buffers[name] = value
@@ -447,6 +514,9 @@ class ModuleDict(Module):
         return self._modules.values()
     def update(self):
         continue
+    
+
+    
 # %%
 '''------------------------------module-----------------------------------
 Q. 如何创建module容器, 以及组合module容器？

@@ -96,7 +96,10 @@ Q: 如何把相对路径转化为绝对路径？又如何把绝对路径转化�
     os.path.join(dir,base)：拼接
     os.path.expanduser(path)：替换user为实际路径
     os.path.exists(path)：路径是否存在
+    
+    os.listdir(path)：罗列路径文件夹中所有文件名(非常有用)
     os.isfile(path)：文件是否存在
+    
     sys.path.insert(0, path)
     sys.path.pop(0)
 

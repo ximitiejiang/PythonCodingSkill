@@ -186,6 +186,8 @@ if __name__ == '__main__':
                  bn_frozen=False,
                  ceil_mode=False,
                  with_last_pool=True)
+    vgg19.init_weights(pretrained=True)  # 加载vgg19的参数
+    
 #    print(vgg19)
     sub=[[],[]]
     for i,(_, module) in enumerate(vgg19.named_children()):
@@ -193,12 +195,13 @@ if __name__ == '__main__':
             sub[i].append(name)
     print(len(sub[0]), len(sub[1]))   # 2个children module，分别包含53 + 7个层
     
+    # 尝试导出vgg的多路输出
     from numpy import random
     import torch
     import matplotlib.pyplot as plt
-    fake_img = random.uniform(-2.2,2.1, size=(3,300,300)) # (c,h,w)
+    fake_img = random.uniform(0,1.0, size=(3,270,300)) # 模拟经过transform的图片，(c,h,w)
     plt.imshow(fake_img.transpose(1,2,0))  # (h,w,c)
-    fake_img = torch.tensor(fake_img.transpose(2,0,1)).unsqueeze(0) # (1,c,h,w)
+    fake_img = torch.tensor(fake_img).unsqueeze(0) # (1,c,h,w)
     outs = vgg19(fake_img)
 
     

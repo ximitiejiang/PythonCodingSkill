@@ -5,16 +5,21 @@ Created on Mon Jan  7 15:28:35 2019
 
 @author: ubuntu
 
-1. 图像变换的逻辑：
-2. bbox变换的逻辑：
+1. 图像变换的逻辑：read - scale - normalize - to_rgb - pad - flip - transpose - to_tensor
+   额外的转tensor需要单独添加
+2. bbox变换的逻辑：read - scale - flip - to_tensor
+   额外的转tensor需要单独添加
 3. mask变换的逻辑：
 
 """
 import numpy as np
+import torch
 import cv2
+from collections import Sequence
 from datasets.color_transforms import bgr2rgb
 
-__all__ = ['ImageTransforms', 'BboxTransforms']
+__all__ = ['ImageTransforms', 'BboxTransforms', 'to_tensor']
+"""使用ImageTransforms 和 BboxTransforms作为变换核心类"""
 
 
 interp_codes = {
@@ -24,6 +29,27 @@ interp_codes = {
     'area': cv2.INTER_AREA,
     'lanczos': cv2.INTER_LANCZOS4
 }
+
+
+def to_tensor(data):
+    """Convert objects of various python types to :obj:`torch.Tensor`.
+
+    Supported types are: :class:`numpy.ndarray`, :class:`torch.Tensor`,
+    :class:`Sequence`, :class:`int` and :class:`float`.
+    """
+    if isinstance(data, torch.Tensor):
+        return data
+    elif isinstance(data, np.ndarray):
+        return torch.from_numpy(data)
+    elif isinstance(data, Sequence):
+        return torch.tensor(data)
+    elif isinstance(data, int):
+        return torch.LongTensor([data])
+    elif isinstance(data, float):
+        return torch.FloatTensor([data])
+    else:
+        raise TypeError('type {} cannot be converted to tensor.'.format(
+            type(data)))
 
 def imresize(img, size, return_scale=False, interpolation='bilinear'):
     """Resize image to a given size.

@@ -37,7 +37,7 @@ def relative_R(p,l,r,df,f):
     Args:
         p(ohm.m/mm^2), resistance coef. at 20deg
         l(m), cable length
-        r(mm), cable radian 
+        r(mm), cable radius
         df(mm)
         f(hz)
     Returns:
@@ -50,7 +50,6 @@ def relative_R(p,l,r,df,f):
     return (rf, r0)
     
 if __name__ == '__main__':
-#    f = 200e3  # hz
     f = 85e3    # 85khz
     p = 0.01749 # Ohms.m/mm2
     l = 0.15    # cable lenth
