@@ -77,16 +77,6 @@ with open('xx.txt', 'rt') as f:
 
 
 ''' --------------------------------------------------------------------------
-Q: 如何获得文件绝对路径？
-'''
-# 尽可能用os模块，他能很好处理不同操作系统关于路径的差别，较好的可移植性
-import os
-path = '~/PythonCodingSkill/4_Iter.py'  # 待获得完整路径的目录名要以～开头
-fullpath = os.path.expanduser(path)   # 获得完整路径名
-print(fullpath)
-
-
-''' --------------------------------------------------------------------------
 Q: 如何把相对路径转化为绝对路径？又如何把绝对路径转化为相对路径
 关键理解1：
     os.path.abspath(path)：获得绝对路径，等效于增加当前main的路径
@@ -96,9 +86,9 @@ Q: 如何把相对路径转化为绝对路径？又如何把绝对路径转化�
     os.path.join(dir,base)：拼接
     os.path.expanduser(path)：替换user为实际路径
     os.path.exists(path)：路径是否存在
-    
+    os.path.isfile(path)：文件是否存在
+        
     os.listdir(path)：罗列路径文件夹中所有文件名(非常有用)
-    os.isfile(path)：文件是否存在
     
     sys.path.insert(0, path)
     sys.path.pop(0)
@@ -113,15 +103,50 @@ Q: 如何把相对路径转化为绝对路径？又如何把绝对路径转化�
     from .config import Config
     from . import config
     from ..slcv.config import Config
+
+关键理解3： 参考一个独立测试文件test/test_abspath.py
+path的语法跟from..import语法有一个地方正好相反：就是从相对根目录的引用地址写法
+    >path:      path='./test_data/test.jpg'   用./代表了test/，跟root目录连接上
+    >import:    from test.test_data.datasets import VOCDataset，用test.xx直接跟root目录连接上
+    这两种连接方式只要反过来就是错的，暂时不知道怎么去理解，就记成：path间接连，import直接连
     
 '''
 import os
-path = '../slcv/slcv/cfg/config.py'   # 基于当前文件的相对路径
+path = './config/config.py'   # 基于当前文件的相对路径
 abspath = os.path.abspath(path)       # 相对路径转绝对路径
 print(abspath)
 
 relpath = os.path.relpath(abspath)    # 绝对路径转相对路径
 print(relpath)
+
+# 在import/from-import语法中：
+from test_data.datasets import VOCDataset   # 相对路径：相对于同层以下，永远不会出错
+from test.test_data.datasets import VOCDataset
+from . test_data.datasets import VOCDataset  # 报错：相对路径：相对于sys.path所加根目录，虽然path语法成功，但from.import失败
+
+# 在path路径语法中：统一用想对于sys.path的相对路径写法，但两种形式./config/config.py, 或 config/config.py
+# 但如果__main__文件不在根目录，以下运行
+import cv2
+import sys, os
+import matplotlib.pyplot as plt
+path1 = 'test_data/test1.jpg'    # 相对路径写法之1：相对于本层以下的子目录。
+print(os.path.abspath(path1))
+print(os.path.isfile(path1))
+img1 = cv2.imread(path1)
+plt.imshow(img1[...,[2,1,0]])
+
+path2 = './test_data/test.jpg'  # 相对路径写法之2：相对于sys.path所加根目录
+print(os.path.abspath(path2))
+print(os.path.isfile(path2))
+img2 = cv2.imread(path2)
+plt.imshow(img2[...,[2,1,0]])
+
+path3 = 'test/test_data/test.jpg'  # 报错：相对路径写法之3：相对于sys.path所加根目录
+print(os.path.abspath(path3))
+print(os.path.isfile(path3))
+img3 = cv2.imread(path3)
+plt.imshow(img3[...,[2,1,0]])
+
 
 ''' --------------------------------------------------------------------------
 Q: 如何获得某个路径下所有文件名称的列表？
@@ -148,6 +173,12 @@ dir1 = os.path.join('/aa/bb/c','/d/e/','f/g/h')
 dir2 = os.path.join('/aa/bb/c','/d/e', 'f/g/h')
 print(dir1)  # 只会从第二个/d/e/开始算起
 print(dir2)
+
+
+'''-------------------------------------------------------------------------
+Q. 如何通过相对路径，绝对路径导入模块或者包，有什么区别，为什么经常失败？
+'''
+from
 
 
 ''' --------------------------------------------------------------------------

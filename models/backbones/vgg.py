@@ -175,7 +175,7 @@ class VGG(nn.Module):
 
 
 if __name__ == '__main__':
-    vgg19 = VGG(depth=19,
+    vgg16 = VGG(depth=16,  # 测试ssdvgg所用的vgg16模型
                  with_bn=True,
                  num_classes=20,
                  num_stages=5,
@@ -185,23 +185,13 @@ if __name__ == '__main__':
                  bn_eval=False,
                  bn_frozen=False,
                  ceil_mode=False,
-                 with_last_pool=True)
-    vgg19.init_weights(pretrained=True)  # 加载vgg19的参数
-    
-#    print(vgg19)
+                 with_last_pool=True)    
+#   由于是定制的vgg16, 没有相应的预训练参数可用，且不能使用原有的pytorchmodel参数
     sub=[[],[]]
-    for i,(_, module) in enumerate(vgg19.named_children()):
+    for i,(_, module) in enumerate(vgg16.named_children()):
         for name,_ in module.named_children():
             sub[i].append(name)
     print(len(sub[0]), len(sub[1]))   # 2个children module，分别包含53 + 7个层
     
-    # 尝试导出vgg的多路输出
-    from numpy import random
-    import torch
-    import matplotlib.pyplot as plt
-    fake_img = random.uniform(0,1.0, size=(3,270,300)) # 模拟经过transform的图片，(c,h,w)
-    plt.imshow(fake_img.transpose(1,2,0))  # (h,w,c)
-    fake_img = torch.tensor(fake_img).unsqueeze(0) # (1,c,h,w)
-    outs = vgg19(fake_img)
 
     

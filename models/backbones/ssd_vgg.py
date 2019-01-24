@@ -133,10 +133,25 @@ class L2Norm(nn.Module):
 
 if __name__ == '__main__':
     ssdvgg = SSDVGG(input_size=300,
-                 depth=19,
+                 depth=16,
                  with_last_pool=False,
                  ceil_mode=True,
                  out_indices=(3, 4),
                  out_feature_indices=(22, 34),
                  l2_norm_scale=20.)
-    print(ssdvgg)
+    ssdvgg.init_weights(pretrained='https://s3.ap-northeast-2.amazonaws.com/open-mmlab/mmdetection/models/ssd300_voc_vgg16_caffe_240e_20181221-2f05dd40.pth')
+    
+#    print(vgg16)
+    sub=[[],[]]
+    for i,(_, module) in enumerate(ssdvgg.named_children()):
+        for name,_ in module.named_children():
+            sub[i].append(name)
+    print(len(sub[0]), len(sub[1]))   # 2个children module，分别包含53 + 7个层
+    
+    # 尝试导出vgg的多路输出
+    from numpy import random
+    import matplotlib.pyplot as plt
+    fake_img = random.uniform(0,1.0, size=(3,270,300)) # 模拟经过transform的图片，(c,h,w)
+    plt.imshow(fake_img.transpose(1,2,0))  # (h,w,c)
+    fake_img = torch.tensor(fake_img).unsqueeze(0) # (1,c,h,w)
+    outs = ssdvgg(fake_img)

@@ -8,9 +8,10 @@ Created on Sat Jan 12 09:51:19 2019
 import os
 import torch
 from collections import OrderedDict
+from torch.utils import model_zoo
 
 
-def load_state_dict(module, state_dict, strict=False):
+def load_state_dict(module, state_dict, strict=False, logger=None):
     """Load state_dict to a module.
     Args:
         module(nn.Module type)
@@ -51,11 +52,13 @@ def load_state_dict(module, state_dict, strict=False):
     if err_msg:
         if strict:
             raise RuntimeError(err_msg)
+        elif logger is not None:
+            logger.warn(err_msg)
         else:
             print(err_msg)
     
 
-def load_checkpoint(model, filename, map_location=None, strict=False):
+def load_checkpoint(model, filename, map_location=None, strict=False, logger=None):
     """加载checkpoint，把state_dict传递给model，并返回checkpoint字典(可用于提取checkpoint中其他信息)
     Args：
         filename(str): 
@@ -69,11 +72,14 @@ def load_checkpoint(model, filename, map_location=None, strict=False):
     cpu->GPU(1): torch.load('gen.pkl', map_location=lambda storage, loc: storage.cuda(1))
     GPU0->GPU1: torch.load('gen.pkl', map_location={'cuda:0':'cuda:1'})
     """
-    if not os.path.isfile(filename):
+    if filename.startswith(('http://', 'https://')):
+        checkpoint = model_zoo.load_url(filename)  # 借用pytorch的model_zoo:如果文件存在于torch_home则直接load, 否则下载    
+    elif not os.path.isfile(filename):
         raise IOError('{} is not a checkpoint file'.format(filename))
-    # 加载checkpoint
-    print('loading checkpoint file: {}'.format(filename))
-    checkpoint = torch.load(filename, map_location = map_location)
+    else:
+        # 加载checkpoint
+        print('loading checkpoint file: {}'.format(filename))
+        checkpoint = torch.load(filename, map_location = map_location)
     # ----------------从checkpoint获得state_dict-------------------
     if isinstance(checkpoint, OrderedDict): # 如果直接存的是OrderedDict则直接读取
         state_dict = checkpoint
@@ -88,9 +94,9 @@ def load_checkpoint(model, filename, map_location=None, strict=False):
         state_dict = {k[7:]: v for k, v in checkpoint['state_dict'].items()}        
     # --------------把state_dict加载到模型中-------------------------
     if hasattr(model, 'module'):  # 如果是data paralle model，则需要提取module再加载state_dict
-        load_state_dict(model.module, state_dict)
+        load_state_dict(model.module, state_dict, logger)
     else:  # 如果是普通模型，则直接用model加载state_dict
-        load_state_dict(model, state_dict)
+        load_state_dict(model, state_dict, logger)
     # model虽已加载state_dict,返回checkpoint中还包含的其他信息     
     return checkpoint
 
