@@ -171,7 +171,42 @@ class TwoStageDetector(BaseDetector, RPNTestMixin, BBoxTestMixin, MaskTestMixin)
 
 
 
+# %%
+'''Q.如何产生base anchors?
+'''
+import torch
+def gen_base_anchors(base_size, ctr, ratios, scale_major, scales):
+    """从anchor_generator类中提取出如下函数,对interface做了微调
+    Args:
+        d
+    Returns:
+        base_anchors()
+    """
+    w = base_size
+    h = base_size
+    if ctr is None:  #如果不输入中心点，则取w/2，h/2为中心点
+        x_ctr = 0.5 * (w - 1)
+        y_ctr = 0.5 * (h - 1)
+    else:
+        x_ctr, y_ctr = ctr
 
+    h_ratios = torch.sqrt(ratios)  #
+    w_ratios = 1 / h_ratios
+    if scale_major:
+        ws = (w * w_ratios[:, None] * scales[None, :]).view(-1)
+        hs = (h * h_ratios[:, None] * scales[None, :]).view(-1)
+    else:
+        ws = (w * scales[:, None] * w_ratios[None, :]).view(-1)
+        hs = (h * scales[:, None] * h_ratios[None, :]).view(-1)
+
+    base_anchors = torch.stack(
+        [
+            x_ctr - 0.5 * (ws - 1), y_ctr - 0.5 * (hs - 1),
+            x_ctr + 0.5 * (ws - 1), y_ctr + 0.5 * (hs - 1)
+        ],
+        dim=-1).round()
+
+    return base_anchors
 
 
 

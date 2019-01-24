@@ -135,9 +135,57 @@ cv2.putText(img,'OpenCV',(10,500), font, 4,(255,255,255),2,cv2.LINE_AA)
 
 
 '''-----------------------------------------------------------------
-Q. RGB与HSV的区别？
-'''
+Q. RGB与HSV与gray的区别？
+1. 主要有3中颜色空间，一种RGB，一种HSV，一种灰度
+    RGB: 0-255
+    gray: 
+    HSV:Hue色调范围[0,179], Saturation饱和度范围[0,255]，Value明度范围[0,255]
+2. gray灰度应用范围
+3. HSV应用范围：
 
+'''
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from datasets.color_transforms import bgr2gray, bgr2hsv, hsv2bgr, bgr2rgb, rgb2bgr
+
+img1 = cv2.imread('test/test_data/opencv_logo.png',1) # bgr: 0-255
+plt.imshow(img1[...,[2,1,0]])
+
+# rgb基本色???
+red = np.uint8([[[255,0,0]]])
+green = np.uint8([[[0,255,0]]])
+blue = np.uint8([[[0,0,255]]])
+black = np.uint8([[[0,0,0]]])
+white = np.uint8([[[255,255,255]]])
+
+# to gray
+img2 = bgr2gray(img1)                                 # gray: 0-255
+plt.imshow(img2)
+# to hsv: hsv比rgb更容易表示一个颜色
+img3 = bgr2hsv(img1)                                  # hsv: 0-255
+plt.imshow(img3)
+
+# 在hsv下提取蓝色: 先通过bgr基本色找到对应的hsv数据，
+# 然后对h+-10作为主要决定范围即可，s/v两项可以放很宽都行
+blue_rgb = blue                         # rgb蓝色 (0, 0, 255)
+blue_hsv = bgr2hsv(rgb2bgr(blue_rgb))   # hsv蓝色 (120,255,255)
+
+lower_blue = np.array([110,50,50])    # 所以取120的上下10, s/v的值可以往下取很小到50
+upper_blue = np.array([130,255,255])
+
+mask = cv2.inRange(img3, lower_blue, upper_blue)  # inRange函数让低于阈值和高于阈值的都变为0，在之间的变为255
+                                                  # 生成的mask是一张0/255的二维数据
+res = cv2.bitwise_and(img3,img3, mask= mask)   # 用mask与原图进行相与
+                                               # 
+plt.subplot(141)
+plt.imshow(img1[...,[2,1,0]]) # bgr转成rgb
+plt.subplot(142)  
+plt.imshow(img3)  # hsv
+plt.subplot(143)
+plt.imshow(mask)  # mask
+plt.subplot(144)
+plt.imshow(hsv2bgr(res)[...,[2,1,0]])   # res from hsv to bgr to rgb
 
 
 '''-----------------------------------------------------------------
