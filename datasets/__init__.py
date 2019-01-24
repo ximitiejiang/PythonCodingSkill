@@ -5,4 +5,6 @@ Created on Wed Jan  9 15:39:07 2019
 
 @author: ubuntu
 """
+from dogcat_dataset import DogcatDataset
 
+all = ['DogcatDataset']

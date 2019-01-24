@@ -20,10 +20,11 @@ Q. 如何让matplotlib在spyder显示的图片单独窗口显示而不是显示�
 Q. 读取图片/显示图片/写入图片？
 '''
 import cv2
+import matplotlib.pyplot as plt
 # 读取：一般用cv2.imread(), 直接得到bgr图
-img = cv2.imread('messi5.jpg',1) # 1为彩色图，0为灰度图，-1为？
+img = cv2.imread('test/test_data/messi.jpg',1) # 1为彩色图，0为灰度图，-1为？
 # 显示：一般用plt.imshow(),也可用cv2自带的
-
+plt.imshow(img[...,[2,1,0]])
 # 写入图片
 cv2.imwrite('messigray.png',img)
 
@@ -34,8 +35,8 @@ Q. cv2的图片读写
 - 显示图： plt.imshow(path):这个比cv2.imshow()更方便，不用延时检验之类的操作
 '''
 import matplotlib.pyplot as plt
-
-cv2.imread(path)
+path = 'test/test_data/messi.jpg'
+img = cv2.imread(path,1)
 
 cv2.imwrite(file_path, img, params)
 
@@ -94,6 +95,17 @@ events = [i for i in dir(cv2) if 'EVENT' in i]
 print(events)
 
 
+'''------------------------------------------------------------------------
+Q. 如何分解/组合/调整各个通道
+'''
+b,g,r = cv2.split(img)
+img = cv2.merge((b,g,r))
+
+#另一种方式
+b = img[:,:,0]
+g = img[:,:,1]
+r = img[:,:,2]
+
 
 '''------------------------------------------------------------------------
 Q. opencv/cv2的基本画图：直线，矩形，圆形？
@@ -150,7 +162,7 @@ Q. 图片处理中几个变换基础以及读取和显示的方法差别？
 
 
 
-'''-----------------------------------------------------------------
+'''-------------------------------------------------------------------------
 Q. 如何定义图片的位置？
 1. 图片左上角0，0， 水平向右为w正方向，垂直往下为h正方向
 2. 读取进来一般是(h,w,c)或者(w,h)两种尺寸的图片
@@ -159,8 +171,57 @@ Q. 如何定义图片的位置？
 
 
 
+'''-------------------------------------------------------------------------
+Q. 图片的混合操作？
+1. 这里cv2也是重载了运算符add和addWeighted，用来把两张图片按一定比例混合成一张图片
+2. 两张图可以不一样大小，但必须相同通道数
+'''
+img1 = cv2.imread('test/test_data/test1.jpg',1)
+img2 = cv2.imread('test/test_data/test2.jpg',1)
 
-'''-----------------------------------------------------------------
+img3 = cv2.add(img1, img2)
+plt.imshow(img3[...,[2,1,0]])
+
+img4 = cv2.addWeighted(img1,0.7,img2,0.3,0)
+plt.imshow(img4[...,[2,1,0]])
+
+
+'''------------------------------------------------------------------------
+Q. 图片部分ROI的抠图以及组合？
+1. 阈(yu)值的概念：
+2. ret,mask = cv2.threshold(src,thresh,maxval,type)，
+其中src为源图，需要时灰度图，thresh是阈值，maxval是最大值，
+type是转换模式(cv2.THRESH_BINARY代表)
+
+参考：https://blog.csdn.net/weixin_35732969/article/details/83779660
+'''
+img1 = cv2.imread('test/test_data/messi.jpg',1)
+img2 = cv2.imread('test/test_data/opencv_logo.png',1)
+
+rows,cols,channels = img2.shape
+roi = img1[0:rows, 0:cols]
+
+# Now create a mask of logo and create its inverse mask also
+img2gray = cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)  #转成灰度图作为mask
+plt.imshow(img2gray)
+
+ret, mask = cv2.threshold(img2gray, 10, 255, cv2.THRESH_BINARY)
+mask_inv = cv2.bitwise_not(mask)
+
+# Now black-out the area of logo in ROI
+img1_bg = cv2.bitwise_and(roi,roi,mask = mask_inv)
+
+# Take only region of logo from logo image.
+img2_fg = cv2.bitwise_and(img2,img2,mask = mask)
+
+# Put logo in ROI and modify the main image
+dst = cv2.add(img1_bg,img2_fg)
+img1[0:rows, 0:cols ] = dst
+
+plt.imshow(img1)
+
+
+'''-------------------------------------------------------------------------
 Q. 图片flip的函数？
 - 采用np.flip()作为翻转函数，翻转前后size不变
 - axis=0表示沿行变化方向，也就是垂直翻转，axis=1表示沿列变化方向，也就是水平翻转

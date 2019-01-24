@@ -10,11 +10,11 @@ Created on Wed Jan 23 15:50:34 2019
 """
 
 from torch.utils.data import DataLoader
-from slcv.runner.runner import Runner
-from slcv.cfg.config import Config
+from runner.runner import Runner
+from config.config import Config
 import torch
-from slcv.model.pretrained_models import pretrained_models
-from slcv.dataset.dogcat import DogCat
+from models.backbones.vgg19 import VGG
+from datasets import DogcatDataset
 
 def main():
     # 0. 固定设置
