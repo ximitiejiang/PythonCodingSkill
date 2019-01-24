@@ -14,6 +14,8 @@ from transforms import ImageTransforms, to_tensor
 还自带一个__add__方法，用于多数据源堆叠
 """
 
+all = ['DogcatDataset']
+
 class DogcatDataset(Dataset):
     """猫狗数据集比较简单：只有两个train/test图片包, 每个图片包通过文件名
     识别label，带cat的文件名是猫，带dog的文件名是狗
