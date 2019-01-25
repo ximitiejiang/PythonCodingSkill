@@ -15,16 +15,21 @@ Q. 如何让matplotlib在spyder显示的图片单独窗口显示而不是显示�
 # %matplotlib qt5
 
 
-
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from datasets.color_transforms import bgr2gray, bgr2hsv, hsv2bgr, rgb2bgr,bgr2rgb
 '''-----------------------------------------------------------------------
 Q. 读取图片/显示图片/写入图片？
 '''
-import cv2
-import matplotlib.pyplot as plt
 # 读取：一般用cv2.imread(), 直接得到bgr图
-img = cv2.imread('test/test_data/messi.jpg',1) # 1为彩色图，0为灰度图，-1为？
+img = cv2.imread('test/test_data/messi.jpg',1) # 1为彩色图，0为灰度图
 # 显示：一般用plt.imshow(),也可用cv2自带的
-plt.imshow(img[...,[2,1,0]])
+"""注意plt.imshow默认是基于rgb的颜色空间显示，
+   >如果是bgr则需转成rgb
+   >如果是gray则需要指定cmap(colormap), cmap = plt.cm.gray, 或cmap='gray'
+"""
+plt.imshow(img[...,[2,1,0]], cmap='gray')
 # 写入图片
 cv2.imwrite('messigray.png',img)
 
@@ -38,7 +43,7 @@ import matplotlib.pyplot as plt
 path = 'test/test_data/messi.jpg'
 img = cv2.imread(path,1)
 
-cv2.imwrite(file_path, img, params)
+cv2.imwrite(path, img, params)
 
 
 
@@ -112,10 +117,6 @@ Q. opencv/cv2的基本画图：直线，矩形，圆形？
 1. 在opencv中绘制等效于在img上直接绘制并跟img合成一张图，所有命令需要传入img
 2. 显示建议用plt.imshow，比用cv2的更简单，不需要延时检测
 '''
-import cv2
-import numpy as np
-from matplotlib import pyplot as plt
-
 img = np.zeros((512,512), np.uint8)
 cv2.line(img,(0,0),(200,300),(255,0,0),5)            # 直线：起点/终点
 cv2.line(img,(200,300),(511,300),(0,0,255),5)
@@ -137,41 +138,50 @@ cv2.putText(img,'OpenCV',(10,500), font, 4,(255,255,255),2,cv2.LINE_AA)
 '''-----------------------------------------------------------------
 Q. RGB与HSV与gray的区别？
 1. 主要有3中颜色空间，一种RGB，一种HSV，一种灰度
-    RGB: 0-255
-    gray: 
-    HSV:Hue色调范围[0,179], Saturation饱和度范围[0,255]，Value明度范围[0,255]
+    RGB: 共3个通道(r,g,b)，每个通道数值范围0-255，每一个单通道都是一个灰度通道(0-255)，3个灰度通道经过组合处理才能得到彩色
+         对应通道数字越大越靠近本通道[255,0,0]就是红色，[0,255,0]就是绿色，[0,0,255]就是蓝色，[0,0,0]就是黑色，[255,255,255]就是白色
+    gray: 只有1个通道，数值范围0-255，
+         数字越小，灰度越黑，0就是黑色，1就是白色。
+    HSV: 共3个通道，Hue色调/数值范围[0,179], Saturation饱和度数值范围[0,255]，Value明度数值范围[0,255]
+         h数字(0是红色，60是绿色，120是蓝色), s数字(0-255), v数字(0-255)
+         
 2. gray灰度应用范围
 3. HSV应用范围：
 
 '''
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-from datasets.color_transforms import bgr2gray, bgr2hsv, hsv2bgr, bgr2rgb, rgb2bgr
-
-img1 = cv2.imread('test/test_data/opencv_logo.png',1) # bgr: 0-255
+img1 = cv2.imread('test/test_data/opencv_logo.png',1) # bgr
 plt.imshow(img1[...,[2,1,0]])
 
-# rgb基本色???
+# rgb基本色：下面代表一个像素点的3层数字，即r层g层b层3个数字
 red = np.uint8([[[255,0,0]]])
 green = np.uint8([[[0,255,0]]])
 blue = np.uint8([[[0,0,255]]])
 black = np.uint8([[[0,0,0]]])
 white = np.uint8([[[255,255,255]]])
 
+img2 = img1[...,[2,1,0]]  # rgb
+r,g,b = cv2.split(img2)   # (222,180,3) -> 3x (222,180)
+plt.imshow(g)             # 每一路都类似一张2d的gray图，范围0-255
+
 # to gray
-img2 = bgr2gray(img1)                                 # gray: 0-255
-plt.imshow(img2)
+img3 = bgr2gray(img1)            # gray: 0-255
+plt.imshow(img3, cmap='gray')
+
 # to hsv: hsv比rgb更容易表示一个颜色
-img3 = bgr2hsv(img1)                                  # hsv: 0-255
-plt.imshow(img3)
+img4 = bgr2hsv(img1)             # hsv
+plt.imshow(img4)
+h, s, v = cv2.split(img4)
+
+img5 = cv2.imread('test/test_data/messi.jpg')
+img5 = bgr2hsv(img5)
+h, s, v = cv2.split(img5)        # h数值范围是0-180度(红色数值为0, 绿色为60，蓝色为120)
 
 # 在hsv下提取蓝色: 先通过bgr基本色找到对应的hsv数据，
 # 然后对h+-10作为主要决定范围即可，s/v两项可以放很宽都行
 blue_rgb = blue                         # rgb蓝色 (0, 0, 255)
 blue_hsv = bgr2hsv(rgb2bgr(blue_rgb))   # hsv蓝色 (120,255,255)
 
-lower_blue = np.array([110,50,50])    # 所以取120的上下10, s/v的值可以往下取很小到50
+lower_blue = np.array([110,50,50])    # 所以h取120的上下10, s/v的值可以往下取很小到50
 upper_blue = np.array([130,255,255])
 
 mask = cv2.inRange(img3, lower_blue, upper_blue)  # inRange函数让低于阈值和高于阈值的都变为0，在之间的变为255
@@ -205,7 +215,8 @@ Q. 图片处理中几个变换基础以及读取和显示的方法差别？
         >(h,w,c)，大部分的应用
         >(c,h,w)，少部分应用(比如pytorch)
 2. 图片读取和显示方案的差别
-    
+    > plt.imread()读取的rgb, cv2.imread()读取的是bgr
+    > plt.imshow()按照rbg方式显示，cv2.imshow()需要增加延时和按键监测    
 '''
 
 
@@ -235,38 +246,42 @@ plt.imshow(img4[...,[2,1,0]])
 
 
 '''------------------------------------------------------------------------
-Q. 图片部分ROI的抠图以及组合？
-1. 阈(yu)值的概念：
-2. ret,mask = cv2.threshold(src,thresh,maxval,type)，
-其中src为源图，需要时灰度图，thresh是阈值，maxval是最大值，
-type是转换模式(cv2.THRESH_BINARY代表)
-
-参考：https://blog.csdn.net/weixin_35732969/article/details/83779660
+Q. 用opencv如何对图像进行尺寸变换？
 '''
-img1 = cv2.imread('test/test_data/messi.jpg',1)
-img2 = cv2.imread('test/test_data/opencv_logo.png',1)
+"""位置变换"""
+img = cv2.imread('test/test_data/messi.jpg',0)
+rows, cols = img.shape
+M = np.float32([[1,0,100],[0,1,50]])  # 建立平移矩阵，最后一列代表x,y的平移量
+dst = cv2.warpAffine(img, M, (cols,rows))
+plt.subplot(121)
+plt.imshow(img)
+plt.subplot(122)
+plt.imshow(dst)
 
-rows,cols,channels = img2.shape
-roi = img1[0:rows, 0:cols]
+"""尺寸缩放"""
+img = cv2.imread('test/test_data/messi.jpg',0)
+h,w = img.shape[:2]
+res = cv2.resize(img, (2*w, 2*h), interpolation=cv2.INTER_CUBIC)  # 直接用tuple输入实际的w,h
+plt.subplot(121)
+plt.imshow(img)
+plt.subplot(122)
+plt.imshow(res)
 
-# Now create a mask of logo and create its inverse mask also
-img2gray = cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)  #转成灰度图作为mask
-plt.imshow(img2gray)
+"""图片旋转： 这个旋转命令很强大，可以指定旋转中心，旋转角度，缩放比例""" 
+img = cv2.imread('test/test_data/messi.jpg',0)
+rows, cols = img.shape
+M = cv2.getRotationMatrix2D((cols/2, rows/2), 45, 1) # 建立旋转矩阵：输入旋转中心，旋转角度，比例为1
+res = cv2.warpAffine(img, M, (cols, rows))       # 旋转/位置变换，所用函数一样，只是M不一样
+plt.subplot(121)
+plt.imshow(img)
+plt.subplot(122)
+plt.imshow(res)
 
-ret, mask = cv2.threshold(img2gray, 10, 255, cv2.THRESH_BINARY)
-mask_inv = cv2.bitwise_not(mask)
+"""perspective变换(透视)，Affine变换(仿射)：思路一样，取3-4个点获得变换矩阵M，然后使用同意命令warpAffine()"""
+#https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_geometric_transformations/py_geometric_transformations.html#geometric-transformations
+# 仿射变换是正的变斜的
 
-# Now black-out the area of logo in ROI
-img1_bg = cv2.bitwise_and(roi,roi,mask = mask_inv)
-
-# Take only region of logo from logo image.
-img2_fg = cv2.bitwise_and(img2,img2,mask = mask)
-
-# Put logo in ROI and modify the main image
-dst = cv2.add(img1_bg,img2_fg)
-img1[0:rows, 0:cols ] = dst
-
-plt.imshow(img1)
+# 透视变换是斜的变正的
 
 
 '''-------------------------------------------------------------------------
@@ -374,7 +389,170 @@ path=''
 # 8. transpose - (c,h,w) - bgr(-2.x~2.x)
 # 9. to tensor - (c,h,w) - bgr(-2.x~2.x) - 影响bbox
 
+'''---------------------------------------------------------------------
+Q. 什么是图像的mask，怎么创建mask并使用mask在图像上？
+1. 图像的按位操作bitwise operation：cv2.bitwise_not(), cv2.bitwise_and(), cv2.bitwise_or()
+2. mask的概念类似pcb板的掩膜概念，用来提取感兴趣的，遮挡不感兴趣的部分
+'''
+# 创建规则形状的mask
+
+
+# 创建不规则形状的mask
+img = cv2.imread('test/test_data/opencv_logo.png')
+_, mask = cv2.threshold(bgr2gray(img), 10, 255, cv2.THRESH_BINARY)  # mask，roi区域取255用于保留roi原图
+mask_inv = cv2.bitwise_not(mask)                                    # mask_inv，非roi区域取255用于提取非roi原图
+
+plt.subplot(121), plt.imshow(mask, cmap='gray')
+plt.subplot(122), plt.imshow(mask_inv, cmap='gray')
+
+
+'''-----------------------------------------------------------------------
+Q. 什么是图像的thresholding？
+1. thresholding就是阈值，如果大于阈值则指定为某值(比如255)，小于阈值则指定为某值(比如0)
+   也叫做把图像二值化
+2. 使用阈值函数cv2.threshold()需要采用灰度图
+3. 
+'''
+img = cv2.imread('test/test_data/gradient.jpg',0)
+ret, thresh1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+plt.subplot(1,2,1), plt.imshow(img), plt.title('original')
+plt.subplot(1,2,2), plt.imshow(thresh1), plt.title('binary')
+
+
+'''------------------------------------------------------------------------
+Q. 图片部分ROI的抠图以及组合？
+1. 阈(yu)值的概念：
+2. 基于mask/mask_inv的4步抠图精华： 抠roi，抠非roi，相加，嵌回
+3. 阈值操作与按位操作：
+    ret,mask = cv2.threshold(src,thresh,maxval,type)
+    img = cv2.bitwise_and(src, des, mask)
+其中src为源图，需要时灰度图，thresh是阈值，maxval是最大值，
+type是转换模式(cv2.THRESH_BINARY代表)
+
+参考：https://blog.csdn.net/weixin_35732969/article/details/83779660
+'''
+img1 = cv2.imread('test/test_data/messi.jpg',1)
+img2 = cv2.imread('test/test_data/opencv_logo.png',1)
+
+rows,cols,channels = img2.shape
+roi = img1[0:rows, 0:cols]   # 从原图左上角划定一个小区域作为roi
+
+# Now create a mask of logo and create its inverse mask also
+img2gray = cv2.cvtColor(img2,cv2.COLOR_BGR2GRAY)  #小图转成灰度图
+plt.imshow(img2gray, cmap='gray')
+
+ret, mask = cv2.threshold(img2gray, 10, 255, cv2.THRESH_BINARY) # 小图灰度图创建不规则抠图(10-255之间的灰度保留)，符合要求存为255,不符合存为0
+mask_inv = cv2.bitwise_not(mask)                               # 小图mask的取反操作(0变255, 255变0)
+plt.subplot(121), plt.imshow(mask, cmap='gray')
+plt.subplot(122), plt.imshow(mask_inv, cmap='gray')
+
+# Now black-out the area of logo in ROI                # 基于mask/mask_inv的4步抠图精华： 抠roi，抠非roi，相加，嵌回
+img1_bg = cv2.bitwise_and(roi,roi,mask = mask_inv)     # roi与mask_inv按位相与，圆圈区域为0, 相与也是0 (黑色)
+                                                       # roi上面抠出洞   
+# Take only region of logo from logo image.
+img2_fg = cv2.bitwise_and(img2,img2,mask = mask)       # 与mask相与，圆圈区域为255, 相与为像素(保留)
+ 
+# Put logo in ROI and modify the main image
+dst = cv2.add(img1_bg,img2_fg)             # 得到roi的正确形式      
+plt.subplot(221), plt.imshow(bgr2rgb(roi)), plt.title('1.source roi')
+plt.subplot(222), plt.imshow(bgr2rgb(img1_bg)), plt.title('2.bg')
+plt.subplot(223), plt.imshow(bgr2rgb(img2_fg)), plt.title('3.fg')
+plt.subplot(224), plt.imshow(bgr2rgb(dst)), plt.title('4.merge')
+
+img1[0:rows, 0:cols ] = dst                # 把roi嵌进原图
+plt.imshow(img1)
+
+
+'''-----------------------------------------------------------------------
+Q. 如何区分低通过滤器和高通过滤器，以及如何用低通滤波器
+1. 从灰度分布分析相当于空间域的分析，从图像变化的频率分析相当于频域分析。
+   图像变化快，就是频率高，就是高频
+1. 低通过滤器(low-pass filter/LPF): 去除变化快的点，留下变化慢的点。多用来去除噪声，模糊化blur/平滑化smooth图片
+   >平均值滤波：
+   >高斯滤波：
+   >中值滤波：
+2. 高通过滤器(high-pass filter/HPF): 也称梯度过滤器，留下变化快的点，多用来检测边沿
+   >sobel方向滤波：强调某一方向的高频分量
+   >laplacian滤波：
+'''
+# 平均值blurring: 核是全1, 再除以元素个数
+img = cv2.imread('test/test_data/opencv_logo.png')
+blur = cv2.blur(img, (5,5))             #kernal尺寸是5x5, 越大的kernel理论上平均化程度越宽
+plt.subplot(1,2,1), plt.imshow(img), plt.title('original')
+plt.subplot(1,2,2), plt.imshow(blur), plt.title('average')
+
+# 高斯blurring: 
+img = cv2.imread('test/test_data/opencv_logo.png')
+blur = cv2.GaussianBlur(img, (5,5),0)
+plt.subplot(1,2,1), plt.imshow(img), plt.title('original')
+plt.subplot(1,2,2), plt.imshow(blur), plt.title('gausian')
+
+# median中值blurring: 属于非线性滤波，用核中间位置对应的值作为目标值
+img = cv2.imread('test/test_data/opencv_logo.png')
+median = cv2.medianBlur(img, 5)
+plt.subplot(1,2,1), plt.imshow(img), plt.title('original')
+plt.subplot(1,2,2), plt.imshow(median), plt.title('median')
+
 
 '''-----------------------------------------------------------------
-Q. 图片处理过程？
+Q. 如何检测边沿
+1. 梯度过滤器(gradient filter)：也叫高通滤波(high-pass filter)，包括sobel/scharr/laplacian
+    > laplacian变换
+    > sobel变换
+'''
+img = cv2.imread('test/test_data/sudo.jpg',0)
+# laplacian滤波
+laplacian = cv2.Laplacian(img, cv2.CV_64F)         # 拉普拉斯变换，
+# sobel方向滤波
+sobelx = cv2.Sobel(img, cv2.CV_64F, 1,0,ksize=5)   # sobel对噪声更抗噪，ksize=-1则3x3
+sobely = cv2.Sobel(img, cv2.CV_64F, 0,1,ksize=5)
+
+plt.subplot(2,2,1), plt.imshow(img, cmap='gray'), plt.title('original')
+plt.subplot(2,2,2), plt.imshow(laplacian, cmap='gray'), plt.title('laplacian')
+plt.subplot(2,2,3), plt.imshow(sobelx, cmap='gray'),plt.title('sobelx')
+plt.subplot(2,2,4), plt.imshow(sobely, cmap='gray'),plt.title('sobely')
+
+
+'''-----------------------------------------------------------------------
+Q. 如何检测角点？
+1. 图像特征就是用计算机语言描述的图像的区别与别的图像的明显特点，比如角点
+2. 角点检测器cv2.cornerHarris()
+'''
+
+
+
+'''------------------------------------------------------------------------
+Q. 如何检测边缘，边沿？ - 原来图像检测的那些技术都是从老的图像算法中来的，比如nms/roi/feature pyrimid...
+1. 边缘检测的过程：
+    step1: 边缘检测对噪声非常敏感，第一步要去除噪声(采用之前低通滤波器gausian blurring)
+    step2: 然后通过sobel对水平和垂直分别进行高通滤波得到两张图片，然后基于2张图片得到边沿梯度和每个像素的方向
+           梯度方向总是垂直于边沿，
+    step3: 然后进行非极大值抑制，也就是扫描每一个像素，确认每个像素是在梯度方向上近邻的最大值，保留这个local maximum
+           如果是local maximum则保留进入下一个stage，否则抑制为0， suppressed to zero
+    step4: 最后进行滞后阈值hysteresis thresholding判断，定义maxval和minval,如果小于minval必然不是edge则放弃掉,大于maxval必然是则保留。
+           而中间部分的如果跟必然是edge的部分能够连接则保留，不能连接则放弃。
+2. cv2.Canny()
+'''
+img = cv2.imread('test/test_data/messi.jpg',0)
+edges = cv2.Canny(img, 100, 200)   # 定义的100, 200即为阈值
+plt.subplot(121), plt.imshow(img, cmap='gray')
+plt.subplot(122), plt.imshow(edges, cmap='gray')
+
+
+'''---------------------------------------------------------------------
+Q. 图像直方图histograms有什么用？
+图像直方图用来在灰度图下统计每个点象素大小的分布。
+1. cv2.calHist(img, channels, mask, histsize, ranges)
+参考：https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_histograms/py_histogram_begins/py_histogram_begins.html#histograms-getting-started
+'''
+# 先创建一个mask: 感兴趣roi取255,其他区域取0
+mask = np.zeros
+
+
+
+'''--------------------------------------------------------------------
+Q. 视频分析的3个主题
+1. meanshift/camshift
+2. optical flow
+3. background subtraction
 '''
