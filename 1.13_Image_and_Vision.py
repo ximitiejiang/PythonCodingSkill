@@ -18,7 +18,7 @@ Q. 如何让matplotlib在spyder显示的图片单独窗口显示而不是显示�
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from datasets.color_transforms import bgr2gray, bgr2hsv, hsv2bgr, rgb2bgr,bgr2rgb
+from datasets.color_transforms import bgr2gray, bgr2hsv, hsv2bgr, rgb2bgr,bgr2rgb,gray2bgr
 '''-----------------------------------------------------------------------
 Q. 读取图片/显示图片/写入图片？
 '''
@@ -202,7 +202,7 @@ plt.imshow(hsv2bgr(res)[...,[2,1,0]])   # res from hsv to bgr to rgb
 Q. 图片处理中几个变换基础以及读取和显示的方法差别？
 1. 图片几个核心概念
     **像素**
-        >一张图每个位置点用一个数字，整个图片尺寸就是像素个数(w,h)
+        >一张图每个位置点用一个数字，整个图片尺寸就是像素个数(h,w)
     **色彩表示方式**
         >RGB(常用)
         >HSV(常用)：hue(色相), saturation(饱和度), value(色调)
@@ -212,20 +212,18 @@ Q. 图片处理中几个变换基础以及读取和显示的方法差别？
         >rgb顺序
         >bgr顺序
     **维度顺序**这只针对rgb/bgr这种已经分解分层的RGB图
-        >(h,w,c)，大部分的应用
+        >(h,w), 灰度图
+        >(h,w,c)，大部分的应用,比如opencv
         >(c,h,w)，少部分应用(比如pytorch)
+        (注意：h,w的定义方式，跟array都是一致的，即先行数(h)再列数(w))
 2. 图片读取和显示方案的差别
     > plt.imread()读取的rgb, cv2.imread()读取的是bgr
     > plt.imshow()按照rbg方式显示，cv2.imshow()需要增加延时和按键监测    
-'''
 
-
-
-'''-------------------------------------------------------------------------
-Q. 如何定义图片的位置？
-1. 图片左上角0，0， 水平向右为w正方向，垂直往下为h正方向
-2. 读取进来一般是(h,w,c)或者(w,h)两种尺寸的图片
-3. ROI是指region of intrest
+3. 如何定义图片的位置？
+    >图片左上角0，0， 水平向右为w正方向，垂直往下为h正方向
+    >读取进来一般是(h,w,c)或者(h,w)两种尺寸的图片, 这与所有的array是一致的，即先行数再列数
+    >ROI是指region of intrest
 '''
 
 
@@ -395,7 +393,8 @@ Q. 什么是图像的mask，怎么创建mask并使用mask在图像上？
 2. mask的概念类似pcb板的掩膜概念，用来提取感兴趣的，遮挡不感兴趣的部分
 '''
 # 创建规则形状的mask
-
+mask = np.zeros((h,w),dtype=np.uint8)  # 注意mask的数值格式需要根图片一致，所以需要指定成np.uint8，否则后边bitwise操作报错
+mask[100:180,150:300] = 255            # 自定义roi尺寸大小
 
 # 创建不规则形状的mask
 img = cv2.imread('test/test_data/opencv_logo.png')
@@ -543,11 +542,25 @@ plt.subplot(122), plt.imshow(edges, cmap='gray')
 Q. 图像直方图histograms有什么用？
 图像直方图用来在灰度图下统计每个点象素大小的分布。
 1. cv2.calHist(img, channels, mask, histsize, ranges)
+   生成的直方图输出是一个array(256,1),代表每种灰度的像素个数。
 参考：https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_histograms/py_histogram_begins/py_histogram_begins.html#histograms-getting-started
 '''
 # 先创建一个mask: 感兴趣roi取255,其他区域取0
-mask = np.zeros
+img0 = cv2.imread('test/test_data/messi.jpg',1)
+img = bgr2gray(img0)
+plt.imshow(img, cmap='gray')
+h,w = img.shape             # (h,w,c) or (h,w)
+mask = np.zeros((h,w),dtype=np.uint8)
+mask[100:180,150:300] = 255
+masked = cv2.bitwise_and(img,img,mask=mask)  # 容易错的点：做bitwise_and()操作的img/mask数据格式需要相同，所以mask创建要声明为np.uint8
 
+hist_full = cv2.calcHist([img],[0],None,[256],[0,256])
+hist_mask = cv2.calcHist([img],[0],mask,[256],[0,256])
+
+plt.subplot(221), plt.imshow(img, 'gray'), plt.title('original')
+plt.subplot(222), plt.imshow(mask,'gray'), plt.title('mask')
+plt.subplot(223), plt.imshow(masked, 'gray'), plt.title('masked img')
+plt.subplot(224), plt.plot(hist_full), plt.plot(hist_mask), plt.title('hist')
 
 
 '''--------------------------------------------------------------------
@@ -556,3 +569,6 @@ Q. 视频分析的3个主题
 2. optical flow
 3. background subtraction
 '''
+
+
+
