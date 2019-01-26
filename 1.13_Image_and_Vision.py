@@ -408,26 +408,41 @@ plt.subplot(122), plt.imshow(mask_inv, cmap='gray')
 '''-----------------------------------------------------------------------
 Q. 什么是图像的thresholding？
 1. thresholding就是阈值，如果大于阈值则指定为某值(比如255)，小于阈值则指定为某值(比如0)
-   也叫做把图像二值化
-2. 使用阈值函数cv2.threshold()需要采用灰度图
+   也叫做把图像二值化，可用来创建一个二值mask，或者用来
+2. 二值化的取值策略：cv2.THRESH_BINARY代表0/255
+2. 使用阈值函数cv2.threshold(img, thresh, maxval, type)需要采用灰度图
 3. 
 '''
+# 用阈值函数把图像二值化
 img = cv2.imread('test/test_data/gradient.jpg',0)
 ret, thresh1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-plt.subplot(1,2,1), plt.imshow(img), plt.title('original')
-plt.subplot(1,2,2), plt.imshow(thresh1), plt.title('binary')
+plt.subplot(1,3,1), plt.imshow(img,cmap='gray'), plt.title('original')
+plt.subplot(1,3,2), plt.imshow(thresh1,cmap='gray'), plt.title('binary')
+plt.subplot(1,3,3), plt.hist(img, 255, [0,255])
+
+# 用阈值函数
+img = cv2.imread('test/test_data/messi.jpg',0)
+ret, thresh1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+plt.subplot(1,3,1), plt.imshow(img,cmap='gray'), plt.title('original')
+plt.subplot(1,3,2), plt.imshow(thresh1,cmap='gray'), plt.title('binary')
+plt.subplot(1,3,3), plt.hist(img, 255, [0,255])
+
+
+'''------------------------------------------------------------------------
+Q. 如何使用特殊thresholding, 比如Adaptive threshold?
+cv2.adaptiveThreshold()
+'''
+
+
+
 
 
 '''------------------------------------------------------------------------
 Q. 图片部分ROI的抠图以及组合？
-1. 阈(yu)值的概念：
-2. 基于mask/mask_inv的4步抠图精华： 抠roi，抠非roi，相加，嵌回
-3. 阈值操作与按位操作：
-    ret,mask = cv2.threshold(src,thresh,maxval,type)
-    img = cv2.bitwise_and(src, des, mask)
-其中src为源图，需要时灰度图，thresh是阈值，maxval是最大值，
-type是转换模式(cv2.THRESH_BINARY代表)
-
+1. 基于mask/mask_inv的4步抠图精华： 抠roi，抠非roi，相加，嵌回
+2. 按位操作可用来作为抠图动作：与0相与为0(相当于丢弃)，与255相与灰度值不变(相当于保留)
+    img = cv2.bitwise_and(src, des, mask), 通常取src与des相同，即在原图操作
+    其中src为源图，需要为灰度图，thresh是阈值，maxval是最大值，
 参考：https://blog.csdn.net/weixin_35732969/article/details/83779660
 '''
 img1 = cv2.imread('test/test_data/messi.jpg',1)
@@ -467,9 +482,9 @@ Q. 如何区分低通过滤器和高通过滤器，以及如何用低通滤波�
 1. 从灰度分布分析相当于空间域的分析，从图像变化的频率分析相当于频域分析。
    图像变化快，就是频率高，就是高频
 1. 低通过滤器(low-pass filter/LPF): 去除变化快的点，留下变化慢的点。多用来去除噪声，模糊化blur/平滑化smooth图片
-   >平均值滤波：
-   >高斯滤波：
-   >中值滤波：
+   >平均值滤波：cv2.blur(img, kernel_size)
+   >高斯滤波：cv2.GaussianBlur(img, kernel_size, n)
+   >中值滤波：cv2.medianBlur()
 2. 高通过滤器(high-pass filter/HPF): 也称梯度过滤器，留下变化快的点，多用来检测边沿
    >sobel方向滤波：强调某一方向的高频分量
    >laplacian滤波：
@@ -551,9 +566,18 @@ img = bgr2gray(img0)
 plt.imshow(img, cmap='gray')
 h,w = img.shape             # (h,w,c) or (h,w)
 mask = np.zeros((h,w),dtype=np.uint8)
-mask[100:180,150:300] = 255
+mask[40:240,50:400] = 255
 masked = cv2.bitwise_and(img,img,mask=mask)  # 容易错的点：做bitwise_and()操作的img/mask数据格式需要相同，所以mask创建要声明为np.uint8
 
+# 最简单的绘制直方图的方法是用plt.hist(data, bins, range)，这也是opencv里边建议的最简方法
+# bins代表格数，range代表数据范围
+plt.subplot(221), plt.imshow(img, 'gray'), plt.title('original')
+plt.subplot(222), plt.imshow(mask,'gray'), plt.title('mask')
+plt.subplot(223), plt.imshow(masked, 'gray'), plt.title('masked img')
+plt.subplot(224), plt.hist(img.ravel(), 256, [0,255]),plt.hist(masked.ravel(),256,[1,256])
+#(这里做masked的直方图时去掉了range中0这个取值，否则因为mask中太多0影响绘图的直观性)
+
+# cv2自带的一种hist方法，相对麻烦，需要先求出hist的数据
 hist_full = cv2.calcHist([img],[0],None,[256],[0,256])
 hist_mask = cv2.calcHist([img],[0],mask,[256],[0,256])
 
@@ -572,3 +596,27 @@ Q. 视频分析的3个主题
 
 
 
+'''-----------------------------------------------------------------------
+Q. 用opencv自带的脸部识别和眼部识别检测器如何做？
+'''
+import numpy as np
+import cv2
+
+face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
+
+img = cv2.imread('test/test_data/children.jpg')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+
+for (x,y,w,h) in faces:
+    img = cv2.rectangle(img,(x,y),(x+w,y+h),(255,0,0),2)
+    roi_gray = gray[y:y+h, x:x+w]
+    roi_color = img[y:y+h, x:x+w]
+    eyes = eye_cascade.detectMultiScale(roi_gray)
+    for (ex,ey,ew,eh) in eyes:
+        cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)
+
+cv2.imshow('img',img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()

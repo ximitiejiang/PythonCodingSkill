@@ -613,10 +613,12 @@ Q4. 如何进行堆叠和展平？
 ------------------------------------------------------------
 '''
 import numpy as np
-# 展平
+# --------------展平--------------
 a = np.array([[2,1,4,5],[4,2,7,1]])
-a.ravel()     # 在原数据上直接展平
-a.flatten()   # 展平，但不影响原数据
+a.ravel()     # 返回一个视图，跟原数据有链接，对视图修改会影响原始数据
+a.flatten()   # 返回一个拷贝（不改变原数据），对拷贝修改也不会影响原始数据，相当于flatten返回的是脱敏数据
+
+
 # concatenate堆叠
 b0=np.array([[1,2],[3,4]])
 b1=np.array([[5,6],[7,8]])
@@ -687,6 +689,27 @@ Q4. 如何进行数据增加维度的操作？
 (4,3) + (2)    # 报错：单维度的数据最好加一个逗号
 #-----对array：用numpy的函数--------
 
+
+'''-------------------------------------------------------------------------
+Q. 常用最简洁的几个绘图命令？
+'''
+# 绘制线条
+plt.plot(x,y)
+
+# 绘制多图
+plt.subplot(131), plt.imshow(img1), plt.title('img1')
+plt.subplot(132), plt.imshow(img2), plt.title('img2')
+plt.subplot(133), plt.imshow(img3), plt.title('img3')
+
+# 绘制直方图: data需要是一个展平的list, bins为柱子个数，range为个数范围显示，alpha为透明度，facecolor为柱子颜色
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+img = cv2.imread('test/test_data/messi.jpg')
+b,g,r = cv2.split(img)
+plt.hist(b.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='blue')
+plt.hist(g.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='green')
+plt.hist(r.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='red')
 
 
 
