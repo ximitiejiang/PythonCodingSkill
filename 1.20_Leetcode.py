@@ -264,6 +264,98 @@ results = findPeakElement(nums)
 print(results)
 
 
+# %% LC-318
+"""给定一个字符串数组 words，找到 length(word[i]) * length(word[j]) 的最大值，
+并且这两个单词不含有公共字母。你可以认为每个单词只包含小写字母。如果不存在这样的两个单词，返回 0。
+1. 常规暴力搜索会因为字符串测试用例太长太多导致时间超时，需要
+"""
+words = ["db","effbfccbecb","eeafcededcdfff","defdbbcdad","faadbbdeacfdbc",
+         "bceddfccbaefaabaeea","baaeefacecafafcdafec","aedaacbcefabcdfcfb",
+         "dfebdeabadbdcb","fbeebdbeebcacce","ceffdeedabafdbbddcede","ccceddfecca",
+         "bdfabbd","cecaaeaedfb","daabceddfaeecedfcfcf","affafffece","ab","bcfcdfbdfd",
+         "beef","baafefedc","affb","fcedeaecedcc","bbdbbdeecbaa","cedacad",
+         "eeffcddaaacaf","dcdaefa","edbceeffbdacbe","fde","abaebbf","aabaacf",
+         "efcaaaaaaeafcdaaac","accbfedfddb","ecedbeededadaedbd","afbeaceddfdfef",
+         "adacfddddcfb","dfdbfedacda","afbcbdbdfcbaaee","fbcbadf","befdbbaddcdaab",
+         "fdeedcfadcec","dacdeecadcfeecad","ddafabfcbb","edddcdfddbccebe","bdcac",
+         "beb","fccaaeaf","bcbfbfdaffdc","bbefe","ebefcecdb","cd","aaebfeedaddccaecdedbd",
+         "fd","bb","ebafccfaccc","eafdbacefdbcdaeeaad","fdedeacddcdfaf","ceffeaefabefedffdb",
+         "ffcfababedbbcc","baeffdefedff","eacfefbeebbbbbfc","fdacee","ffbfbeefedb",
+         "fdcfedacebbcfbedac","debdcdafaadcad","bdfcfccbc","bdaacccb","eabab","dddf",
+         "aedcccbcbfdbcbff","edfaccccdcfb","ccadaeeacdcbbfcfdd","aeaeffec","db",
+         "dbaceefbeabbfabb","ececfffeb","eaadecaaacdfabb","ebdabcaedb","acccecfabbbebeebcef",
+         "fcfd","aaadddfeee","ddfbebfbeacdcfedfbbff","bafcbeeedeadfeba","ddadbdedfbddaafceeffb",
+         "eccccc","bcceeb","abcbbcedfef","edaeccbfed","aaebccfcdf","dbfdcbdbecbcecadefb",
+         "eefeeceb","bbd","afececaedddfdbcdea","dcbc","eabcafeadadbabfeaecdd","bddddeffbefafda",
+         "ddbefac","feeecbaeffadbfbbb","bcbcbcccadfbdadadf","fbceeeaebfbfad","ecfbbcadeebd",
+         "dbcadfedcafdb","aba","dbdafffcebddffabebbb","dbfaff","dbfffcdeb","eddbbedcdffbb",
+         "dceaacbfed","bbfffbdcaecb","abdbae","cccdecadfcbafaeffe","ebcacdbcfacffbdccccf",
+         "febaafaed","dcbeeafda","ebadfdddbaeadfea","faeddccfbbb","adfe","caecfdaecafabafacbeb",
+         "ceadfdbaefceaeadb","edcdabddfe","abddcb","fb","afebffcefaaddadfececd",
+         "cebbfdbdabfdcd","ee","eccfdeb","caedeaeddececd","afbaccabdbcdaafcaaa",
+         "dafbbafeeb","fabafadaad","dbaebcec","aacccddfea","ecaaf","afefacff",
+         "dccdda","ffcfbcffc","bbbaa","ccecdbbdafcfda","dddfdcdabdfeabaaa","acdbfecddebbdfffbb",
+         "abcecdffadcbcbdbfef","acabedcecddbd","adbeedbbaacdb","fecbeaacdcabefddfdaba",
+         "aeaceabdcccd","bebbcbbefadcdedbb","fdfcfdbfff","feeeeabdecb","cacbfccddabccbbcc",
+         "eedeaffcafdaccebd","addcfeadbe","feebbdfffbfbadefdeae","afa","cfeeffcd",
+         "efebddbcf","cbeffecdaccbecfa","ffdec","ececfcb","ddebff","dacaeaafdbaacbdbcec",
+         "aabebffafbafffa","acbcebefcafaaceff","debaaeceaadccffeedc","bdccfdaadfcafcecba",
+         "faadedd","becbeecfbacbadaaad","cffebccdeedfdf","fdedbfcdddeceb","acceecbedaceadabbefe",
+         "edaddcbacbcebefbefab","fae","baceecabbdbc","bbdddefaaabddf","eafedeafcd",
+         "cecacfacbceaaba","dbbdbead","aceffbedb","ddcbbadcbeefbfdfcabbc","abaa",
+         "ecbabfd","adbabcbdbccdeaafb","abafedefcbbcbfde","ddcbcdbaeccfbc","febddccdfdcfbcddc",
+         "fceefeccafcfd","fdcdc","cabfacfccccdfbbfbbec","ceeceebdffacaf","fedeacebbeceecadd",
+         "ee","ebefaecdfdedbbaefffd","baadadcdeffffdeafa","bcedc","daffeacf","dccccffedfafecebc",
+         "eefcebccebbb","fefdfcddabfc","accdfabbdafacfdfbaba","bbf","ddfebafbbbbaedfacf",
+         "dcfeebcbaad","cfaffccaeebfbffaaac","eeaeddfecfafbecddbefc","efbdddfdfaaebefaef",
+         "ad","becbbcebf","eeefbbfccabcdd","fcebfdeecbbccffbfafc","caf","bcbfdebc",
+         "febab","abeeefebac","ecdbccacaeef","ccaecbaadaffc","aeccfecebdadbdfda",
+         "abaebbddfeccecdfeabc","beeaaefccdffafbf","eebdb","eff","cac","eda",
+         "bdabbafdaa","dccffceff","aecfdfdacaabdceacf","add","eecbbfeaaaadbd","aecfcbcddaba",
+         "ebfefceddcaec","cfdcdcaedffaadaab","fedf","dcdfdfcbfaadebeee","aaeab","fcfeecaceeecfb",
+         "cadbedeccfefefaabddc","bbceeebcaf","beecbdda","bcbabceefa","abca","cbafb","cbabefddfadd",
+         "dfffdaabdbfcffa","cfbe","efcebadeea","cddad","ceadfadfccf"]
+# 暴力方法： 时间超时
+def maxProduct(words):
+    max = 0
+    for i in words:
+        for j in words:
+            li = len(i)
+            lj = len(j)
+            ii = list(set(i))
+            jj = list(set(j))
+            total = len(set(ii + jj))
+            if lj * li > max and (total ==len(ii)+len(jj)):
+                max = li*lj
+    if max == 0:
+        return 0
+    else:
+        return max
+maxProduct(words) 
+
+# 优化算法1：把循环次数缩减了，每次从外循环位置开始循环，而不是从头开始，这会节约一半的运算量    
+def maxProduct(self, words):
+    """
+    :type words: List[str]
+    :rtype: int
+    """
+    max = 0
+    for i in range(len(words)):
+        for j in range(i, len(words)):
+            li = len(words[i])
+            lj = len(words[j])
+            ii = list(set(words[i]))
+            jj = list(set(words[j]))
+            total = len(set(ii + jj))
+            if lj * li > max and (total ==len(ii)+len(jj)):
+                max = li*lj
+    if max == 0:
+        return 0
+    else:
+        return max  
+
+# 优化算法2: 考虑
+        
 # %%  LC-729
 """实现一个Calendar类来存放日程，要包含一个book预订方法，输入[start,end)前闭后开
 如果日程不冲突，返回true,否则返回false, start和end的取值范围是实数[0,10^9]
