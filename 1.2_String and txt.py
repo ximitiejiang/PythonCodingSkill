@@ -11,7 +11,7 @@ Q: 一些特殊的转义字符
 '''
 '\n'  # 回车，光标在下一行（最常用）
 '\r'  # 换行，光标在上一行
-'\t'  # 8个空格
+'\t'  # tab符，也就是8个空格
 '\\'  # 一个反斜杠
 
 print('hello? \nMy friend!')
@@ -47,6 +47,8 @@ str1.rstrip('w')  # 去除结尾指定字符串
 lst = str.split()     # 默认按空格分隔
 str1 = 'a,b,c,d'
 str2 = str1.split(',')    # 按指定字符分割字符串为数组
+str3 = 'a  b  c'
+str4 = str3.split()  # 似乎tab的分割也是默认用空格即可
 
 # 判断字符串
 str = 'Everyday is a new day!'

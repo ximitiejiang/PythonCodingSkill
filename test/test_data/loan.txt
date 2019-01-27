@@ -1,0 +1,15 @@
+young	no	no	normal	reject
+young	no	no	good	reject
+young	yes	no	good	approve
+young	yes	yes	normal	approve
+young	no	no	normal	reject
+middle	no	no	normal	reject
+middle	no	no	good	reject
+middle	yes	yes	good	approve
+middle	no	yes	great	approve
+middle	no	yes	great	approve
+old	no	yes	great	approve
+old	no	yes	good	approve
+old	yes	no	good	approve
+old	yes	no	great	approve
+old	no	no	normal	reject
