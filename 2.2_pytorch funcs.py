@@ -153,9 +153,26 @@ t4 = t1.repeat(2,1).transpose(1,0)
 
 
 
-'''
+'''----------------------------------------------------------------------
 Q. 对tensor的求和？
 '''
+
+
+
+
+
+'''----------------------------------------------------------------------
+Q. 对tensor类型的定义？
+1. conv层只接受np.float32类型，如果不是会报错
+2. conv层只有3个位置参数是必须输入的：in/out/ker，其他都是关键字参数s/p/d/b用默认值也可以1/0/1/true
+'''
+# conv层的计算输入
+import torch
+import torch.nn as nn
+from numpy import random
+d1 = torch.tensor(random.uniform(-1.5,1.5, size=(8, 3, 300, 240)).astype(np.float32))  # 自定义数据需要转换成np.float32
+conv = nn.Conv2d(3, 64, 3, stride=1, padding=0, dilation=1, bias=True)  # 除了in/out/ker之外，剩下都是关键字参数可不写则用默认参数1/0/1/True
+out = conv(d1)
 
 
 '''------------------------------------------------------------------------
