@@ -252,17 +252,41 @@ plt.subplot(122), plt.imshow(img_s[...,[2,1,0]])
    用了batchnorm一般不用dropout了，这里如果batchnorm不适用，可考虑dropout???
 """
 from numpy import random
+# 很多cnn的经典模块：conv+bn+relu
 conv = nn.Conv2d(1, 32, 3, stride=1, padding=1)
-x = random.randn(100,100)*0.5 - 2  # 假设输入的是一个正态分布: 要从(0,1)变为(-2, 0.5)就是逆运算
-x = torch.tensor(x).unsqueeze(0).unsqueeze(0)   # 
-x = conv(x)                  # 经过卷积以后的分布会发生变化
-bn = nn.BatchNorm2d(32)           # 只需要设置一个输入通道数即可
+bn = nn.BatchNorm2d(32)            # 只需要设置一个输入通道数即可
+relu = nn.ReLU(inplace=True)
+# 用x.mean(), x.std()考察每一步的分布变化情况        
+x1 = random.randn(100,100)*0.5 - 2   # 基于标准正态分布创建一个正态分布: 要从(0,1)变为(-2, 0.5)就是逆运算
+x2 = torch.tensor(x1.astype(np.float32)).unsqueeze(0).unsqueeze(0)   # (h,w) to (1,1,h,w)
+x3 = conv(x2)                     # 经过卷积以后的分布会发生变化,从(-2,0.5)变成(-0.17,1.3)
+x4 = bn(x3)                       # 经过bn以后的分布会调整到(0,0.5)这个数据主要跟BN的初始化有关,但都是靠近分布(0,1)
+x5 = relu(x4)                     # bn之后的数据分布在(0,1)，相比于其他分布，这个分布？？？？
 
+from mmcv.cnn import constant_init
+constant_init(bn,1)
+x5 = bn(x3)                       # 用constant)init()后分布调整到(0,1)附近
 
 
 # %%        网络基础层
-"""全连接层
+"""全连接层的作用？
+0. nn.Linear(in_f, out_f, bias=True)
+1. 全连接层
 """
+x1 = random.uniform(-1,1, size=(512,7,7))  # (b,c,h,w)
+x2 = torch.tensor(x1.astype(np.float32))
+
+# 以下是VGG的classifier
+l1 = nn.Linear(512 * 7 * 7, 4096)
+r1 = nn.ReLU(True)
+d1 = nn.Dropout()
+l2 = nn.Linear(4096, 4096)
+r2 = nn.ReLU(True)
+d2 = nn.Dropout()
+l3 = nn.Linear(4096, 2)
+
+x3 = l1(x2)
+
 
 
 # %%        网络基础层
@@ -272,6 +296,8 @@ bn = nn.BatchNorm2d(32)           # 只需要设置一个输入通道数即可
    比如一个7x7卷积核的后一层单个节点对应前一层感受野大小就是7x7，而如果是3x3卷积核往后3层的节点也能在前3层得到同样7x7的感受野(节点-3x3-5x5-7x7)
 3. 虽然小卷积核与大卷积核都能得到相同感受野，但小卷积核有很多优势：
     > 小卷积核需要多层叠加形成大的感受野，多层能够
+4. 在同一层神经网络输出的多层特征图中：
+5. 在不同深度的不同特征图中：
 """
 
 
@@ -390,6 +416,9 @@ class CNN:
 
 # %%        网络训练
 """网络参数初始化的方法有哪些，如何选择初始化方法
+1. conv2d使用kaiming_init(model)
+2. Batchnorm使用constant_init(model, val)
+
 """
 
 

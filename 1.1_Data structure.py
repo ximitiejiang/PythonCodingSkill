@@ -163,7 +163,7 @@ d4 = OrderedDict([('m',1),('a',2),('c',3)])
 Q.在数据这一块，有多少类型，怎么转换?、
 1.如果不知道是什么结构，就用type(var)查看，号称万用的type()
 2. 如果知道是数据，就可以用arr.dtype / arr.astype() 这2兄弟查看加转换
-    >包括np.float64, np.int32, ...
+    >包括np.float64, np.int32, np.float32...
 '''
 d1 = np.array([1,2,3])   
 d1.dtype                    # dtype查看： 后置不带括号，list不适用
