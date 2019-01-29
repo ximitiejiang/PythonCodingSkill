@@ -256,7 +256,7 @@ plt.imshow(img)
 plt.subplot(122)
 plt.imshow(dst)
 
-"""尺寸缩放"""
+"""尺寸缩放：这个命令也很强大，是mmdetection里用来rescale和resize的底层命令"""
 img = cv2.imread('test/test_data/messi.jpg',0)
 h,w = img.shape[:2]
 res = cv2.resize(img, (2*w, 2*h), interpolation=cv2.INTER_CUBIC)  # 直接用tuple输入实际的w,h
@@ -265,11 +265,11 @@ plt.imshow(img)
 plt.subplot(122)
 plt.imshow(res)
 
-"""图片旋转： 这个旋转命令很强大，可以指定旋转中心，旋转角度，缩放比例""" 
+"""图片旋转： 这个旋转命令很强大，可以指定旋转中心，旋转角度，缩放比例, 也是mmdetection的rotate底层命令""" 
 img = cv2.imread('test/test_data/messi.jpg',0)
 rows, cols = img.shape
 M = cv2.getRotationMatrix2D((cols/2, rows/2), 45, 1) # 建立旋转矩阵：输入旋转中心，旋转角度，比例为1
-res = cv2.warpAffine(img, M, (cols, rows))       # 旋转/位置变换，所用函数一样，只是M不一样
+res = cv2.warpAffine(img, M, (cols, rows))           # 旋转/位置变换，所用函数一样，只是M不一样
 plt.subplot(121)
 plt.imshow(img)
 plt.subplot(122)

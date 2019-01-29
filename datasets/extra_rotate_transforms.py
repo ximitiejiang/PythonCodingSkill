@@ -8,6 +8,7 @@ Created on Wed Jan  9 22:21:59 2019
 import numbers
 from numpy import random
 from PIL import Image
+import cv2
 
 def imrotate(img,
              angle,

@@ -17,6 +17,45 @@ Created on Sun Jan 20 09:43:06 2019
 """
 
 # %%        概率论
+"""什么是先验概率，什么是后验概率？怎么相互转化计算
+1. 事件的定义：可按照抽取次数来定义事件：第i次抽取为第Ai次事件；也可按事件类型定义A事件，B事件。
+   通常Ai次时间相互不独立，而A,B,C..事件相互独立，也就是概率相互不影响。
+2. 后验概率：就是基于事件得到的概率，即条件概率即P(B|A)，在A发生的条件下，B发生的概率叫后验概率，因为B是在A事件之后发生的，所以B的概率就是后验概率
+   先验概率：就是不借助具体事件,而通过统计数据得到概率，比如P(A)，P(B)
+3. 区别P(AB)和P(B|A)：其中P(AB)是指A,B事件同时发生的概率，样本空间是整个S
+   而P(B|A)是指在A发生的基础上B发生的概率，此时样本空间从S变为A，所以P(B|A)=P(AB)/P(A)即AB同时发生的概率除以A的样本空间概率
+   所以条件概率的本质是样本空间变化。所以一般条件概率更大，因为相对样本空间变小了。
+   直白描述是：P(AB)是A发生同时B发生的概率，P(B|A)是已知A已经发生，求B发生的概率，此时A发生一般造成了对样本数量或样本空间的影响。
+4. 条件概率公式和乘法定理
+    P(B|A) = P(AB)/P(A)
+    P(AB) = P(A)P(B|A)
+    P(ABC) = P(A)P(B|A)P(C|AB)
+    P(ABCD) = P(A)P(B|A)P(C|AB)P(D|ABC)
+5. 全概率公式
+    P(A) = P(A|B1)P(B1) + P(A|B2)P(B2) + ...
+6. 贝叶斯公式
+    P(Bi|A) = P(A|Bi)P(Bi)/P(A)
+7. 独立事件下的简化公式
+    如果事件A,B独立，则P(AB) = P(A)P(B), P(B|A) = P(B)
+"""
+"""实例1：一等品1,2,3, 二等品4，拿取2次且不放回模式，求第一次一等品条件下，第二次一等品的概率"""
+# 区分P(AB)和P(B|A)：
+S = [(1,2),(1,3),(1,4),(2,1),(2,3),(2,4),(3,1),(3,2),(3,4),(4,1),(4,2),(4,3)]  # 样本空间，并假定事件A为第一次拿到一等品，事件B为第二次拿到一等品
+A = [(1,2),(1,3),(1,4),(2,1),(2,3),(2,4),(3,1),(3,2),(3,4)]                    # 事件A(第一次拿取到一等品)的样本空间
+AB = [(1,2),(1,3),(2,1),(2,3),(3,1),(3,2)]
+P(A) = A/S = 9/12 = 3/4
+P(AB) = AB/S = 6/12 = 1/2
+P(B|A) = P(AB)/P(A) = (1/2)/(3/4) = 2/3  # 用条件概率求解，也可以基于事件AB和事件A的次数求解，因为AB和A都是想对于同一样本空间S
+
+"""实例2：r个红球，t个白球，拿取4次且放回模式，每次还加放同色a个球，求第1,2次红球，3,4次白球的概率"""
+# 定义A1,A2,A3,A4为第i次抽取红球的事件，~A1,~A2,~A3,~A4为第i次抽取白球的事件, 用条件概率和乘法公式
+P(A1) = r/(r+t)
+P(A2) = (r+a)/(r+t+a)
+P(A1A2(～A3)(～A4)) = P(A1)P(A2|A1)P(~A3|A1A2)P(~A4|A1A2(~A3))
+                    = ???
+
+
+# %%        概率论
 """什么是随机变量？有哪几种随机变量，有什么用？
 1. 随机变量是
 2. 两种随机变量
@@ -125,37 +164,104 @@ output = conv(input)                                                            
 
 # %%        网络基础层
 """下采样和上采样的作用？通常如何实现？
-1. 下采样：是指缩小图像，也叫降采样(downsample/subsample)，主要目的是使图像尺寸缩小，
-    > 下采样之前一般用nn.MaxPooling(k_size, s=None, p=0, d=1, ceil_mode=False)来定义s=2来实现
-                 或用nn.
-                 下采样池化的Hout = (Hin - k_size + 2p -1)/s + 1
-    > 下采样现在一般用nn.Conv2d()定义s=2来实现
-2. 上采样：是指放大图像，也叫图像插值(umsample/interpolating)
-    > 上采样在
-    > 上采样还可用bilinear
-3. 下采样池化层，可以有maxpooling(), averagepooling()
-    > 池化层不含可学习参数，主要目的是仿照人类视觉系统，对输入进行降采样，做法就是
-      取局部最大值，或者局部平均值，这样做好处包括：
-      特征不变性(用最大值/平均值来代表特征，而不是具体位置的数据，一定程度使学习有一定的空间自由度)，
-      特征降维(下采样后尺寸减小，参数个数减少)，
-      一定程度防止过拟合(...)
+1. 下采样：是指缩小图像，也叫降采样(downsample/subsample)，主要目的是使图像尺寸缩小
+    目的是仿照人类视觉系统对图像进行降维和抽象操作。    
+    > 下采样之前一般用nn.MaxPool2d(k_size, s=None, p=0, d=1, ceil_mode=False)来定义s=2来实现, ceil模式是指计算输出形状的取整方式是上取整ceil还是下取整floor,默认是floor
+                 或用nn.AvgPool2d(k_size, s=None, p=0, ceil_mode=False)
+                 下采样池化的Hout = (Hin - k_size + 2p -1)/s + 1，公式对卷积与池化层是一样的
+                 下采样池化没有可学习参数，只有一些超参数，一般只设置k_size以及s=2, p=0来保证降采样，其他沿用(比如VGG)
+                 或者设置k_size以及s=2,p=1来保证降采样，其他沿用(比如Resnet)
+    > 下采样现在一般用nn.Conv2d(in_c, out_c, k_size, s=1, p=0, d=1, bias=True)定义s=2来实现
+                 下采样卷积的Hout = (Hin - k_size + 2p -1)/s + 1
+                 用卷积层做下采样有可学习参数，同时超参数设置k_size=1以及s=2, p=0/1都有，bias=False
+    > 用MaxPool2d/AvgPool2d做下采样的好处是：
+        特征不变性(用最大值/平均值来代表特征，而不是具体位置的数据，一定程度使学习有一定的空间自由度)，
+        特征降维(下采样后尺寸减小，参数个数减少)，
+        一定程度防止过拟合(...)
+    > 改用conv替代maxpool做下采样的好处是：
+        统一了CNN网络，全部用卷积网络，包括用conv替代pooling, 用conv替代fc (在resnet体现)
+2. 上采样：是指放大图像，也叫图像插值(umsample/interpolate)
+    > 上采样在pytorch中使用F.interpolate(input, size=None, scale_factor=None,mode='nearest'),
+      该函数可以同时支持上采样或下采样，可把input转换成size大小或者scale_factor大小之一.
+      mode只在上采样时可以选择'nearest','linear','bilinear','trilinear','area'
+    > pytorch中原来的upsample()函数已经废弃，被interpolate替代
+    > pytorch还有Upsample类定义的层：功能跟interpolat一样，不过只能做上采样不能做下采样
+      mode的选择上，nearest(所有)/linear(3D only)/bilinear(4D only)/trilinear(5D only)/area
+      3D是指向量(b,c,w), 4D是指图片(b,c,h,w)，5D是指点云(b,c,d,h,w)d为深度
+      
 """
 import torch
 import torch.nn as nn
+import numpy as np
 from numpy import random
-# 最大池化和平均池化
+import torch.nn.functional as F
+import cv2
+import matplotlib.pyplot as plt
 
+# 最大池化和平均池化做下采样
 random.seed(3)
 data = random.uniform(1,50, size=(3,5,5)).astype(np.float32)
 input = torch.tensor(data)  # (c,h,w)=3,5,5
-mpool = nn.MaxPool2d(2)
-apool = nn.avgPool2d(2)
-output1 = mpool(input)   # 最大池化
-output2 = apool(input)   # 平均池化
+mpool = nn.MaxPool2d(2,stride=2,padding=1)  # 默认参数s=None，应该要用s=1or2, p=1or0
+apool = nn.AvgPool2d(2,stride=2,padding=1)  # 输出尺寸计算：h = (5-2+2)/2 + 1 = 3
+out1 = mpool(input)   # 最大池化,从(3,5,5)到(3,3,3)
+out2 = apool(input)   # 平均池化,从(3,5,5)到(3,3,3)
+
+# 用卷积层做下采样
+random.seed(3)
+data = random.uniform(1,50, size=(2,3,5,5)).astype(np.float32)
+input = torch.tensor(data)  # (b,c,h,w)=3,5,5
+conv_d = nn.Conv2d(3, 6, 1, stride=2, padding=0, bias=False)   # 输出尺寸计算：当p=0时h = (5-1)/2 + 1 = 3， 当p=1时h=(5-1+2)/2 +1=4
+out3 = conv_d(input)   # (2,3,5,5) -> (2,6,3,3)  
+
+
+# 用interpolate()进行上采样: 注意需要输入(b,c,h,w)才能正常进行上下采样，对w,h同时缩放，如果没有b的一维输入会不正常
+random.seed(3)
+data = random.uniform(1,50, size=(2,3,5,5)).astype(np.float32)
+input = torch.tensor(data)  # (b,c,h,w)=2,3,5,5
+out4 = F.interpolate(input, scale_factor=2, mode='nearest') # (2,3,5,5) to (2,3,10,10)
+
+
+from datasets.transforms import imresize
+img = cv2.imread('test/test_data/messi.jpg')
+img1 = imresize(img,(300,300))    # 图像先resize到300x300
+img2 = torch.tensor(img1.astype(np.float)).permute(2,0,1).unsqueeze(0)  # h,w,c to b,c,h,w
+out5 = F.interpolate(img2, scale_factor=2, mode='nearest')  # 从(1,3,300,300) -> (1,3,600,600)。。
+img_s = out5.squeeze(0).permute(1,2,0).numpy().astype(np.uint8)
+plt.subplot(121), plt.imshow(img1[...,[2,1,0]])    # 
+plt.subplot(122), plt.imshow(img_s[...,[2,1,0]])   
+
 
 
 # %%        网络基础层
-"""BatchNorm2d
+"""BatchNorm层是什么，有什么功能，如何使用？
+参考一个比较直观的好的理解：https://www.cnblogs.com/guoyaohua/p/8724433.html
+0. nn.BatchNorm2d(n_features, eps=1e05, momentum=0.1)
+1. batchnorm也叫批归一化操作，简称BN，是google在2015年提出来的。操作方式类似于对整个数据集进行归一化的操作过程
+    先对一个batch的数据计算其均值和方差，然后对batch数据进行规范化(x-mean)/std，最后加入2个可学习参数gamma/beta来计算输出x=gama*x + beta
+2. 做BN的原因是数据在神经网络传递过程中，每一层的分布情况会发生变化，叫做internal covariate shift，这种分布变化导致
+3. 公式的理解：对一个batch进行归一化比较好理解，就是让数据的分布先统一成标准正态分布N(0-1)，这样尽可能的减少因为数据分布差异导致的梯度消失或者梯度爆炸
+   然后加入可学习参数gamma/beta相当于是逆归一化，这一步是避免数据真的都变成标准正态分布后神经网络无法学习到东西的情况，就由神经网络自己学习来决定每个batch的分布。
+   比如当gamma/beta正好等于图片mean/std则相当于还原到原来x，BN没起作用，采用的就是数据本来的分布，如果gamma/beta学到=0,就相当于数据为标准正态分布，
+   整个过程就保证了每个batch的数据分布情况尽可能一致(不会变化过大导致梯度消失/爆炸)，但又保证了数据分布的多样性(神经网络有东西可以学习)
+4. 由于batchnorm层有2个参数gamma/beta，所以需要初始化，默认初始化策略是gamma从U(0,1)取，beta设为0
+   不过mmdetection的初始化策略是constant_init(model, 1)，也就是统一设置为1
+5. 批归一化和数据集归一化的区别：
+6. batchnorm的局限性：当前的理论并没有很好的解释为什么batchnorm是有效的。
+   同时batchnorm的让数据之间的差异变小了(因为分布被限制在了(0,1)附近)，在超分辨率的应用领域不适合，韩国人超分辨率模型就不用batchnorm
+   用了batchnorm一般不用dropout了，这里如果batchnorm不适用，可考虑dropout???
+"""
+from numpy import random
+conv = nn.Conv2d(1, 32, 3, stride=1, padding=1)
+x = random.randn(100,100)*0.5 - 2  # 假设输入的是一个正态分布: 要从(0,1)变为(-2, 0.5)就是逆运算
+x = torch.tensor(x).unsqueeze(0).unsqueeze(0)   # 
+x = conv(x)                  # 经过卷积以后的分布会发生变化
+bn = nn.BatchNorm2d(32)           # 只需要设置一个输入通道数即可
+
+
+
+# %%        网络基础层
+"""全连接层
 """
 
 
@@ -169,9 +275,6 @@ output2 = apool(input)   # 平均池化
 """
 
 
-# %%        网络基础层
-"""
-"""
 
 
 
