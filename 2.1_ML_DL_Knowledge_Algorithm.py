@@ -86,7 +86,8 @@ P(A1A2(～A3)(～A4)) = P(A1)P(A2|A1)P(~A3|A1A2)P(~A4|A1A2(~A3))
 7. 神经网络的卷积操作，就是用来卷积参数来学习图像特征。
     > conv = nn.Conv2d(in_c, out_c, k_size, stride=1, padding=0, dilation=1, bias=True)，这是默认参数的值
     > 输出层数：in_c自由定义
-    > 输出尺寸：out_c计算得到，Hout = (Hin - k_size + 2p -1)/s + 1
+    > 输出尺寸：out_c计算得到，pytorch原始公式是Hout = (Hin - d*(k_size - 1) + 2p -1)/s + 1 
+                                                   = (Hin - k_size + 2p)/s + 1  (这个等效是基于dilation=1得到的)
     > 卷积参数：默认是s=1,p=0但这样会导致图像尺寸缩小，所以通常用s=1,p=1这样能保证图像尺寸不变
     > dilation/bias当前一般用默认参数, 也就相当那个与d=1,b=1（dilation负责卷积的时候扩大范围，bias负责是否增加偏置参数）
 """
@@ -121,7 +122,9 @@ conv_moving = (1/5)*np.array([[1,0,0,0,0],          #这个是运动模糊滤波
                              [0,0,0,0,1]])
 conv_big_moving = (1/10)*np.eye(10)
 
-# 卷积核的基本运算逻辑：对应位置相乘后累加
+# 卷积核的基本运算逻辑：
+# 单层卷积核过程简单就是对应位置相乘后累加，
+# 多层卷积核过程：？？？
 data1 = np.eye(5,5)
 conv = np.array([[-1,-1,-1],          
                  [-1, 10,-1],          
@@ -129,6 +132,8 @@ conv = np.array([[-1,-1,-1],
 res1 = cv2.filter2D(data1, -1, conv_sharp)  # 在filter2D()函数中默认是添加padding(0)保证输出与输入的尺寸一样
                                             # 手算第一个数：10*1+(-1)=9 但函数算出来第一个数是6，不过中间的数算出来是对的。
                                             # 似乎filter2D函数的padding策略不同，导致边沿的数算出来不太一样。
+data2 = []
+
 # 卷积核用在真实图片的效果：可以看到卷积核能够对图像进行过滤
 res2 = cv2.filter2D(img, -1, conv_edge_x)
 res3 = cv2.filter2D(img, -1, conv_edge_y)
@@ -167,12 +172,11 @@ output = conv(input)                                                            
 1. 下采样：是指缩小图像，也叫降采样(downsample/subsample)，主要目的是使图像尺寸缩小
     目的是仿照人类视觉系统对图像进行降维和抽象操作。    
     > 下采样之前一般用nn.MaxPool2d(k_size, s=None, p=0, d=1, ceil_mode=False)来定义s=2来实现, ceil模式是指计算输出形状的取整方式是上取整ceil还是下取整floor,默认是floor
-                 或用nn.AvgPool2d(k_size, s=None, p=0, ceil_mode=False)
                  下采样池化的Hout = (Hin - k_size + 2p -1)/s + 1，公式对卷积与池化层是一样的
                  下采样池化没有可学习参数，只有一些超参数，一般只设置k_size以及s=2, p=0来保证降采样，其他沿用(比如VGG)
                  或者设置k_size以及s=2,p=1来保证降采样，其他沿用(比如Resnet)
     > 下采样现在一般用nn.Conv2d(in_c, out_c, k_size, s=1, p=0, d=1, bias=True)定义s=2来实现
-                 下采样卷积的Hout = (Hin - k_size + 2p -1)/s + 1
+                 下采样卷积的Hout = (Hin - k_size + 2p)/s + 1 (该公式等卷积公式一样，都是基于dilation=1等效出来的)
                  用卷积层做下采样有可学习参数，同时超参数设置k_size=1以及s=2, p=0/1都有，bias=False
     > 用MaxPool2d/AvgPool2d做下采样的好处是：
         特征不变性(用最大值/平均值来代表特征，而不是具体位置的数据，一定程度使学习有一定的空间自由度)，
@@ -246,7 +250,7 @@ plt.subplot(122), plt.imshow(img_s[...,[2,1,0]])
    整个过程就保证了每个batch的数据分布情况尽可能一致(不会变化过大导致梯度消失/爆炸)，但又保证了数据分布的多样性(神经网络有东西可以学习)
 4. 由于batchnorm层有2个参数gamma/beta，所以需要初始化，默认初始化策略是gamma从U(0,1)取，beta设为0
    不过mmdetection的初始化策略是constant_init(model, 1)，也就是统一设置为1
-5. 批归一化和数据集归一化的区别：
+5. 批归一化和数据集归一化的区别：？
 6. batchnorm的局限性：当前的理论并没有很好的解释为什么batchnorm是有效的。
    同时batchnorm的让数据之间的差异变小了(因为分布被限制在了(0,1)附近)，在超分辨率的应用领域不适合，韩国人超分辨率模型就不用batchnorm
    用了batchnorm一般不用dropout了，这里如果batchnorm不适用，可考虑dropout???
@@ -270,13 +274,40 @@ x5 = bn(x3)                       # 用constant)init()后分布调整到(0,1)附
 
 # %%        网络基础层
 """全连接层的作用？
+参考：https://blog.csdn.net/m0_37407756/article/details/80904580
 0. nn.Linear(in_f, out_f, bias=True)
-1. 全连接层
-"""
-x1 = random.uniform(-1,1, size=(512,7,7))  # (b,c,h,w)
-x2 = torch.tensor(x1.astype(np.float32))
+1. 全连接层叫fully connected layers也就是
+   他的作用就是把带位置的卷积特征转化为了不带位置的分类特征。
+   比如一只猫在卷积特征的左上角，另一只猫在卷积特征的右下角，通过在卷积层的位置以及卷积参数可以得到分类和位置信息。
+   但转化成全连接层后，数据被串联起来并整合，这样位置信息就丢掉了，而分类信息的特征被整合成一组数，每个数值代表一个分类的概率。
+   因此全连接层不适合用来做object detection或者segmentation，只适合做分类。
+2. 全连接层的缺点：一方面是参数冗余，大约80%的网络参数是由全连接层产生的，另一方面是丢弃了位置信息，只保留了分类信息，不能做检测和分图
+3. 全连接计算过程：
+    先用view()或reshape()把特征图数据拉直成(b, c*h*w), 其中c*h*w就想当于全连接层神经元个数
+    然后通过Linear()变换特征数据的长度，也就是变换神经元个数，经过n轮全连接层后，
+    把神经元个数变换为分类数，从而每个神经元代表一个分类的概率值。
+    (此时由于是多分类概率值，损失函数需要选择？？？)
+    核心理解：全连接层 
+4. 用AvgPool代替全连接层：
+    nn.AvgPool2d(k_size, s=None, p=0, ceil_mode=False)
+    平均池化的操作方式：
+5. 用大卷积替代跟卷积相连的全连接层，用1x1小卷积替代跟fc相连的全连接层：
+    此时，把大卷积看成把hxw的尺寸缩减到1x1，然后用小卷积1x1进一步调整层数(对应)
+    务必把全连接操作理解成2类卷积操作。
+    nn.Conv2d()
 
-# 以下是VGG的classifier
+"""
+# 对一个224x224x3的input,经过VGG转换为7x7x512的特征图后，如何经过全连接？
+
+import numpy as np
+from numpy import random
+import torch.nn as nn
+import torch
+
+"""案例2：实现VGG的全连接层"""
+x1 = random.uniform(-1,1, size=(512,7,7))  
+x2 = torch.tensor(x1.astype(np.float32)).unsqueeze(0)  # 特征图尺寸为(b,c,h,w)
+# 以下是VGG的classifier，用全连接层来实现的
 l1 = nn.Linear(512 * 7 * 7, 4096)
 r1 = nn.ReLU(True)
 d1 = nn.Dropout()
@@ -284,8 +315,32 @@ l2 = nn.Linear(4096, 4096)
 r2 = nn.ReLU(True)
 d2 = nn.Dropout()
 l3 = nn.Linear(4096, 2)
+# 全连接计算：
+x3 = x2.view(x2.size(0), x2.size(1)*x2.size(2)*x2.size(3)) # 先把特征拉直成一列神经元(b, c*h*w)
+x4 = l1(x3)           # 从(1,25088) -> (1,4096)
+x5 = l2(d1(r1(x4)))   # (1,4096) -> (1,4096)
+x6 = l3(d2(r2(x5)))   # (1,4096) -> (1,2)
 
-x3 = l1(x2)
+"""用大的平均池化层代替全连接层：resnet的实现方式 (1x512x7x7) to (1,2)
+相比于VGG的全连接的变换，这里省略了2个全连接层，且AvgPool是无参的，参数可以减少很多，模型尺寸减小但精度不会下降"""
+avg1 = nn.AvgPool2d(7, stride=1)  # 池化核为7x7
+fc1 = nn.Linear(512, 20)
+
+x7 = avg1(x2)                     # 用平均池化拉直特征，从(1,512,7,7) to (1,512,1,1)
+x8 = x7.view(x7.size(0),-1)       # 去除多余维度，(1,512,1,1) to (1, 512)
+x9 = fc1(x8)                      # 变换到分类概率，转换为(1,20)
+
+"""用大卷积+小卷积层替代全连接层的方法：确保p=0的设置
+方法：用大卷积替代跟卷积相连的全连接层，用1x1小卷积替代跟fc相连的全连接层
+这种方式来自魏秀参的知乎https://www.zhihu.com/question/41037974/answer/150585634"""
+c1 = nn.Conv2d(512, 4096, 7, stride=1, padding=0)  # h=(7-7+2*0)/1 + 1 = 1, 注意p=0才能保证输出尺寸=1 
+c2 = nn.Conv2d(4096,2048, 1, stride=1, padding=0)
+c3 = nn.Conv2d(2048,20, 1, stride=1, padding=0)
+x10 = c1(x2)               # 用大卷积得到(1,4096,1,1)
+x11 = c2(x10)              # 用小卷积缩小进一步提炼缩小特征
+x12 = c3(x11)              # 用小卷积缩小进一步提炼缩小特征到分类数
+x13 = x12.reshape(1,-1)     # 去除维度为1的部分，得到(b,c)即等效为fc的输出了
+
 
 
 
