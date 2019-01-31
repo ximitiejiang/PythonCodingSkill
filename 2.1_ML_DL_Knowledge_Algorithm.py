@@ -388,6 +388,32 @@ x13 = x12.reshape(1,-1)     # 去除维度为1的部分，得到(b,c)即等效�
 # 如果没有激活函数，无论多少层都只是线性变换
 
 
+# %%        损失函数
+"""损失函数的定义是什么？为什么要有损失函数？
+1. 损失函数：是指所有样本的预测值与标签值之间的偏差函数。这种偏差通常采用不同的方式评估
+   比如通过欧式距离最小来评估，比如通过交叉熵最小来评估
+   损失函数是关于一组参数(w1..wn)的函数，为了预测最精确就是让损失函数最小，所以通过求解损失函数的最小值来得到这组参数。
+2. 逻辑回归的过程：一组数据(x1,..xn)经过线性映射到h(w) =w1x1+w2x2..+wnxn, 再经过非线性映射g(theta)=sigmoid(h)
+   这样就建立(x1..xn) -> h(w1..wn) --> g(theta) 的映射，我们认为g就是预测值，损失函数采用欧式距离评估
+   因此通过找到损失函数最小值，来得到最小值时的参数(w1..wn)
+3. 如何选择损失函数：
+    >
+"""
+# 尝试简单计算下各个损失函数
+import torch
+import torch.nn.functional as F
+import numpy as np
+preds = torch.tensor(np.array([[1,1], [1,1]],dtype=np.float32), requires_grad=True)
+labels = torch.tensor(np.array([[0,1], [2,3]],dtype=np.float32))
+
+"""nn.MSELoss/nn.functional.mse_loss: mean squared erro均方误差损失
+F.mse_loss(input, target, reduction='mean'),只需控制reduction, 另两个参数size_average/reduce已废弃
+默认的loss输出是规约以后的输出平均值mean，可以选择reduction='none','batchmean','sum','mean'这4种"""
+loss1 = F.mse_loss(preds, labels, reduction='none')      # 计算损失：基于预测值和标签值
+loss1.backward()                       # 计算梯度：基于损失
+
+
+# 损失函数之2：交叉熵
 
 
 # %%        损失函数
@@ -438,26 +464,10 @@ def test():
     print('total entropy: {:.6f}'.format(e0))
 
 
-# %%        损失函数
-"""损失函数的定义是什么？为什么要有损失函数？
-1. 损失函数：是指所有样本的预测值与标签值之间的偏差函数。这种偏差通常采用不同的方式评估
-   比如通过欧式距离最小来评估，比如通过交叉熵最小来评估
-   损失函数是关于一组参数(w1..wn)的函数，为了预测最精确就是让损失函数最小，所以通过求解损失函数的最小值来得到这组参数。
-2. 逻辑回归的过程：一组数据(x1,..xn)经过线性映射到h(w) =w1x1+w2x2..+wnxn, 再经过非线性映射g(theta)=sigmoid(h)
-   这样就建立(x1..xn) -> h(w1..wn) --> g(theta) 的映射，我们认为g就是预测值，损失函数采用欧式距离评估
-   因此通过找到损失函数最小值，来得到最小值时的参数(w1..wn)
-3. 如何选择损失函数：
-    >
-"""
-# 损失函数之1：欧式距离MSE
+# %%        优化器
+"""优化器用来做什么，如何定义合适的优化器"""
 
 
-# 损失函数之2：交叉熵
-
-
-# %%        正则化
-"""解释l0/l1/l2正则化，以及如何在深度学习网络中使用？
-"""
 
 
 
@@ -470,13 +480,53 @@ def test():
 
 # %%        反向传播与梯度下降
 """CNN的算法原理, BP相关理论的python如何实现?
+参考：http://jermmy.xyz/2017/12/16/2017-12-16-cnn-back-propagation/  (这个是从全连接BP谈起，到卷积BP)
+参考：https://www.zhihu.com/question/27239198?rf=24827633
+核心要区别开来反向传播算法(BP/backpropagation)和复合函数求导算法
+1. 反向传播的核心是：先根据预测和标签计算出来loss，然后基于loss反向传播计算梯度
+   理论上可以计算出输出loss对每一个参数w的梯度，但这样会有很大的冗余计算，因为每一个梯度计算
+   都是从每个参数w的叶子节点跑到输出点，中间肯定很多重复计算的中间节点。所以反向传播
+   算法跟常规复合函数求导的差别在于，他是从输出点逐步把计算往回算，这样任何一个针对w的
+   梯度都只需要前一层的数据就能算出来，也就不存在重复计算了。
+2. 第一步：最后一层的loss计算
+3. 第二步：往回一层的参数w
+4. 再往回一步：
+5. 一直往回直到起点...
 """
-class CNN:
-    def __init__(self):
-        pass
+# 定义一个只有一层隐含层的网络: 先手算一遍，再python复现一遍
+import numpy as np
+from math import exp
+inputs = np.array([[0.35],[0.9]])
+labels = np.array([0.5])
+w0 = np.array([[0.1,0.8],[0.4,0.6]])
+w1 = np.array([0.3,0.9])
 
+def sigmoid(x):
+    """x is ndarray, returns ndarray"""
+    return 1/(1+np.exp(-x))
 
+def derive_sigmoid(x):
+    return sigmoid(x)*(1-sigmoid(x))
 
+def mse_loss(inputs, labels):
+    return 0.5*(inputs-labels)**2
+
+epoch=10
+for k in range(epoch):
+    x11 = np.dot(w0, inputs)        # 前向传播：第一层w0*x
+    x12 = sigmoid(x11)              # 前向传播：第一层激活函数f(w0*x)
+    delta12 = derive_sigmoid(x11)
+    x21 = np.dot(w1, x12)           # 前向传播：第二层w1*x
+    x22 = sigmoid(x21)              # 前向传播：第二层激活函数f(w1*x)
+    delta22 = derive_sigmoid(x21)
+    loss = mse_loss(x22,labels)     # 计算损失函数，输出损失值
+    delta = (x22 - inputs)*delta22*x12
+    
+    w1 -=                   # 反向传播：更新参数为
+
+# %%        正则化
+"""解释l0/l1/l2正则化，以及如何在深度学习网络中使用？
+"""
 
 
 
