@@ -9,11 +9,12 @@ Created on Sun Jan 20 09:43:06 2019
     1. 概率论
     2. 传统机器学习
     3. 网络基础层
-    4. 损失函数
-    5. 正则化
-    6. 激活函数
-    7. 反向传播与梯度下降
-    8. 网络训练
+    4. 激活函数
+    5. 损失函数
+    6. 反向传播
+    7. 梯度下降与优化器
+    8. 正则化
+    9. 网络训练
 """
 
 # %%        概率论
@@ -385,8 +386,27 @@ x13 = x12.reshape(1,-1)     # 去除维度为1的部分，得到(b,c)即等效�
     >
 2. 
 """
+# 常见激活函数曲线
+import numpy as np
+import torch
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+
 # 如果没有激活函数，无论多少层都只是线性变换
 
+# 常见激活函数
+x = np.arange(-5 ,5, 0.1, dtype=np.float32)
+x_t = torch.tensor(x)
+
+y_sigmoid = F.sigmoid(x_t).numpy()
+y_relu = F.relu(x_t).numpy()
+y_tanh = F.tanh(x_t).numpy()
+
+plt.subplot(231), plt.plot(x, y_sigmoid), plt.title('sigmoid')
+plt.subplot(232), plt.plot(x, y_relu), plt.title('relu')
+plt.subplot(233), plt.plot(x, y_tanh), plt.title('tanh')
+
+# relu的优点，sigmoid的缺点
 
 # %%        损失函数
 """损失函数的定义是什么？为什么要有损失函数？
@@ -464,38 +484,40 @@ def test():
     print('total entropy: {:.6f}'.format(e0))
 
 
-# %%        优化器
-"""优化器用来做什么，如何定义合适的优化器"""
 
-
-
-
-
-
-
-# %%        反向传播与梯度下降
-"""凸函数概念，求极值方法，为什么用梯度下降而不是牛顿法？
-"""
-
-
-# %%        反向传播与梯度下降
+# %%        反向传播
 """CNN的算法原理, BP相关理论的python如何实现?
+参考：http://jermmy.xyz/2017/06/25/2017-6-25-reading-notes-neuralnetworksanddeeplearning-2/
 参考：http://jermmy.xyz/2017/12/16/2017-12-16-cnn-back-propagation/  (这个是从全连接BP谈起，到卷积BP)
-参考：https://www.zhihu.com/question/27239198?rf=24827633
+参考：http://www.cnblogs.com/pinard/p/6494810.html (刘建平博士的完整推导)
+参考：https://www.zhihu.com/question/27239198?rf=24827633 (有各种对反向传播的理解方式，但我最欣赏Jermmy的博客介绍)
+参考：https://blog.csdn.net/g11d111/article/details/83021651 (介绍pytorch如何源码实现的，很难理解)
 核心要区别开来反向传播算法(BP/backpropagation)和复合函数求导算法
 1. 反向传播的核心是：先根据预测和标签计算出来loss，然后基于loss反向传播计算梯度
    理论上可以计算出输出loss对每一个参数w的梯度，但这样会有很大的冗余计算，因为每一个梯度计算
    都是从每个参数w的叶子节点跑到输出点，中间肯定很多重复计算的中间节点。所以反向传播
    算法跟常规复合函数求导的差别在于，他是从输出点逐步把计算往回算，这样任何一个针对w的
    梯度都只需要前一层的数据就能算出来，也就不存在重复计算了。
-2. 第一步：最后一层的loss计算
-3. 第二步：往回一层的参数w
-4. 再往回一步：
-5. 一直往回直到起点...
+2. 推导过程：
+    最简单的单线网络的反向传播
+    次简单的并线网络的反向传播
+    卷积网络的反向传播
+3. 具体计算步骤：
+    step1: 前向传播，outputs = forward(inputs),逐层计算输出outputs
+    step2: 计算损失，loss = criterion(outputs, labels)
+    step3: 反向传播，loss.backward(), 其中loss为tensor, 根据BP反向传播算法，
+           基于损失值先计算每个神经元(特征图上像素点)的残差，然后计算损失对每个参数的梯度
+           查看方式：parameters.grad???
+    step4：参数更新，optimizer.step(), 基于梯度更新每个参数值
+           梯度清零，optimizer.zero_grad(), 在参数更新后梯度就可以清零了，该步也可以放在每个iter的最开始
+           查看方式：parameters
 """
-# 定义一个只有一层隐含层的网络: 先手算一遍，再python复现一遍
+""" 实例1，实现一个最简单只有一层隐含层的网络，脱离pytorch/tensor，完全python实现底层
+    实现简单的前向传播，损失函数，反向传播
+    实验基本的多轮训练，学习率改变"""
 import numpy as np
 from math import exp
+import matplotlib.pyplot as plt
 inputs = np.array([[0.35],[0.9]])
 labels = np.array([0.5])
 w0 = np.array([[0.1,0.8],[0.4,0.6]])
@@ -511,18 +533,121 @@ def derive_sigmoid(x):
 def mse_loss(inputs, labels):
     return 0.5*(inputs-labels)**2
 
-epoch=10
+epoch=5000
+# 增加对学习率的设置
+lr = 0.01
+ep = []
+lo = []          
 for k in range(epoch):
-    x11 = np.dot(w0, inputs)        # 前向传播：第一层w0*x
-    x12 = sigmoid(x11)              # 前向传播：第一层激活函数f(w0*x)
-    delta12 = derive_sigmoid(x11)
-    x21 = np.dot(w1, x12)           # 前向传播：第二层w1*x
-    x22 = sigmoid(x21)              # 前向传播：第二层激活函数f(w1*x)
-    delta22 = derive_sigmoid(x21)
-    loss = mse_loss(x22,labels)     # 计算损失函数，输出损失值
-    delta = (x22 - inputs)*delta22*x12
+    # 前向传播
+    z1 = np.dot(w0, inputs)        # 前向传播：第一层w0*x
+    a1 = sigmoid(z1)               # 前向传播：第一层激活函数f(w0*x)
+    z2 = np.dot(w1, a1)            # 前向传播：第二层w1*x
+    a2 = sigmoid(z2)               # 前向传播：第二层激活函数f(w1*x)
+    # 反向传播
+    loss = mse_loss(a2,labels)     # 计算损失函数，输出损失值
+    if k%10==0:
+        print('epoch: %d, loss: %.6f, predict value: %.4f'%(k,loss, a2))
+        ep.append(k)
+        lo.append(loss)
+    delta2 = 1 * derive_sigmoid(z2)          # 反向传播：求解delta作为残差反向传播
+    delta1 = delta2 * w1 * derive_sigmoid(z1) 
+    dw0 = delta1 * inputs                    # 反向传播：求每个参数的梯度
+    dw1 = delta2 * a1                        
+    dw1 = dw1.flatten()
+    # 优化器更新参数
+    w0 -= dw0*lr                             # 参数更新与优化：更新每个参数
+    w1 -= dw1*lr
+    # 为了顺利训练，进一步设置可变学习率
+    if k > 200:
+        lr = 0.001
+    if k > 2000:
+        lr = 0.0001
+plt.plot(ep, lo)  # 打印损失曲线
+
+"""实例2: 活用反向传播，计算函数极值"""
+# 计算函数极值y = x^2 + 2x + 1: 函数为f(x), x为参数， 类似于loss为w1..wn的函数所以对loss求导
+epoch = 10
+# 初始化参数
+x = np.array([0],dtype=np.float32)
+x = torch.tensor(x,requires_grad=True)
+lr = 0.01
+for i in range(epoch):
+    y = x**2 + 2*x +1
+    y.backward()          # 反向传播：计算误差，反向传播，更新梯度
+    x -= x.grad.data*lr   # 梯度下降更新参数
+    x.grad.data.zero_()   # 梯度清零
+    print('current min y=%f.2, x=%f.2'%(y,x))
+
+
+"""实例3: 活用反向传播，计算"""
+# 
+from numpy import random
+import matplotlib.pyplot as plt
+def mse_loss(inputs, labels):
+    """定义损失函数mse"""
+    return 0.5*(inputs-labels)**2
     
-    w1 -=                   # 反向传播：更新参数为
+n = 100
+x = random.rand(n)
+y = 3*x + 1 + random.rand(n)/3  # 目标拟合y = 3x + 1，先加入一点噪声
+x = torch.tensor(x, requires_grad=True)
+y = torch.tensor(y)
+plt.scatter(x,y)
+
+k = 1  # 初始化参数
+b = 0
+eposh = 10
+lr = 0.3
+for i in range(epoch):
+    
+    loss = mse_loss(k*x+b, y)
+    # 反向传播：计算误差，计算梯度
+    loss.backward()   
+    # 梯度下降：更新参数，采用简单的SGD算法w = w - grad*lr
+    # 这里没有采用pytorch自带的优化器，所以优化所做的工作需要手动完成：提取梯度，更新参数，梯度清0
+    k.data -= k.grad.data * lr
+    b.data -= b.grad.data * lr
+    k.grad.data.zero_grad()
+    b.grad.data.zero_grad()
+
+
+# %%        梯度下降与优化器
+"""梯度下降做了什么？优化器用来做什么，如何定义合适的优化器
+0. 梯度下降算法是整个CNN能够训练并得到最优模型的核心原因，他是指：
+   在每个batch计算出梯度以后，按照不同的优化算法，让参数能够沿着梯度下降的方向更新值，
+   只要参数是沿着梯度下降的方向(w -= 梯度)进行更新，也就是-dloss/dw方向，就能够保证loss是最快减小的方向
+   也就能保证loss最终达到最小值。
+   可以通过等高线来理解：假定只有w1,w2两个参数的loss,则w1,w2在平面上形成一个对loss的等高线
+   垂直于等高线方向的就是梯度方向，只要沿着垂直等高线方向走，总是最终能够并且最快到达等高线中心点，
+   也就是loss的最小值点上。
+1. 优化器用来进行参数更新：基于参数，基于参数的梯度，基于不同的更新算法
+2. 常用优化器的类型，区别：
+"""
+from torch.optim imprt SGD
+optimizer = SGD()
+
+# 优化器的基本使用逻辑：针对每个iter的mini_batch，计算一次梯度，更新一次参数
+# 优化器初始化：传入模型参数列表即可，以及一些优化的超参数，特别是初始学习率这个核心参数
+for data,label in dataset:
+    optimizer.zero_grad()       # 每个iter的mini_batch作为独立部分，单独计算损失和梯度，用于更新参数
+    output = model(data)        # 前向传播算法：计算输出
+    loss = F.mse(output, label) # 损失函数：计算损失
+    loss.backward()             # 反向传播算法：计算误差，误差反向传播，每个参数的梯度更新
+    optimizer.step()            # 优化器算法：更新每个参数(基于参数列表，其梯度可从参数属性直接获取)
+
+# 优化器的类型：
+#   Adam(params, lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
+#   SGD(params, lr=<required parameter>, momentum=0, dampening=0, weight_decay=0)
+
+
+
+# %%        梯度下降与优化器
+"""凸函数概念，求极值方法，为什么用梯度下降而不是牛顿法?
+"""
+
+
+
 
 # %%        正则化
 """解释l0/l1/l2正则化，以及如何在深度学习网络中使用？
