@@ -6,6 +6,10 @@ Created on Sun Jan 20 09:43:06 2019
 @author: ubuntu
 
 这部分主要用来从基本概念角度，通过实际代码实践，深刻理解代码
+深度学习本质：是loss函数的求极值和求对应参数的问题，利用的是BP算法完成
+所以1求loss(先要得到outputs和labels)，2求梯度，3求参数
+这其中主要按深度学习计算过程分四步：1.前向传播(output) -> 2.损失计算(loss) -> 3.反向传播(grad) -> 4.参数更新/梯度清零(w)
+以下是具体的几个模块分类：
     1. 概率论
     2. 传统机器学习
     3. 网络基础层
@@ -359,6 +363,8 @@ x11 = c2(x10)              # 用小卷积缩小进一步提炼缩小特征
 x12 = c3(x11)              # 用小卷积缩小进一步提炼缩小特征到分类数
 x13 = x12.reshape(1,-1)     # 去除维度为1的部分，得到(b,c)即等效为fc的输出了
 
+# %%        网络基础层
+"""Dropout层的作用是什么，在哪些地方使用"""
 
 
 
@@ -410,28 +416,41 @@ plt.subplot(233), plt.plot(x, y_tanh), plt.title('tanh')
 
 # %%        损失函数
 """损失函数的定义是什么？为什么要有损失函数？
-1. 损失函数：是指所有样本的预测值与标签值之间的偏差函数。这种偏差通常采用不同的方式评估
+1. 损失函数：损失函数本质上就是求极值函数，也就是反向传播算法的目标函数。
+   是指所有样本的预测值与标签值之间的偏差函数。这种偏差通常采用不同的方式评估。
    比如通过欧式距离最小来评估，比如通过交叉熵最小来评估
    损失函数是关于一组参数(w1..wn)的函数，为了预测最精确就是让损失函数最小，所以通过求解损失函数的最小值来得到这组参数。
 2. 逻辑回归的过程：一组数据(x1,..xn)经过线性映射到h(w) =w1x1+w2x2..+wnxn, 再经过非线性映射g(theta)=sigmoid(h)
    这样就建立(x1..xn) -> h(w1..wn) --> g(theta) 的映射，我们认为g就是预测值，损失函数采用欧式距离评估
    因此通过找到损失函数最小值，来得到最小值时的参数(w1..wn)
 3. 如何选择损失函数：
-    >
+   nn.LossFunc是基于module的损失函数类
+   nn.functional.lossfunc是函数形式的损失函数，一般使用函数形式更简单
+   
 """
 # 尝试简单计算下各个损失函数
 import torch
 import torch.nn.functional as F
 import numpy as np
-preds = torch.tensor(np.array([[1,1], [1,1]],dtype=np.float32), requires_grad=True)
-labels = torch.tensor(np.array([[0,1], [2,3]],dtype=np.float32))
 
-"""nn.MSELoss/nn.functional.mse_loss: mean squared erro均方误差损失
-F.mse_loss(input, target, reduction='mean'),只需控制reduction, 另两个参数size_average/reduce已废弃
-默认的loss输出是规约以后的输出平均值mean，可以选择reduction='none','batchmean','sum','mean'这4种"""
-loss1 = F.mse_loss(preds, labels, reduction='none')      # 计算损失：基于预测值和标签值
-loss1.backward()                       # 计算梯度：基于损失
+d1 = torch.tensor([[1.,1.], [1.,1.]])
+d2 = torch.tensor([[0.,1.], [2.,3.]])
 
+"""nn.MSELoss/F.mse_loss: mean squared error 均方误差损失: 每个对应元素差的平方，默认平均缩减，也可用求和缩减
+   F.mse_loss(d1,d2,reduction='mean')
+   只需控制reduction, 另两个参数size_average/reduce已废弃
+   默认的loss输出是缩减操作以后的输出平均值mean，可以选择其他缩减方式reduction='none','batchmean','sum','mean'这4种"""
+loss1 = F.mse_loss(d1, d2)                   # 默认取平方和的均值
+loss2 = F.mse_loss(d1, d2, reduction='sum')  # 取平方和
+
+"""nn./F.crossentropy 交叉熵误差: 
+   F.crossentropy(d1,d2,reduction='')"""
+loss1 = F.cross_entropy(d1, d2)   # 
+
+"""nn.LogSoftmax/F.log_softmax"""
+
+
+"""nn.NLLLoss/F.Nll_loss"""
 
 # 损失函数之2：交叉熵
 
@@ -492,8 +511,10 @@ def test():
 参考：http://www.cnblogs.com/pinard/p/6494810.html (刘建平博士的完整推导)
 参考：https://www.zhihu.com/question/27239198?rf=24827633 (有各种对反向传播的理解方式，但我最欣赏Jermmy的博客介绍)
 参考：https://blog.csdn.net/g11d111/article/details/83021651 (介绍pytorch如何源码实现的，很难理解)
+参考：http://www.cnblogs.com/yjphhw/p/9681773.html (选用了里边的2个实例)
 核心要区别开来反向传播算法(BP/backpropagation)和复合函数求导算法
-1. 反向传播的核心是：先根据预测和标签计算出来loss，然后基于loss反向传播计算梯度
+1. 反向传播的核心是：找到极值函数(比如loss)，然后对极值函数进行反向传播，计算梯度，更新参数
+   先根据预测和标签计算出来loss，然后基于loss反向传播计算梯度
    理论上可以计算出输出loss对每一个参数w的梯度，但这样会有很大的冗余计算，因为每一个梯度计算
    都是从每个参数w的叶子节点跑到输出点，中间肯定很多重复计算的中间节点。所以反向传播
    算法跟常规复合函数求导的差别在于，他是从输出点逐步把计算往回算，这样任何一个针对w的
@@ -567,49 +588,75 @@ plt.plot(ep, lo)  # 打印损失曲线
 
 """实例2: 活用反向传播，计算函数极值"""
 # 计算函数极值y = x^2 + 2x + 1: 函数为f(x), x为参数， 类似于loss为w1..wn的函数所以对loss求导
-epoch = 10
 # 初始化参数
 x = np.array([0],dtype=np.float32)
-x = torch.tensor(x,requires_grad=True)
+x = torch.tensor(x, requires_grad=True)
 lr = 0.01
+epoch = 300
+record_y = []
+record_x = []
+# 训练
 for i in range(epoch):
-    y = x**2 + 2*x +1
-    y.backward()          # 反向传播：计算误差，反向传播，更新梯度
-    x -= x.grad.data*lr   # 梯度下降更新参数
-    x.grad.data.zero_()   # 梯度清零
+    # 函数值的前向计算
+    y = x**2 + 2*x + 1
+    # 函数反向传播：求梯度
+    y.backward()               # 反向传播：计算误差，反向传播，更新梯度
+    # 更新参数
+    x.data -= x.grad.data*lr   # 梯度下降更新参数
+    x.grad.data.zero_()        # 梯度清零
+    record_x.append(x.detach().numpy().copy())  # 梯度更新的变量不能直接转numpy，需要先detach再转numpy
+    record_y.append(y.detach().numpy())         # detach的变量不再更新梯度，但依然指向同一tensor
     print('current min y=%f.2, x=%f.2'%(y,x))
+plt.subplot(121),plt.plot(record_x),plt.title('x')
+plt.subplot(122),plt.plot(record_y),plt.title('y')
 
-
-"""实例3: 活用反向传播，计算"""
-# 
+"""实例3: 活用反向传播，计算拟合函数的参数"""
+# 计算一组数据的拟合函数，得到拟合参数
 from numpy import random
 import matplotlib.pyplot as plt
-def mse_loss(inputs, labels):
-    """定义损失函数mse"""
-    return 0.5*(inputs-labels)**2
-    
+import torch.nn.functional as F
 n = 100
-x = random.rand(n)
-y = 3*x + 1 + random.rand(n)/3  # 目标拟合y = 3x + 1，先加入一点噪声
-x = torch.tensor(x, requires_grad=True)
-y = torch.tensor(y)
-plt.scatter(x,y)
+x0 = random.rand(n)               # x为随机平均分布的n个数
+y0 = 3*x0 + 1 + random.rand(n)/3  # y为3x + 1 + 随机噪声
+# 目标拟合 y = kx + b
+x = torch.tensor(x0.astype(np.float32), requires_grad=True)
+y = torch.tensor(y0.astype(np.float32), requires_grad=True)
 
-k = 1  # 初始化参数
-b = 0
-eposh = 10
-lr = 0.3
+# 初始化参数
+k = torch.tensor([1.], requires_grad=True)  
+b = torch.tensor([0.], requires_grad=True)
+epoch = 1000
+lr = 0.001
+record_loss = []
+record_epoch = []
 for i in range(epoch):
-    
-    loss = mse_loss(k*x+b, y)
+    # 计算损失
+    loss = F.mse_loss(k*x+b, y)  # loss函数评价的是拟合函数值与目标值的误差
     # 反向传播：计算误差，计算梯度
+    record_loss.append(loss.detach().numpy())
+    record_epoch.append(i)
     loss.backward()   
     # 梯度下降：更新参数，采用简单的SGD算法w = w - grad*lr
     # 这里没有采用pytorch自带的优化器，所以优化所做的工作需要手动完成：提取梯度，更新参数，梯度清0
     k.data -= k.grad.data * lr
-    b.data -= b.grad.data * lr
-    k.grad.data.zero_grad()
-    b.grad.data.zero_grad()
+    b.data -= b.grad.data * lr   # 修改requires_grad=True的参数值，需要.data绕开计算图的锁定
+    print('loss=%.5f, k=%f.3, d=%f.3'%(loss,k,b))
+    k.grad.data.zero_()   
+    b.grad.data.zero_()      # 修改t.grad这个tensor的值，同样需要.data绕开计算图的锁定
+plt.subplot(121), plt.plot(record_epoch, record_loss)
+plt.subplot(122), plt.scatter(x.detach().numpy(),y.detach().numpy()), plt.plot(x.detach().numpy(), k.item()*x.detach().numpy() + b.item())
+
+
+# %%        反向传播
+"""反向传播本质是为了求出每个参数的梯度，那什么是这个过程的梯度消失/梯度爆炸？如何避免？
+为了规避梯度消失，梯度爆炸，有如下方法：
+1. 添加Batchnorm层：
+
+2. 添加dropout层：
+
+3. 
+"""
+
 
 
 # %%        梯度下降与优化器
@@ -621,8 +668,12 @@ for i in range(epoch):
    可以通过等高线来理解：假定只有w1,w2两个参数的loss,则w1,w2在平面上形成一个对loss的等高线
    垂直于等高线方向的就是梯度方向，只要沿着垂直等高线方向走，总是最终能够并且最快到达等高线中心点，
    也就是loss的最小值点上。
-1. 优化器用来进行参数更新：基于参数，基于参数的梯度，基于不同的更新算法
+1. 优化器主要做如下事情：
+    a. 进行参数更新：w = w - grad*lr (基于参数/参数的梯度/学习率/优化算法其他超参数)
+    b. 进行梯度清零：t.grad.dat.zero_(), 或者optimizer.zero_grad()
 2. 常用优化器的类型，区别：
+    a. SGD()
+    b. Adam()
 """
 from torch.optim imprt SGD
 optimizer = SGD()
@@ -644,6 +695,9 @@ for data,label in dataset:
 
 # %%        梯度下降与优化器
 """凸函数概念，求极值方法，为什么用梯度下降而不是牛顿法?
+梯度下降优化算法分2类，第1类是一阶梯度下降算法，第2类是二阶梯度下降算法
+1. 大部分情况都是采用一阶梯度下降算法
+2. 二阶梯度下降算法缺点：
 """
 
 

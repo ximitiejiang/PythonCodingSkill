@@ -19,12 +19,22 @@ torch.ones(2,3)
 torch.zeros(2,3)
 torch.eye(2,3)
 
+# 创建时指定数据格式和是否求导
+t0 = torch.tensor([1.,2.,3.], requires_grad=True)     # 只要带小数点就是float
+t1 = torch.tensor(np.array([1,2,3], dtype=np.float32), requires_grad=True) # 在np中指定数据格式
+
 
 '''------------------------------------------------------------------------
 Q. tensor的数据格式转换
 '''
 import torch
 import numpy as np
+
+t1 = torch.tensor([5])
+# 修改数据格式
+t1 = t1.float()         # 注意.float()操作不是in place操作，且默认是float32
+# 修改requires_grad
+t1.requires_grad=True  # 注意requires_grad的前提是数据为float格式
 
 # 转成tensor
 a = [1,2,3]
@@ -151,6 +161,77 @@ t3 = torch.stack((t1,t2),0)  # stack在行方向上堆叠
 
 t4 = t1.repeat(2,1).transpose(1,0)
 
+
+'''------------------------------------------------------------------------
+Q. 创建tensor的几种方法的差异？
+1. torch.tensor(ndarray) 为深拷贝，推荐使用
+2. torch.from_numpy(ndarray) 为浅拷贝
+'''
+import numpy as np
+data = np.array([1,2,3])
+t1 = torch.tensor(data)     # 属于深拷贝数据，不会随data而变，他等效于x.clone().detach()
+t2 = torch.from_numpy(data) # 属于浅拷贝，会随data而变
+data += 1
+print(data, t1,t2)
+
+
+
+'''----------------------------------------------------------------------
+Q. 对于修改tensor需要注意的问题？
+参考：https://zhuanlan.zhihu.com/p/38475183
+1.有两种情况in place修改tensor是会产生错误的，需要注意避免(其中一种情况可能不会报错)：
+    情况1: 需要梯度求导的叶子节点被修改时会报错，需要用.data直接修改，或者detach到另一个变量修改(但属于浅复制)  
+    比如t.numpy()报错，需要先t.detach().numpy()
+    比如t+=1报错，需要先t.data+=1
+    情况2: 需要梯度求导的中间节点被修改时会报错，需要用.data直接修改，或者detach到另一个变量修改(但属于浅复制)
+2. 区别t.data和t.detach()：
+   t.detach()操作是把tensor从计算图解放出来，会把requires_grad设置为false，就可以操作了
+   t.data操作返回的tensor也是requires_grad为false，也就可以操作了
+   注意t.detach()与t.data的区别：t.data的修改虽然影响了计算图，但系统不报错导致用户不知道，所以不建议使用
+   尽可能用detach()函数，他在例子1/2两种情况都会主动报错，而不会计算出隐性错误的结果。
+'''
+import torch
+import numpy as np
+a0 = np.array([[1,2,3],[4,5,6]],dtype=np.float32)
+a1 = torch.tensor(a0, requires_grad=True)
+
+# 例子1: 叶子节点如果需要自动求导，就会被引用和预存储，所以不能in place修改
+a1 += 1         # 报错：因为a1是requires_grad=True, 不能直接修改
+b1 = a1.numpy() # 报错：因为a1是requries_grad=True, 不能直接.numpy()
+
+a1.data += 1             # 修改方式：可以考虑取data后修改，这也是参数w初始化的方法
+b1 = a1.detach().numpy() # 修改方式：可以考虑先detach()跟计算图分离，然后再转numpy()
+
+# 例子2: 中间变量d1已纳入计算图，在自动求导之前不能in place修改，否则报错
+x = torch.tensor([1.,2.], requires_grad=True)
+y = torch.tensor([[2.],[1.]], requires_grad=True)
+z = torch.tensor([3.], requires_grad=True)
+d1 = torch.matmul(x,y)
+d2 = torch.matmul(d1,z)
+d1_ = d1.detach()   # 此处用detach()分离出d1_，但依然指向同一内存，所以如果修改理论上是影响了计算图，所以会报错
+d1_[:] = 1          # 而如果用.data分离出d1_，即使修改也不会报错，导致用户无法察觉的错误，更严重，所以不建议用.data,而建议用.detach()
+d2.backward()       # 报错
+
+
+
+'''----------------------------------------------------------------------
+Q. tensor的几个核心属性如何使用？
+1. t.data 返回的是一个tensor,该tensor为requires_grad=False，相当于把tensor从计算图分离的tensor
+2. t.grad 返回的是一个tensor,该tensor同样requires_grad=False
+   t.grad.data 返回的是一个tensor,该tensor同样requires_grad=False
+3. 梯度清零的2种方式：t.grad.data.zero_(), optimizer.zero_grad()
+'''
+import numpy as np
+import torch
+d1 = torch.tensor(np.array([1.]),requires_grad=True)
+d2 = d1.data   # 此tensor的requires_grad=false
+d3 = d1.grad   # 初始梯度=None
+
+# 反向传播之后
+d1.backward()     
+d6 = d1.grad            # 反向传播后返回一个tensor, false
+d7 = d1.grad.data       # t.data操作可让grad这个tensor跟计算图分离，从而可以进行修改，比如梯度清零
+d1.grad.data.zero_()    # 梯度清零
 
 
 '''----------------------------------------------------------------------
