@@ -22,7 +22,7 @@ Created on Sun Jan 20 09:43:06 2019
 """
 
 # %%        概率论
-"""什么是先验概率，什么是后验概率？怎么相互转化计算
+"""什么是先验概率，什么是后验概率？怎么相互转化计算？
 1. 事件的定义：可按照抽取次数来定义事件：第i次抽取为第Ai次事件；也可按事件类型定义A事件，B事件。
    通常Ai次时间相互不独立，而A,B,C..事件相互独立，也就是概率相互不影响。
 2. 后验概率：就是基于事件得到的概率，即条件概率即P(B|A)，在A发生的条件下，B发生的概率叫后验概率，因为B是在A事件之后发生的，所以B的概率就是后验概率
@@ -62,19 +62,73 @@ P(A1A2(～A3)(～A4)) = P(A1)P(A2|A1)P(~A3|A1A2)P(~A4|A1A2(~A3))
 
 # %%        概率论
 """什么是随机变量？有哪几种随机变量，有什么用？
-1. 随机变量是
+0. 随机试验：在相同条件下重复进行的试验，试验结果不止一个，可以知道所有结果，但不确定是哪一个
+   样本空间：随机试验的所有结果就是样本空间
+   随机事件：样本空间的子集就是随机事件
+1. 随机变量x是把样本空间S每个事件用唯一的实数进行一一对应，则实数X就是随机变量X，随机变量本质是函数，是样本空间与实数的对应关系
+   随机变量与事件的区别是：随机变量是变量，事件则是常量，随机变量可代表一组事件的集合
 2. 两种随机变量
-    > 离散型随机变量
-    > 连续型随机变量
+    > 离散型随机变量：包括0-1分布(伯努利分布)，二项分布，泊松分布
+      使用概率质量函数来描述，概率质量函数的取值就表示概率
+    > 连续型随机变量：包括均匀分布，正态分布，指数分布
+      使用概率密度函数来描述，概率密度函数的积分就表示概率
 """
 # 待增加代码
+
+
+# %%        概率论
+"""随机变量的数学特征：什么是期望与方差
+1. 期望：随机变量的期望，也叫均值，
+2. 方差：随机变量的方差
+3. 常见随机变量所属的分布，对应的特征
+   > 离散随机变量~二项分布： X~B(n,p)
+   > 离散随机变量~泊松分布： X~P(lamda)
+   > 连续随机变量~均匀分布： X~U(a,b)
+   > 连续随机变量~正态分布： X~N(mean,std)
+"""
+
+# %%        概率论
+"""随机变量的数学特征之矩的理解和应用"""
+
+
+
+# %%        概率论
+"""随机变量的数学特征之协方差和相关系数的理解和应用"""
+
+
+
+# %%        数理统计
+"""概率论与数理统计之间的差别？
+1. 概率论： 已知分布(分布参数)，研究随机变量的规律，数学特征
+   数理统计：进行试验，通过观察试验结果的数学特征，来推断随机变量的分布类型和未知参数
+   
+   所以概率论是研究总体，而数理统计是用部分数据来推断总体数据
+2. 
+"""
+
+
+# %%        数理统计
+"""什么是极大似然估计？跟交叉熵是什么关系？"""
+
+
 
 # %%        传统机器学习算法
 """如何把高维变量映射到低维？以及什么是PCA？
 """
 
 
-# %%
+# %%        传统机器学习算法
+"""什么是l0,l1,l2正则化
+"""
+
+# %%        传统机器学习算法
+"""独热编码有什么意义？如何实现
+1. 在深度学习中，独热编码可以看成是标签概率化，一个独热编码就是概率，比如0001
+2. 独热编码的特点：只有一位是1，其他位都是0
+"""
+
+
+# %%        网络基础层
 """深度神经网络到底是如何工作的，为什么能够学到东西并做预测
 参考：魏秀参的《解析深度学习...》
 1. 深度神经网络的第一条数据主线是图像，图像经过卷积/池化/非线性激活等操作，图像的高级语义特征和位置特征
@@ -417,42 +471,171 @@ plt.subplot(233), plt.plot(x, y_tanh), plt.title('tanh')
 # %%        损失函数
 """损失函数的定义是什么？为什么要有损失函数？
 1. 损失函数：损失函数本质上就是求极值函数，也就是反向传播算法的目标函数。
-   是指所有样本的预测值与标签值之间的偏差函数。这种偏差通常采用不同的方式评估。
-   比如通过欧式距离最小来评估，比如通过交叉熵最小来评估
+   是指所有样本的预测值与标签值之间的偏差函数，只要满足2个条件就能做损失函数：
+   第一非负，第二当预测与实际越接近时它越小
    损失函数是关于一组参数(w1..wn)的函数，为了预测最精确就是让损失函数最小，所以通过求解损失函数的最小值来得到这组参数。
 2. 逻辑回归的过程：一组数据(x1,..xn)经过线性映射到h(w) =w1x1+w2x2..+wnxn, 再经过非线性映射g(theta)=sigmoid(h)
    这样就建立(x1..xn) -> h(w1..wn) --> g(theta) 的映射，我们认为g就是预测值，损失函数采用欧式距离评估
    因此通过找到损失函数最小值，来得到最小值时的参数(w1..wn)
 3. 如何选择损失函数：
-   nn.LossFunc是基于module的损失函数类
-   nn.functional.lossfunc是函数形式的损失函数，一般使用函数形式更简单
-   
+   > nn.LossFunc是基于module的损失函数类, nn.functional.lossfunc是函数形式的损失函数，一般使用函数形式更简单
+   > 分类损失(预测标签)：cross_entrophy, Hinge_loss, KL_Div, Focal_loss
+     回归损失(预测数值)：mse_loss, l1_loss, smooth_l1(huber_loss)
+4. 损失函数的输入：
+   当前深度学习大部分是分类损失函数，输入是imgs和labels
+   其中imgs需要转换成概率输出，labels也需要转换成one-hot-code输出，也就是概率输出(值在0-1之间，相加=1)
+   这个labels的独热编码，她的size应与imgs的size一致
+   只有pytorch的交叉熵函数，是把label转化成独热编码的过程集成在了函数内，其他损失函数都需要自己转换label成独热编码
 """
-# 尝试简单计算下各个损失函数
+# 计算各个损失函数的计算逻辑
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-d1 = torch.tensor([[1.,1.], [1.,1.]])
-d2 = torch.tensor([[0.,1.], [2.,3.]])
+"""nn.LogSoftmax 多分类层： 用于计算xi的log(exp(xi)/sum(exp(xj)))
+   属于按位操作，相当于先非负化(exp)，然后归一化成概率
+   关键搞清dim的关系：输入xi(m,n)的n列为n类的n个数据，m行为batch对应的img数"""
+# 用pytorch的logsoftmax()函数
+img = torch.tensor([[-0.9179, -0.4492,  1.3484],
+                    [ 1.9176,  1.9021, -0.0576]])
+out = F.log_softmax(img, dim=1) # 默认也是dim=1的操作 
+# 手动进行LogSoftmax整个操作过程: 跟上面pytorch的计算过程完全一致
+img1 = torch.exp(img)           # 非负化
+sum1 = torch.sum(img1, dim=1)   # 缩减操作求和
+img1[0,:] = img1[0,:]/sum1[0]  
+img1[1,:] = img1[1,:]/sum1[1]   # 归一化
+img3 = torch.log(img1)          # 取对数(e为底)
 
-"""nn.MSELoss/F.mse_loss: mean squared error 均方误差损失: 每个对应元素差的平方，默认平均缩减，也可用求和缩减
+"""nn.NLLLoss/F.Nll_loss 是指negative log likelihood loss
+   用于取负的对数似然值作为损失loss(x, label) = -x_label 
+   输入x必须是取对数后的概率，输入label是对应的类的index(这里无需变成one-hot-code)
+   loss的缩减操作采用默认的'mean'进行"""
+input = torch.tensor([[ 1.2507,  0.2646,  0.6669, -0.6809, -1.0655],
+                     [-0.9683,  0.5885,  0.7572,  1.2280,  0.5706],
+                     [ 1.5755,  1.1860, -1.9127,  0.4454, -1.0415]], requires_grad=True)
+target = torch.tensor([1, 0, 4])   
+output = F.log_softmax(input, dim=1)
+loss = F.nll_loss(output, target)  # ((-1.7628)+(-3.2193)+(-3.3608))/3
+# nll的手动实现
+output = F.log_softmax(input, dim=1) # 先获得log概率输出
+losses = torch.tensor(()).new_empty((3,))
+for i in range(3):
+    losses[i] = imgs_log[i][labels[i]]      # nll的获得label对应loss
+loss_out = torch.mean(losses)  
+# 对标签的处理，以下独热编码是pytorch的方法，也是更快的方法
+# 参考： https://www.jianshu.com/p/4b14d440540f
+output = F.log_softmax(input, dim=1)
+target = target.view(-1,1)                            # scatter_()函数的输入必须是2D的size
+y_one_hot = torch.zeros(3, 5).scatter_(1, target, 1)  # 用scatter_()函数生成独热编码
+loss_out = torch.sum(torch.mul(output, y_one_hot), dim=1).mean()
+
+
+"""nn.CrossEntropyLoss/F.cross_entropy 交叉熵误差 
+   等价于组合logsoftmax层的计算与nllloss损失，也就是: 非负/转概率/log化/对应标签的负平均概率
+   F.cross_entropy(d1,d2,reduction='mean')
+   输入d1需要是(N,C)其中C列为分类class数，N行为一个batch的img数
+   输入d2是(N,)的一维标签，N代表一个batch的img数，相当于不用手动做独热编码转换
+   默认缩减操作是mean, 可选择reduction='none','mean','sum'这三种
+   pytorch的交叉熵算法跟常见公式有区别：L=-sum(yi*log(y_i)),其中yi为对应标签的概率，y_i为对应模型输出的概率
+   这里他采用的是标签概率*分类概率，标签概率是1或者0，而在pytorch是用标签映射直接得到-log概率后做规约，底层逻辑
+   都是一样的，都是采用真实概率Pa与模型概率Pb的乘积的累加和作为损失函数，本质一样都是通过交叉熵度量2个不同分布的距离(伪距离)
+   而二分类问题通常用sigmoid函数概率化，多分类问题用softmax函数概率化"""
+imgs = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574],
+                     [ 1.5962,  2.2646, -0.2490,  0.1534, -0.5345],
+                     [-0.2562, -0.4440, -0.1629,  0.8097,  0.6865]], requires_grad=True)
+labels = torch.tensor([2, 0, 4], dtype=torch.int64)  # pytorch的交叉熵函数要求label格式为int64/也就是LongTensor
+loss1 = F.cross_entropy(imgs, labels)   # 
+# 纯手动实现交叉熵
+n_img, n_class = imgs.shape
+imgs_exp = torch.exp(imgs)
+imgs_sum = torch.sum(imgs_exp, dim=1)      # 非负化
+for i in range(n_img):
+    imgs_exp[i] = imgs_exp[i]/imgs_sum[i]  # 概率化
+imgs_log = torch.log(imgs_exp)             # log化
+imgs_log = - imgs_log                      # nll的取负值
+losses = torch.tensor(()).new_empty((3,))
+for i in range(n_img):
+    loss_idx = labels[i]                   # 这里用简化方式处理nll, 实际pytorch采用one-hot编码这种更快方式
+    losses[i] = imgs_log[i][loss_idx]      # nll的获得label对应loss
+loss_out = torch.mean(losses)              # nll的缩减操作
+
+"""nn.BCELoss/F.binary_cross_entropy 为二分类交叉熵损失函数：
+   相当于二分类交叉熵计算 l(x,y) = yn*logxn + (1-yn)*log(1-xn)
+   F.binary_cross_entropy(d1,d2,reduction='mean')
+   其中d1为输入概率，必须是(0-1)之间的值，所以该损失函数之前需要增加sigmoid函数把特征转换为2分类概率"""
+img = torch.tensor([ 0.5913, -0.9281,  0.7846], requires_grad=True)
+label = torch.tensor([1., 0., 1.])
+loss = F.binary_cross_entropy(F.sigmoid(img),label)   
+
+"""nn.BCEWithLogitsLoss/F.binary_cross_entropy_with_logits
+   相当于把sigmoid()和BCELoss进行了组合，所以输入可以是任意数值
+   即l(x,y) = yn*log(sigmoid(xn)) + (1-yn)*log(1-sigmoid(xn))
+   F.binary_cross_entropy_with_logits(d1,d2,reduction='mean')"""
+img = torch.tensor([ 0.5913, -0.9281,  0.7846], requires_grad=True)
+label = torch.tensor([1., 0., 1.])
+loss = F.binary_cross_entropy_with_logits(img,label)   
+
+"""sigmoid()和softmax()的关系和区别"""
+d1 = torch.tensor([-1.9287,  0.6137,  0.7114])
+d2 = torch.exp(d1)
+F.sigmoid(d2)  # 生成概率(取值0-1)，但不保证相加的和为1，相当于只是针对某一个元素的操作
+F.softmax(d2)  # 生成多分类的概率(取值0-1)，相加的和为1
+
+"""nn.MSELoss/F.mse_loss: mean squared error 均方误差损失: 
+   每个对应元素的差的平方mean(|d1i-d2i|^2)，然后默认做平均缩减，也可用求和缩减
    F.mse_loss(d1,d2,reduction='mean')
+   输入d1需要是(N,C)其中C列为分类class数，N行为一个batch的img数
+   输入d2是(N,C)的标签，也就是必须转换成独热编码的标签 
    只需控制reduction, 另两个参数size_average/reduce已废弃
-   默认的loss输出是缩减操作以后的输出平均值mean，可以选择其他缩减方式reduction='none','batchmean','sum','mean'这4种"""
-loss1 = F.mse_loss(d1, d2)                   # 默认取平方和的均值
-loss2 = F.mse_loss(d1, d2, reduction='sum')  # 取平方和
+   默认的loss输出是缩减操作以后的输出平均值mean，可以选择其他缩减方式reduction='none','batchmean','sum','mean'这4种
+   (注意mse与交叉熵的重要差别，1. mse需要模型中包含logSoftmax把特征概率化，2.mse需要手动预先转独热编码)
+   mse loss的缺陷: 参考http://sofasofa.io/forum_main_post.php?postid=1001792
+   mse损失函数通常用于回归，而分类的化一般都用交叉熵
+   参考：https://zhuanlan.zhihu.com/p/35707643"""
+imgs = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574],
+                     [ 1.5962,  2.2646, -0.2490,  0.1534, -0.5345],
+                     [-0.2562, -0.4440, -0.1629,  0.8097,  0.6865]], requires_grad=True)
+labels = torch.tensor([2, 0, 4], dtype=torch.int64)
+labels = labels.view(-1,1)
+one_hot_labels = torch.zeros(3, 5).scatter_(1, labels, 1)  # mse loss需要预先对label进行独热标签的预处理
+loss = F.mse_loss(imgs, one_hot_labels)                    # 默认的缩减操作为求均值
+# 纯手工实现mse
+labels = labels.view(-1,1)
+one_hot_labels = torch.zeros(3, 5).scatter_(1, labels, 1)
+losses = torch.pow((imgs - one_hot_labels),2).mean(dim=1)  # mean((xi-yi)^2), 这里已经做了一次缩减预算
+loss = losses.mean()     # 缩减输出
 
-"""nn./F.crossentropy 交叉熵误差: 
-   F.crossentropy(d1,d2,reduction='')"""
-loss1 = F.cross_entropy(d1, d2)   # 
+"""nn.L1loss/F.l1_loss 为绝对值损失
+   对元素求差的绝对值|d1i - d2i|
+   F.l1_loss(d1, d2, reduction='mean')
+   输入d1为概率"""
+imgs = torch.randn(3, 5, requires_grad=True)
+labels = torch.tensor([0, 2, 4])
+one_hot_labels = torch.zeros(3,5).scatter_(1,labels.view(-1,1),1)
+loss1 = F.l1_loss(imgs, one_hot_labels)
 
-"""nn.LogSoftmax/F.log_softmax"""
+"""nn.SmoothL1Loss/F.smooth_l1_loss 在bbox head的loss/faster_rcnn中使用，也叫Huber loss
+   这里基于huber loss把其超参数设置为1，从而得到的smooth l1 loss
+   对元素差值在(-1,1)之间采取平方损失((d1i - d2i)^2)/2, 在两边采取绝对值损失|d1i - d2i|-1/2
+   F.smooth_l1_loss(d1,d2,reduction='mean')，在|d1-d2|<1之间
+   输入d1"""
+imgs = torch.randn(3, 5, requires_grad=True)
+labels = torch.tensor([0, 2, 4])
+one_hot_labels = torch.zeros(3,5).scatter_(1,labels.view(-1,1),1)
+loss2 = F.smooth_l1_loss(imgs, one_hot_labels)
 
 
-"""nn.NLLLoss/F.Nll_loss"""
-
-# 损失函数之2：交叉熵
+# %%        损失函数
+"""MSE与l1loss的区别与关系？
+1. MSE是|d1i-d2i|^2, 而l1loss是|d1i-d2i|，即l1loss是l1正则化，mse是l2正则化
+   可理解为mse是对误差进行平方也就进一步放大误差？
+   所以
+2. smooth_l1_loss是在l1和l2损失的基础上，优化了对误差的反应
+   """
+   
+real = torch.tensor([100])
+pred = torch.arange(-10000, 10000)
 
 
 # %%        损失函数
@@ -466,41 +649,28 @@ loss1 = F.cross_entropy(d1, d2)   #
     >gain = Ent(D) - sum((Di/D)*Ent(Di)), 其中Ent(D)为集合的信息熵，而(Di/D)*Ent(Di)为某一子集合的条件熵
      可理解为集合在加入某特征后不确定度减小的程度，也就是增益。
 
-3. 交叉熵：是
-    >
-4. 相对熵：也叫KL散度
 """
-def calEntropy(data, n):
-    """计算一个数据集作为随机变量的信息熵, data为mxn array, n为第n列作为随机变量的概率事件"""
-    from math import log
-    numEntries = len(data)
-    labelcounts = {}  # 字典用于放置{总计多少类：每个类多少样本个数}
-    for line in data: # 循环取每一行样本
-        currentlabel = line[-1]
-        if currentlabel not in labelcounts.keys(): # 如果是一个新分类
-            labelcounts[currentlabel] = 0       # 在字典新增这个新分类，对应样本个数0
-        labelcounts[currentlabel] +=1    # 如果不是新分类： 在旧类的样本个数+1 
-    # 计算一个数据集的信息熵
-    shannonEnt = 0.0
-    for key in labelcounts:
-        pi = float(labelcounts[key])/numEntries # 计算每一个分类的概率p=分类数/总数
-        shannonEnt -= pi * log(pi,2)    # 计算entropy = -sum(p*logp)
-    return shannonEnt
+from math import log
+import numpy as np
+import matplotlib.pyplot as plt
+x = [i*0.1+0.1 for i in range(0,500)]
+y = []
+for xi in x:
+    yi = xi*log(xi,2)
+    y.append(yi)
+plt.scatter(x,y)
 
-def calCrossEntropy():
-    pass
+from math import exp
+import numpy as np
+import matplotlib.pyplot as plt
+x = [i*0.1 for i in range(-20,20)]
+y = []
+for xi in x:
+    yi = exp(xi)
+    y.append(yi)
+plt.scatter(x,y)
 
-def test():
-    # 读取数据
-    persons = []
-    cols = ['age', 'has_job', 'has_house','has_loan', 'approved']  # 用随机变量来理解数据：随机变量就是贷款能否获得批准的事件的概率
-    with open('test/test_data/loan.txt') as f:
-        loans = f.readlines()
-        for loan in loans:
-            loan = loan.split()
-            persons.append(loan)
-    e0 = calEntropy(persons)
-    print('total entropy: {:.6f}'.format(e0))
+
 
 
 
@@ -704,7 +874,7 @@ for data,label in dataset:
 
 
 # %%        正则化
-"""解释l0/l1/l2正则化，以及如何在深度学习网络中使用？
+"""解释l0/l1/l2正则化如何在深度学习网络中使用？
 """
 
 
@@ -734,6 +904,8 @@ for data,label in dataset:
 
 # %%        网络训练
 """样本不平衡问题是什么，影响是什么，怎么解决样本不平衡问题？
+
+n. 可以采用带权重的损失函数，比如pytorch的F.cross_entropy()是可以添加weight的
 """
 
 

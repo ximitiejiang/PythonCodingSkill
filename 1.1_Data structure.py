@@ -481,7 +481,7 @@ Q: 如何生成正态分布的随机数据？
 
 第一类：从(0,1)分布写起，可扩展到其他分布
     > rand(m,n) 固定在[0,1)的均匀分布，也可单个数rand()
-    > randn(m,n) 固定在[0,1)的正态分布,也可单个数randn()
+    > randn(m,n) 固定在[0,1)的标准正态分布,也可单个数randn()
     
 第二类：从便捷范围写起，这类函数使用得似乎更方便！！！
     > randint(low, high) 整数范围取1个数，或size个数
@@ -739,4 +739,41 @@ plt.hist(g.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='green')
 plt.hist(r.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='red')
 
 
+'''-------------------------------------------------------------------------
+Q. python的数学计算函数：以numpy作为主要的支持库
+数学计算函数要么是采用math库对单个元素的计算，要么就是采用numpy()的计算函数
+1. 常规按位操作的计算函数：
+2. 缩减(规约)操作的计算函数：
+3. 相应的numpy数学计算函数：
+'''
+import numpy
+a = np.array([1.2,-2.,3.5])
+b = np.array([[1,0,2],[5,3,4]])
 
+# numpy常规按元素操作 ------ pytorch中也完全照抄了这些函数和概念
+np.exp(b)
+np.log(b)
+np.log10(b)
+np.log2(b)
+np.abs(a)
+np.add(b, 10)
+b + 10
+np.multiply(a, 10)   # pytorch是用mul
+a * 10
+np.ceil(a)
+np.floor(a)
+np.round(a)
+np.power(a,2)
+np.sign(a)
+np.sqrt(b)
+np.sin(b)
+np.maximum()    # 有一个按元素操作的maximum(), 不过用的少，大部分都是用缩减操作的max()
+
+# numpy缩减(规约)操作 ------ pytorch也照抄了，只是把axis改成了dim
+np.max(b, axis=1)
+np.min(b, axis=1)
+np.argmax(b, axis=1)
+np.sum(b, axis=1)
+np.cumsum(b, axis=1)
+
+# numpy的比较函数

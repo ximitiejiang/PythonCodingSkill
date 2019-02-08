@@ -9,6 +9,12 @@ Created on Sun Jan  6 09:49:15 2019
 
 '''-----------------------------data-------------------------------------------
 Q. tensor的创建
+1. pytorch中数据类型：
+    torch.FloatTensor(): float32
+    torch.DoubleTensor(): float64
+    torch.IntTensor(): int32
+    torch.LongTensor(): int64
+2. 
 '''
 import torch
 f1 = torch.tensor([[1,2,3],[4,5,6]])  # 默认float
@@ -19,9 +25,119 @@ torch.ones(2,3)
 torch.zeros(2,3)
 torch.eye(2,3)
 
+# 另一种创建tensor的体系：先创建空的指定类型的tensor,然后初始化
+t1 = torch.tensor((), dtype=torch.float32)
+t1 = torch.FloatTensor()
+t1.new_zeros((2,3))
+t1.new_ones((2,3))
+t1.new_full((2,3),3.5)
+t1.new_empty((2,3))
+t1.random()
+
 # 创建时指定数据格式和是否求导
 t0 = torch.tensor([1.,2.,3.], requires_grad=True)     # 只要带小数点就是float
 t1 = torch.tensor(np.array([1,2,3], dtype=np.float32), requires_grad=True) # 在np中指定数据格式
+
+
+'''-----------------------------------------------------------------------
+Q. pytorch如何产生随机数？
+'''
+# 选分布，定义size: 取值范围只在(0,1)
+a1 = torch.rand(2,3)                  # 指定均匀分布，定义尺寸
+a2 = torch.randn(2,3)                 # 指定正态分布，定义尺寸
+
+# 选取值范围，定义size：分布只为均匀分布
+a3 = torch.randint(1,10, size=(2,3))  # 指定分布，定义取值范围和尺寸
+a4 = torch                            # 似乎缺少一个numpy的uniform
+
+b4 = np.random.uniform(1,10,size=(2,3))
+
+
+
+'''-----------------------------------------------------------------------
+Q. tensor的核心计算函数？
+pytorch对tensor的操作都是基于元素进行操作
+torch.clamp(low, high), torch.exp(ti), torch.pow(ti, value), torch.mul(ti, value),
+torch.log(ti), torch.log10(ti), 
+'''
+t0 = torch.tensor([-1.2, 0, 1.5])
+# clamp
+torch.clamp(t0, -0.5,0.5)
+# exp
+t1 = torch.exp(t0)
+# log()和log10()
+t2 = torch.log(t1)
+t3 = torch.log10(t1)
+t4 = torch.log2(t1)
+# abs
+t3 = torch.abs(t0)
+# add (也可用加法重载运算符)
+t4 = torch.add(t0, 100)
+t0 + 100
+# mul (也可用乘法重载运算符)
+t7 = torch.mul(t0, 100)
+t0 * 100
+# ceil, floor
+t5 = torch.ceil(t0)
+t6 = torch.floor(t0)
+t8 = torch.round(t0)
+# pow
+t8 = torch.pow(t0, 2)
+# sigmoid()
+t9 = torch.sigmoid(t0)
+# sign
+t10 = torch.sign(t0)
+# sqrt
+t11 = torch.sqrt(t1)
+# sin, cos, tanh, tan,
+t12 = torch.sin(t1)
+
+
+'''-----------------------------------------------------------------------
+Q. tensor的reduction缩减（规约）计算函数有哪些？
+'''
+t0 = torch.tensor([[-1.0, 0],[1.5,3]])
+# max, min
+t2 = t0.max()
+t3 = t0.min()# argmax, argmin
+t1 = torch.argmax(t0, dim=0)  # 返回的是该direction方向index
+# sum
+t4 = torch.sum(t0)
+# cumsum
+t5 = torch.cumsum(t0,dim=0)  # 逐步累加
+# mean, std, var, median, mode
+t6 = t0.mean()
+t7 = t0.std()
+t8 = t0.median()
+t9 = t0.mode()
+t10 = t0.var()
+
+
+'''-----------------------------------------------------------------------
+Q. tensor的其他规约操作scatter, gather函数有哪些，有什么功能，如何使用？
+1. scatter_(1,data,1)可用于转换数据为one-hot-code独热编码
+2. gather()
+'''
+data = torch.LongTensor([1,0,4])
+one_hot_code = torch.zeros(3,5).scatter_(1, data.view(-1,1), 1)
+
+
+'''-----------------------------------------------------------------------
+Q. tensor的比较函数有哪些？
+'''
+# eq, ge, gt, le, lt, ne
+torch.eq(t0,t1)
+torch.ge(t0,t1)
+torch.gt(t0,t1)
+torch.ne(t0,t1)
+# 特殊取值判断
+torch.isfinite(t2)
+torch.isinf(t3)
+torch.isnan(t4)
+# 排序
+torch.sort(t0,dim=0)
+torch.argsort(t0,dim=0)
+torch.topk(t1, 3, dim=1)
 
 
 '''------------------------------------------------------------------------
@@ -231,7 +347,7 @@ d3 = d1.grad   # 初始梯度=None
 d1.backward()     
 d6 = d1.grad            # 反向传播后返回一个tensor, false
 d7 = d1.grad.data       # t.data操作可让grad这个tensor跟计算图分离，从而可以进行修改，比如梯度清零
-d1.grad.data.zero_()    # 梯度清零
+d1.grad.data.zero_()    # 梯度清零, 这里我理解d1.grad.zero_()跟d1.grad.data.zero_()是一样的，因为d1.grad返回的tensor没有requires_grad=True的问题。
 
 
 '''----------------------------------------------------------------------
