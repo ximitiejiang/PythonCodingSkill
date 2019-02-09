@@ -78,8 +78,9 @@ P(A1A2(～A3)(～A4)) = P(A1)P(A2|A1)P(~A3|A1A2)P(~A4|A1A2(~A3))
 
 # %%        概率论
 """随机变量的数学特征：什么是期望与方差
-1. 期望：随机变量的期望，也叫均值，
-2. 方差：随机变量的方差
+1. 期望：随机变量的期望，也叫均值，mean = sum(xi)/n
+2. 方差：随机变量的方差，var = sum((xi - mean)**2)
+   标准差：方差的开方，std = 
 3. 常见随机变量所属的分布，对应的特征
    > 离散随机变量~二项分布： X~B(n,p)
    > 离散随机变量~泊松分布： X~P(lamda)
@@ -99,8 +100,10 @@ P(A1A2(～A3)(～A4)) = P(A1)P(A2|A1)P(~A3|A1A2)P(~A4|A1A2(~A3))
 
 # %%        数理统计
 """概率论与数理统计之间的差别？
-1. 概率论： 已知分布(分布参数)，研究随机变量的规律，数学特征
-   数理统计：进行试验，通过观察试验结果的数学特征，来推断随机变量的分布类型和未知参数
+1. 概率论： 已知分布(分布参数)，研究随机变量的数学特征。  （从分布参数到数学特征）
+   数理统计：进行试验，通过观察试验结果的数学特征，来推断随机变量的分布类型和未知参数 （从数学特征到分布参数）
+       > 参数估计
+       > 假设检验
    
    所以概率论是研究总体，而数理统计是用部分数据来推断总体数据
 2. 
@@ -108,18 +111,27 @@ P(A1A2(～A3)(～A4)) = P(A1)P(A2|A1)P(~A3|A1A2)P(~A4|A1A2(~A3))
 
 
 # %%        数理统计
-"""什么是极大似然估计？跟交叉熵是什么关系？"""
+"""什么是极大似然估计？跟交叉熵是什么关系？
+1. 极大似然估计："""
 
 
 
 # %%        传统机器学习算法
-"""如何把高维变量映射到低维？以及什么是PCA？
+"""如何把高维变量映射到低维？以及什么是PCA白化处理？
+1. 白化：白化的目的是去除输入数据的冗余信息，例如：训练数据是图像，由于图像中相邻像素之间具有很强的相关性，因此输入是冗余的。
+   白化的目的就是降低输入的冗余性，输入数据集，经过白化处理后，生成的新数据集满足两个条件：一是特征相关性较低；二是特征具有相同的方差。
+   白化算法的实现过程：第一步操作是PCA，求出新特征空间中的新坐标，第二步是对新的坐标进行方差归一化操作。
+2. PCA预处理：通过协方差矩阵求得特征向量，然后把每个数据点，投影到这两个新的特征向量(这两个特征向量是不变且正交的)得到新坐标
+   PCA白化：在PCA预处理生成的坐标基础上，每一维的特征做一个标准差归一化处理
+
 """
 
 
 # %%        传统机器学习算法
 """什么是l0,l1,l2正则化
 """
+
+
 
 # %%        传统机器学习算法
 """独热编码有什么意义？如何实现
@@ -347,6 +359,41 @@ from mmcv.cnn import constant_init
 constant_init(bn,1)
 x5 = bn(x3)                       # 用constant)init()后分布调整到(0,1)附近
 
+# 手动实现一个简单的batch norm
+def batch_norm_simple(x, gamma, beta, bn_param):
+    """x为输入，gamma/beta是bn层的可训练参数，bn_param是bn层的超参数，包括eps/momentum/running_mean/running_std
+    其中eps是防止分母为0， momentum是动量"""
+    running_mean = bn_param['running_mean']  #shape = [B]
+    running_var = bn_param['running_var']    #shape = [B]
+	results = 0. # 建立一个新的变量
+    
+	x_mean=x.mean(axis=0)  # 计算x的均值
+    x_var=x.var(axis=0)    # 计算方差
+    x_normalized=(x-x_mean)/np.sqrt(x_var+eps)       # 归一化
+    results = gamma * x_normalized + beta            # 缩放平移
+
+    running_mean = momentum * running_mean + (1 - momentum) * x_mean
+    running_var = momentum * running_var + (1 - momentum) * x_var
+    
+    #记录新的值
+    bn_param['running_mean'] = running_mean
+    bn_param['running_var'] = running_var 
+    
+    return results , bn_param
+
+# %%        网络基础层
+"""BN批归一化有什么缺点，GN组归一化有什么优点？
+参考：https://blog.csdn.net/qq_25737169/article/details/79048516 （介绍BN）
+参考：http://www.dataguru.cn/article-13318-1.html （介绍gn）
+1. BN层通常是对batch做归一化，通常batch size=32，但一方面训练时batch size如果太小，会跟整体不一致，
+   另一方面测试数据如果跟训练的分布不同，也会导致误差
+"""
+conv = nn.Conv2d(1, 32, 3, stride=1, padding=1)
+gn = nn.GroupNorm(32)            # 只需要设置一个输入通道数即可
+relu = nn.ReLU(inplace=True)
+x1 = random.randn(100,100)*0.5 - 2   # 基于标准正态分布创建一个正态分布: 要从(0,1)变为(-2, 0.5)就是逆运算
+x2 = torch.tensor(x1.astype(np.float32)).unsqueeze(0).unsqueeze(0)
+
 
 # %%        网络基础层
 """全连接层的作用？
@@ -535,7 +582,7 @@ loss_out = torch.sum(torch.mul(output, y_one_hot), dim=1).mean()
    等价于组合logsoftmax层的计算与nllloss损失，也就是: 非负/转概率/log化/对应标签的负平均概率
    F.cross_entropy(d1,d2,reduction='mean')
    输入d1需要是(N,C)其中C列为分类class数，N行为一个batch的img数
-   输入d2是(N,)的一维标签，N代表一个batch的img数，相当于不用手动做独热编码转换
+   输入d2是(N,)的一维标签，N代表一个batch的img数，且取值要在(0,C)，相当于不用手动做独热编码转换
    默认缩减操作是mean, 可选择reduction='none','mean','sum'这三种
    pytorch的交叉熵算法跟常见公式有区别：L=-sum(yi*log(y_i)),其中yi为对应标签的概率，y_i为对应模型输出的概率
    这里他采用的是标签概率*分类概率，标签概率是1或者0，而在pytorch是用标签映射直接得到-log概率后做规约，底层逻辑
@@ -633,10 +680,14 @@ loss2 = F.smooth_l1_loss(imgs, one_hot_labels)
    所以
 2. smooth_l1_loss是在l1和l2损失的基础上，优化了对误差的反应
    """
-   
-real = torch.tensor([100])
-pred = torch.arange(-10000, 10000)
 
+pred = torch.arange(-10000, 10000).view(-1,1)
+  
+labels = [100]*20000        # 假定是20000张图片
+real = torch.tensor(labels).view(-1,1)
+one_hot_code = torch.zeros(20000,1).scatter_(1, real, 1)
+
+losses = 
 
 # %%        损失函数
 """熵的概念和计算，以及交叉熵概念，以及交叉熵作为损失函数的意义？
@@ -862,6 +913,13 @@ for data,label in dataset:
 #   SGD(params, lr=<required parameter>, momentum=0, dampening=0, weight_decay=0)
 
 
+# 一个实例对比不同优化器的效果
+x = torch.linspace(-1, 1, 1000).unsqueeze(1)
+y = x.pow(2) + 0.1*torch.normal(torch.zeros(*x.size()))  # x^2 + 0.1*
+plt.scatter(x,y)
+# put dateset into torch dataset
+torch_dataset = Data.TensorDataset(x, y)
+loader = Data.DataLoader(dataset=torch_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=2,)
 
 # %%        梯度下降与优化器
 """凸函数概念，求极值方法，为什么用梯度下降而不是牛顿法?
