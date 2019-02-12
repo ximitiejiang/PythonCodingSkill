@@ -786,7 +786,7 @@ np.power(a,2)
 np.sign(a)
 np.sqrt(b)
 np.sin(b)
-np.maximum()    # 有一个按元素操作的maximum(), 不过用的少，大部分都是用缩减操作的max()
+np.maximum(b,b+3)    # 有一个按元素操作的maximum(), 不过用的少，大部分都是用缩减操作的max()
 
 # numpy缩减(规约)操作 ------ pytorch也照抄了，只是把axis改成了dim
 np.max(b, axis=1)

@@ -24,10 +24,17 @@ f3 = torch.IntTensor([1,2,3])  # 整数tensor
 torch.ones(2,3)
 torch.zeros(2,3)
 torch.eye(2,3)
+torch.empty(2,3)
+torch.full((2,3),10)
+torch.arange(1,10,2)  # (start, end, step)这跟切片一样，跟array统一
+torch.linspace(3,10,5) # (start, end, n_num)
 
 # 另一种创建tensor的体系：先创建空的指定类型的tensor,然后初始化
 t1 = torch.tensor((), dtype=torch.float32)
-t1 = torch.FloatTensor()
+t1 = torch.FloatTensor().new_zeros((2,3))
+t1 = torch.IntTensor().
+t1 = torch.LongTensor().
+
 t1.new_zeros((2,3))
 t1.new_ones((2,3))
 t1.new_full((2,3),3.5)
@@ -37,6 +44,19 @@ t1.random()
 # 创建时指定数据格式和是否求导
 t0 = torch.tensor([1.,2.,3.], requires_grad=True)     # 只要带小数点就是float
 t1 = torch.tensor(np.array([1,2,3], dtype=np.float32), requires_grad=True) # 在np中指定数据格式
+
+
+'''------------------------------------------------------------------------
+Q. 创建tensor的几种方法的差异？
+1. torch.tensor(ndarray) 为深拷贝，推荐使用
+2. torch.from_numpy(ndarray) 为浅拷贝
+'''
+import numpy as np
+data = np.array([1,2,3])
+t1 = torch.tensor(data)     # 属于深拷贝数据，不会随data而变，他等效于x.clone().detach()
+t2 = torch.from_numpy(data) # 属于浅拷贝，会随data而变
+data += 1
+print(data, t1,t2)
 
 
 '''-----------------------------------------------------------------------
@@ -278,19 +298,6 @@ t3 = torch.stack((t1,t2),0)  # stack在行方向上堆叠
 t4 = t1.repeat(2,1).transpose(1,0)
 
 
-'''------------------------------------------------------------------------
-Q. 创建tensor的几种方法的差异？
-1. torch.tensor(ndarray) 为深拷贝，推荐使用
-2. torch.from_numpy(ndarray) 为浅拷贝
-'''
-import numpy as np
-data = np.array([1,2,3])
-t1 = torch.tensor(data)     # 属于深拷贝数据，不会随data而变，他等效于x.clone().detach()
-t2 = torch.from_numpy(data) # 属于浅拷贝，会随data而变
-data += 1
-print(data, t1,t2)
-
-
 
 '''----------------------------------------------------------------------
 Q. 对于修改tensor需要注意的问题？
@@ -348,13 +355,6 @@ d1.backward()
 d6 = d1.grad            # 反向传播后返回一个tensor, false
 d7 = d1.grad.data       # t.data操作可让grad这个tensor跟计算图分离，从而可以进行修改，比如梯度清零
 d1.grad.data.zero_()    # 梯度清零, 这里我理解d1.grad.zero_()跟d1.grad.data.zero_()是一样的，因为d1.grad返回的tensor没有requires_grad=True的问题。
-
-
-'''----------------------------------------------------------------------
-Q. 对tensor的求和？
-'''
-
-
 
 
 

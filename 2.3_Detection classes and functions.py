@@ -173,6 +173,8 @@ class TwoStageDetector(BaseDetector, RPNTestMixin, BBoxTestMixin, MaskTestMixin)
 
 # %%
 '''Q.如何产生base anchors?
+参考：
+1. 
 '''
 import torch
 def gen_base_anchors(base_size, ctr, ratios, scale_major, scales):
@@ -208,7 +210,12 @@ def gen_base_anchors(base_size, ctr, ratios, scale_major, scales):
 
     return base_anchors
 
+anchors = gen_base_anchors()
 
+
+# %%
+"""Q.如何产生base anchors?
+"""
 
 
 

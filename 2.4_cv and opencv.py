@@ -380,7 +380,7 @@ path=''
 # 1. read - (h,w,c) - bgr(0~255)
 # 2. extra augment - (h,w,c) - bgr(0~255)
 # 3. scale or resize - (h,w,c) - bgr(0~255) - 影响bbox
-# 4. normalization - (h,w,c) - bgr(-2.x~2.x)
+# 4. normalization - (h,w,c) - bgr(-2.x~2.x)     这一步是归一化的一种，而在pytorch中，to_tensor的方式是把数据转到(0-1)之间
 # 5. bgr to rgb - (h,w,c) - rgb(-2.x~2.x)
 # 6. padding - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
 # 7. flip or rotate - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
