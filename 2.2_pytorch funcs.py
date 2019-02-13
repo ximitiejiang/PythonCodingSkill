@@ -864,11 +864,12 @@ for name, param in model.named_parameters():    # named_parameters()每一个输
     print(name)
 
 
-'''-------------------------------module----------------------------------
+# %%
+"""
 Q.在pytorch中几个基础模型的创建方式
 1. vgg
 2. resnet
-'''
+"""
 # ---------vgg-----------------
 import torch.nn as nn
 class VGG(nn.Module):
@@ -973,15 +974,21 @@ net = nn.Sequential(nn.Linear(2, 2), nn.Linear(2, 2))
 net.apply(init_weight)
 
 
-'''-------------------------------module----------------------------------
-Q.在pytorch中的data paralle模块如何实施
+# %%
+"""Q.在pytorch中的data paralle模块如何实施, 跟常规模型有什么区别？
 主要分如下几步：
 1. 对model封装，得到Data Parallelmodel, 重写forwrad()，在forward()中定义如下步骤
-2. 先对数据进行scatter
-3. 再对模型进行replicas
-4. 再进行并行输出计算parallel_apply
-5. 最后再组合输出gather
-'''
+    >先对数据进行scatter
+    >再对模型进行replicas
+    >再进行并行输出计算parallel_apply
+    >最后再组合输出gather
+2. Data parallel模型的不同之处
+    >
+    >
+    > 调试不能直接调试，需要在device数量为1时才能通过forward进入backbone模型本身，否则会因为
+      scatter/parallel_apply/gather函数把模型参数分解而无法进入模型执行体本身。
+      而由于data parallel模型的forward函数留了一个后门，所以基于device数量为1可以进入模型进行调试
+"""
 # 熟悉Data Parallel类
 # 原始pytorch执行流程：data parallel -> forward -> scatter -> scatter_kwargs -> scatter -> scatter_mape -> Scatter.apply()
 # 新的mmdetection流程：MMdataParallel -> forward -> scatter(*) -> scatter_kwargs(*) - > scatter(*) -> scatter_map(*) -> Scatter.forward(*)
@@ -1122,6 +1129,8 @@ def gather():
         return gather_map(outputs)
     finally:
         gather_map = None
+
+# 尝试实践一个data parallel模型，看看跟常规模型在模型本身/模型参数上有什么区别？
 
 
 '''-------------------------------module----------------------------------
