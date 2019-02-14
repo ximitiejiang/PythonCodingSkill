@@ -83,7 +83,7 @@ outs = fpn(feats)
 # %%
 '''Q. head有哪些，特点是什么？
 '''
-# ssd: 采用bbox head
+# ssd: 采用ssd head (继承自bbox head)
 
 
 
