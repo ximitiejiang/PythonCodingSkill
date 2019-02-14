@@ -277,13 +277,32 @@ import torch.nn as nn
 from numpy import random
 # 用conv默认参数：s=1,p=0,d=1,b=True，默认参数的问题是无法保持图形尺寸不变
 input = torch.tensor(random.uniform(-1,1,size=(8,16,50,100)).astype(np.float32))    # input = (8,16,50,100) b,c,h,w
-conv = nn.Conv2d(16, 33, 3, stride=1, padding=0, dilation=1, bias=True)             
+conv = nn.Conv2d(16, 33, 3, stride=1, padding=0, dilation=1, bias=True)             # 这是conv2d的默认设置
 output = conv(input)                                                                # output = (8,33,48,98) b,c,h,w， 其中h=(50-3)/1 + 1=48
 # 修改默认参数：s=1,p=1，这样能够保证输出图形尺寸不变
 input = torch.tensor(random.uniform(-1,1,size=(8,16,50,100)).astype(np.float32))    # input = (8,16,50,100) b,c,h,w
 conv = nn.Conv2d(16, 33, 3, 1, 1)                                                   
 output = conv(input)                                                                # output = (8,33,50,100) b,c,h,w， 其中h=(50-3+2)/1 + 1=50
+# 为了保证输出图形尺寸不变，也不一定是s=1/p=1的组合，还取决与kernel size
+# 比如FPN中常见的1x1卷积，需要s=1,p=0
+input = torch.tensor(random.uniform(-1,1,size=(8,16,50,100)).astype(np.float32))    # input = (8,16,50,100) b,c,h,w
+conv = nn.Conv2d(16, 33, 1, 1, 0)                                                   
+output = conv(input)                                                                # output = (8,33,50,100) b,c,h,w， 其中h=(50-3+2)/1 + 1=50
 
+
+# %%        网络基础层
+"""一些新颖的卷积模块跟传统卷积相比有哪些新的功能，比如1x1卷积，比如1x1+3x3+1x1这些？
+"""
+# VGG统一采用3x3
+nn.Conv2d(64,128,3,stride=1,padding=1)
+nn.Conv2d(128,128,3,stride=1,padding=1)
+nn.MaxPool2d(128,128,stride=2,padding=1)
+
+# Resnet采用3x3，但在bottolneck采用1x1+3x3+1x1
+nn.Conv2d(64,128,1)
+nn.Conv2d(128,256,3)
+nn.Conv2d(256,512,1)
+#
 
 
 # %%        网络基础层
@@ -291,7 +310,7 @@ output = conv(input)                                                            
 1. 下采样：是指缩小图像，也叫降采样(downsample/subsample)，主要目的是使图像尺寸缩小
     目的是仿照人类视觉系统对图像进行降维和抽象操作。    
     > 下采样之前一般用nn.MaxPool2d(k_size, s=None, p=0, d=1, ceil_mode=False)来定义s=2来实现, ceil模式是指计算输出形状的取整方式是上取整ceil还是下取整floor,默认是floor
-                 下采样池化的Hout = (Hin - k_size + 2p -1)/s + 1，公式对卷积与池化层是一样的
+                 下采样池化的Hout = (Hin - k_size + 2p)/s + 1，公式对卷积与池化层是一样的
                  下采样池化没有可学习参数，只有一些超参数，一般只设置k_size以及s=2, p=0来保证降采样，其他沿用(比如VGG)
                  或者设置k_size以及s=2,p=1来保证降采样，其他沿用(比如Resnet)
     > 下采样现在一般用nn.Conv2d(in_c, out_c, k_size, s=1, p=0, d=1, bias=True)定义s=2来实现
@@ -599,7 +618,10 @@ img1 = torch.exp(img)           # 非负化
 sum1 = torch.sum(img1, dim=1)   # 缩减操作求和
 img1[0,:] = img1[0,:]/sum1[0]  
 img1[1,:] = img1[1,:]/sum1[1]   # 归一化
-img3 = torch.log(img1)          # 取对数(e为底)
+img3 = torch.log(img1)          # 取对数(e为底), 取对数目的是方便损失函数求导(连乘变成log连加)
+# 也可用softmax函数实现logSoftmax过程
+img4 = F.softmax(img,dim=1)    # softmax的操作=exp非负+归一化
+img5 = torch.log(img1)
 
 """nn.NLLLoss/F.Nll_loss 是指negative log likelihood loss
    用于取负的对数似然值作为损失loss(x, label) = -x_label 
@@ -626,7 +648,7 @@ loss_out = torch.sum(torch.mul(output, y_one_hot), dim=1).mean()
 
 
 """nn.CrossEntropyLoss/F.cross_entropy 交叉熵误差 
-   等价于组合logsoftmax层的计算与nllloss损失，也就是: 非负/转概率/log化/对应标签的负平均概率
+   等价于组合logsoftmax层的计算与nllloss损失，也就是: logsoftmax(exp非负/转概率/log化), nllloss(取负值/标签独热编码/获得标签所对应概率/loss缩减)
    F.cross_entropy(d1,d2,reduction='mean')
    输入d1需要是(N,C)其中C列为分类class数，N行为一个batch的img数
    输入d2是(N,)的一维标签，N代表一个batch的img数，且取值要在(0,C)，相当于不用手动做独热编码转换
@@ -642,8 +664,8 @@ labels = torch.tensor([2, 0, 4], dtype=torch.int64)  # pytorch的交叉熵函数
 loss1 = F.cross_entropy(imgs, labels)   # 
 # 纯手动实现交叉熵
 n_img, n_class = imgs.shape
-imgs_exp = torch.exp(imgs)
-imgs_sum = torch.sum(imgs_exp, dim=1)      # 非负化
+imgs_exp = torch.exp(imgs)                 # exp非负化  
+imgs_sum = torch.sum(imgs_exp, dim=1)      
 for i in range(n_img):
     imgs_exp[i] = imgs_exp[i]/imgs_sum[i]  # 概率化
 imgs_log = torch.log(imgs_exp)             # log化
@@ -674,7 +696,9 @@ loss = F.binary_cross_entropy_with_logits(img,label)
 d1 = torch.tensor([-1.9287,  0.6137,  0.7114])
 d2 = torch.exp(d1)
 F.sigmoid(d2)  # 生成概率(取值0-1)，但不保证相加的和为1，相当于只是针对某一个元素的操作
+               # 计算过程：1/1+exp(-xi)
 F.softmax(d2)  # 生成多分类的概率(取值0-1)，相加的和为1
+               # 计算过程：exp(xi)/sum(exp(xi))
 
 """nn.MSELoss/F.mse_loss: mean squared error 均方误差损失: 
    每个对应元素的差的平方mean(|d1i-d2i|^2)，然后默认做平均缩减，也可用求和缩减
@@ -704,6 +728,7 @@ loss = losses.mean()     # 缩减输出
    对元素求差的绝对值|d1i - d2i|
    F.l1_loss(d1, d2, reduction='mean')
    输入d1为概率"""
+# 用l1loss做一个分类损失函数
 imgs = torch.randn(3, 5, requires_grad=True)
 labels = torch.tensor([0, 2, 4])
 one_hot_labels = torch.zeros(3,5).scatter_(1,labels.view(-1,1),1)
@@ -736,8 +761,65 @@ one_hot_code = torch.zeros(20000,1).scatter_(1, real, 1)
 
 losses = 
 
+
+# 一个手动实现的smooth l1 loss,来自mmdetection
+def smooth_l1_loss(pred, target, beta=1.0, reduction='elementwise_mean'):
+    assert beta > 0
+    assert pred.size() == target.size() and target.numel() > 0
+    diff = torch.abs(pred - target)
+    loss = torch.where(diff < beta, 0.5 * diff * diff / beta,
+                       diff - 0.5 * beta)
+    reduction = F._Reduction.get_enum(reduction)
+    # none: 0, elementwise_mean:1, sum: 2
+    if reduction == 0:
+        return loss
+    elif reduction == 1:
+        return loss.sum() / pred.numel()
+    elif reduction == 2:
+        return loss.sum()
+    
+
 # %%        损失函数
-"""熵的概念和计算，以及交叉熵概念，以及交叉熵作为损失函数的意义？
+"""带权重的几个损失函数在物体检测领域是如何应用的？
+参考：https://blog.csdn.net/majinlei121/article/details/78884531
+加权交叉熵损失函数的来源论文是(HED算法)：https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/Xie_Holistically-Nested_Edge_Detection_ICCV_2015_paper.pdf
+即使用卷积神经网络结合加权损失函数进行边缘检测。
+1. 加权损失函数的产生原因：边缘检测与物体检测一样，正样本很少(方框物体/边缘)负样本很多(背景/非边缘)，
+   假设一张图片提取出来n个class概率其中只有1个正样本，在计算损失时即使正样本预测错了，负样本预测对了，
+   但因负样本数量远超正样本数，loss也会很小，所以需要给正样本损失增加一定权重，当正样本预测错误，就乘以
+   一个很大权重，造成总的损失很大；而负样本预测错误就乘以一个很小权重，总的损失也就符合实际情况
+2. 加权损失函数的实现：
+    >nll_loss(取负值+获得label对应概率值)
+    >cross_entropy(softmax获得非负概率+取对数，取负值+获得label对应概率值)
+"""
+def weighted_nll_loss(pred, label, weight, avg_factor=None):
+    if avg_factor is None:
+        avg_factor = max(torch.sum(weight > 0).float().item(), 1.)
+    raw = F.nll_loss(pred, label, reduction='none')
+    return torch.sum(raw * weight)[None] / avg_factor
+
+def weighted_cross_entropy(pred, label, weight, avg_factor=None,
+                           reduce=True):
+    if avg_factor is None:
+        avg_factor = max(torch.sum(weight > 0).float().item(), 1.)
+    raw = F.cross_entropy(pred, label, reduction='none')
+    if reduce:
+        return torch.sum(raw * weight)[None] / avg_factor
+    else:
+        return raw * weight / avg_factor
+
+# 测试weighted_nll_loss
+imgs = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574],
+                     [ 1.5962,  2.2646, -0.2490,  0.1534, -0.5345],
+                     [-0.2562, -0.4440, -0.1629,  0.8097,  0.6865]], requires_grad=True)
+labels = torch.tensor([2, 0, 4], dtype=torch.int64)
+pred = F.log_softmax(imgs)
+weight = torch.tensor([0.3,0.3,0.4])
+weighted_nll_loss(pred, labels,weight)
+
+    
+# %%        损失函数
+"""熵的概念和计算，以及交叉熵概念，以及交叉熵为什么能作为损失函数？
 1. 信息熵概念：是指某一个离散型随机变量X的不确定性的度量，随机变量X的概率分布为p(X)=pk (k=1..n) 
     >Ent(X)= - sum(pk*log(pk)), 其中Ent(X)就是系统的信息熵，pk代表每一个事件的概率
      从公式可看出信息熵支持多分类标签的计算(而基尼指数公式就只支持二分类)
@@ -768,6 +850,10 @@ for xi in x:
     y.append(yi)
 plt.scatter(x,y)
 
+
+# %%        损失函数
+"""在物体检测领域Retinanet(综合了one stage/two stage的优点)使用的Focal loss是个什么概念，有什么优势？
+"""
 
 
 
@@ -1014,7 +1100,7 @@ n. 可以采用带权重的损失函数，比如pytorch的F.cross_entropy()是�
 """
 
 
-# %%        总成模型
+# %%        基础模型
 """Resnet的残差模块原理，他为什么有效？他还有什么特殊结构？
 1. 特点1：残差模块
 2. 特点2：1x1+3x3+1x1子模块，用来
@@ -1022,19 +1108,11 @@ n. 可以采用带权重的损失函数，比如pytorch的F.cross_entropy()是�
 
 
 
-# %%        总成模型
+# %%        基础模型
 """VGG模型的优点
 """
 
-# %%        总成模型   
-"""FPN这种金字塔模型的结构和功能？
-1. FPN包含2部分：
-    >用一组1x1卷积层对不同尺度和分辨率的输入进行层数调整，利用的是卷积层做维度调整，把256/512/1024/
-    >
-"""
 
-
-# %%        总成模型
 
 
 

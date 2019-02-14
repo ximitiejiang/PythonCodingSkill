@@ -380,7 +380,7 @@ path=''
 # 1. read - (h,w,c) - bgr(0~255)
 # 2. extra augment - (h,w,c) - bgr(0~255)
 # 3. scale or resize - (h,w,c) - bgr(0~255) - 影响bbox
-# 4. normalization - (h,w,c) - bgr(-2.x~2.x)     这一步是归一化的一种，而在pytorch中，to_tensor的方式是把数据转到(0-1)之间
+# 4. normalization - (h,w,c) - bgr(-2.x~2.x)     这一步是归一化的一种，归一化包括了(规则化到标准正态分布，归一化到数值0-1)比如pytorch中to_tensor归一化采用的方式是把数据转到(0-1)之间
 # 5. bgr to rgb - (h,w,c) - rgb(-2.x~2.x)
 # 6. padding - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
 # 7. flip or rotate - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
@@ -585,6 +585,16 @@ plt.subplot(221), plt.imshow(img, 'gray'), plt.title('original')
 plt.subplot(222), plt.imshow(mask,'gray'), plt.title('mask')
 plt.subplot(223), plt.imshow(masked, 'gray'), plt.title('masked img')
 plt.subplot(224), plt.plot(hist_full), plt.plot(hist_mask), plt.title('hist')
+
+
+# %%
+"""图像处理到底做什么，有哪些假设，有哪些细分领域？
+参考：https://zhuanlan.zhihu.com/p/55747295
+1. 图像处理的本质：是基于一定假设条件下的信号重建，所谓重建是指恢复信号的原始信息，比如去噪，内插。
+   而假设条件包括，比如去噪通常假设噪声是高斯噪声，而内插通常假设边缘连续性和灰度相关性。
+2. 
+
+"""
 
 
 '''--------------------------------------------------------------------
