@@ -64,7 +64,7 @@ Q. pytorch如何产生随机数？
 '''
 # 选分布，定义size: 取值范围只在(0,1)
 a1 = torch.rand(2,3)                  # 指定均匀分布，定义尺寸
-a2 = torch.randn(2,3)                 # 指定正态分布，定义尺寸
+a2 = torch.randn(2,3)                 # 指定标准正态分布，定义尺寸
 
 # 选取值范围，定义size：分布只为均匀分布
 a3 = torch.randint(1,10, size=(2,3))  # 指定分布，定义取值范围和尺寸
@@ -734,7 +734,7 @@ class ModuleDict(Module):
 # %%
 '''------------------------------module-----------------------------------
 Q. 如何创建module容器, 以及组合module容器？
-1. 可以用nn.Sequential(), nn.Sequential(), 前者传入的是list解包后的元素，后者传入的是list解包后的OrderedDict()
+1. 可以用nn.Sequential(*lst), nn.Sequential(), 前者传入的是list解包后的元素，后者传入的是list解包后的OrderedDict()
     后者可以方便增加名称       - 有实现forward()函数
 2. 可以用nn.Modulelist(list) - 但forward()需要自己分层写
 3. 可以用nn.ModuleDict(dict) - 但forward()需要自己分层写
@@ -748,7 +748,7 @@ import torch.nn as nn
 from collections import OrderedDict
 # 方式1: 直接输入每一层进sequential
 model1 = nn.Sequential(nn.Conv2d(2,2,3),
-                      nn.ReLU())
+                       nn.ReLU())
 # 方式2: 先list，再解包
 layers = [nn.Conv2d(1,2,3),nn.ReLU()]
 model2 = nn.Sequential(*layers)

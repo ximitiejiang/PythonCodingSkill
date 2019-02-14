@@ -18,7 +18,7 @@ Created on Mon Jan 21 18:24:32 2019
 
 
 # %%
-"""如何从backbone获得multi scale多尺度不同分辨率的输出
+"""如何从backbone获得multi scale多尺度不同分辨率的输出？
 1. 方式1：通过FPN网络，比如在RPN detection模型中采用的就是FPN neck
    从backbone获得的初始特征图是多层多尺度的，需要通过neck转换成同层多尺度，便于后续处理？？？？
     >输入：resnet的4个层特征[(2,256,152,256),(2,512,76,128),(2,1024,38,64),(2,2048,19,32)]
@@ -30,14 +30,17 @@ Created on Mon Jan 21 18:24:32 2019
     >bottom-up就是模型前向计算，lateral就是横向卷积，top-down就是上采样+混叠+FPN3x3卷积
      如果只有横向抽取多尺度特征而没有进行邻层融合，效果不好作者认为是semantic gap不同层语义偏差较大导致
      如果只有纵向也就是只从最后一层反向上采样，效果不好作者认为是多次上采样导致特征位置更不准确
-2. 方式2：通过
+
+2. 方式2：通过，比如在SSD detection模型中采用的就是？
+
 """
 import torch
 import torch.nn as nn
 import torch.functional as F
 # FPN的实现方式: 实现一个简单的FPN结构
-class FPN_neck():
+class FPN_neck(nn.Module):
     def __init__(self):
+        super().__inite__()
         self.outs_layers = 5                  # 定义需要FPN输出的特征层数
         self.lateral_conv = nn.ModuleList()   # 横向卷积1x1，用于调整层数为统一的256
         self.fpn_conv = nn.ModuleList()       # FPN卷积3x3，用于抑制中间上采样之后的两层混叠产生的混叠效应
@@ -45,11 +48,11 @@ class FPN_neck():
         out_channels = 256
         for i in range(5):
             lc = nn.Sequential(nn.Conv2d(in_channels[i],out_channels, 1, 1, 0),  # 1x1保证尺寸不变，层数统一到256
-                               nn.BatchNorm2d(),
-                               nn.ReLU())
-            fc = nn.Sequential(nn.Conv2d(in_channels[i],out_channels,1, 1, 1),   # 3x3保证尺寸不变。注意s和p的参数修改来保证尺寸不变
-                               nn.BatchNorm2d(),
-                               nn.ReLU())
+                               nn.BatchNorm2d(out_channels),                                 # stride=1, padding=0
+                               nn.ReLU(inplace=True))
+            fc = nn.Sequential(nn.Conv2d(in_channels[i],out_channels, 3, 1, 1),  # 3x3保证尺寸不变。注意s和p的参数修改来保证尺寸不变
+                               nn.BatchNorm2d(out_channels),                                 # stride=1, padding=1
+                               nn.ReLU(inplace=True))
             self.lateral_conv.append(lc)
             self.fpn_conv.append(fc)
             
@@ -59,13 +62,12 @@ class FPN_neck():
             lateral_outs.append(lc(feats[i]))       # 获得横向输出
         for i in range(2,0,-1):                     # 进行上采样和混叠
             lateral_outs[i] += F.interpolate(lateral_outs[i+1], scale_factor=2, mode='nearest')
-        lateral_outs.append(nn.MaxPool2d())         # 增加一路maxpool输出
         outs = []
         for i, fc in enumerate(self.fpn_conv):      # 获得fpn卷积层的输出
             outs.append(fc(lateral_outs[i]))
-        if len(outs) < self.outs_layers:                 # 如果需要的输出特征图层超过当前backbone的输出，则用maxpool替代
+        if len(outs) < self.outs_layers:            # 如果需要的输出特征图层超过当前backbone的输出，则用maxpool替代
             for i in len(self.outs_layers - len(outs)):
-                outs.append(F.max_pool2d(outs[-1], 1, stride=2))
+                outs.append(F.max_pool2d(outs[-1], 1, stride=2)) # 用maxpool做进一步特征图尺寸缩减
         return outs
     
 feats_channels = [256,512,1024,2048]
@@ -73,6 +75,7 @@ feats_sizes = [(152,256),(76,128),(38,64),(19,32)]
 feats = []
 for i in range(4):  # 构造假数据
     feats.append(torch.randn(2,feats_channels[i],feats_sizes[i][0],feats_sizes[i][1]))
+
 fpn = FPN_neck()
 outs = fpn(feats)
     
