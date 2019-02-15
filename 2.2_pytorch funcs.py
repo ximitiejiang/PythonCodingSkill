@@ -739,7 +739,7 @@ Q. 如何创建module容器, 以及组合module容器？
 2. 可以用nn.Modulelist(list) - 但forward()需要自己分层写
 3. 可以用nn.ModuleDict(dict) - 但forward()需要自己分层写
 (3个容器区别：Sequential是一个完整的带forward的module子类，可直接作为children module。而其他2中ModuleList/ModuleDict适合
-先创建类，实现forward方法，然后在加入到一个主module中作为children module。)
+先创建类，实现forward方法，然后在加入到一个主module中作为children module，好处是继承自module可以默认使用module的方法注册module/参数)
 
 4. 组合module容器
     >可以借用module的方法model.add_module(): 组合后的module作为子模型被加入_modules的字典中作为child_module

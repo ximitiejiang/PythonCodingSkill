@@ -208,7 +208,13 @@ isinstance(b3[0], np.float64)
 
 '''------------------------------------------------------------------------
 Q: 有一个包含N个不同类型元素的序列(list/dic/str)，如何把它分解为N个单独的变量？
-这个叫做解包，解包有2种，一种自动解包，一种手动解包(*/**)
+这个叫做解包，解包的本质是分解成独立的item了，所以解包后的元素不占内存，也就不能直接使用，只有如下2种情况可用：
+    >用在func中做参数，
+    >解包后在外边加容器包起来，比如加list,tuple,[],()...
+解包有2种方式，一种自动解包，一种手动解包(*/**)：
+0. 自动解包：用对应位置，比如a,b,c = [1,2,3] 或比如 a, *b = [1,2,3]
+1. 用'*'可以为所有迭代对象解包
+2. 用'**'可以给字典解包
 '''
 
 # 用变量自动解包
@@ -216,22 +222,21 @@ p = [12,5]
 q = 'hello'
 x,y = p           # 用多变量方式可以分解list成多个变量
 a,b,c,d,e = q    # 用多变量方式可以分解string成多个变量
-
 data = ['ACME', 50, 91.1, (2012, 12, 2)]
 name, shares, price, (year, mon, day) = data  # 用多变量嵌套格式可以分解出多个变量
 name, _, price, _ = data   # 用下划线方法可以代表某个待丢弃掉的变量
-
 record = {'Dave','dave@example.com','773-555-1212','847-555-1212'}
 name, email, *phone = record  # 用*name变量的形式可以表示开头/中间/末尾多个数据集
-
 record = ['ACME', 50, 91.1, (2012, 12, 2)]
 name, *_, (year, *_) = record  # 用*_代表多个待丢弃的变量
 
-# 用*/**进行解包
+# 用*给所有迭代对象解包
 lst = [1,2,3]
 [*lst]                  # 解包后变成散的数，需要在list包起来分配内存
 lst2 = [10,20,*lst,30]  # 解包后变成散的数，需要在list包起来分配内存
 
+
+# 用**给字典解包
 dct = dict(a=1,b=2)
 {**dct}           # 解包后变成散的数，需要在dict包起来分配内存
 dict(**dct)      # 解包后变成散的数，需要在dict包起来分配内存
@@ -563,20 +568,41 @@ if x is not None: print('x is not None')
 if not x: print('x is None')
 # 最佳实践：尽量用not x这种写法，而不要用==或者is，也就是尽量用方法2(直接判断 if.., if not..)
 
+"""--------------------------------------------------------------------------
+Q. 如何理解zip函数
+1. zip()函数是把一个迭代对象转换成tuple输出
+"""
+a = [1,2,3]
+b = [4,5,6]
+z1 = zip(a)
+z2 = zip(a,b)
 
-
+next(zip(a))    # 输出的是一个zip元素，为单元素元组(1,)
+next(zip(a,b))  # 输出的是一个zip元素，为多元素元组(1,4)
 '''------------------------------------------------------------------------
 Q. 如何理解和使用高阶函数map, reduce？
-- 两者功能上有类似地方，都是2个input， 一个fn,一个list
-map(映射)用于把fn map给每个list元素计算输出一个list，
-reduce(浓缩)用于把fn map给每个list元素，但每一轮都是基于上一轮输出和本轮输入组合计算，最后输出一个标量
+1.两者功能上有类似地方，都是2个input， 一个fn,一个list
+    >map(fn, list)
+    >map(映射)用于把fn map给每个list元素计算输出一个list
+     注意：旧版python输出list，新版python输出迭代器，list()转换后就是list了, 或通过*解包map后也可以得到散的元素)
+    >reduce(fn, list)
+    >reduce(缩减)用于把fn map给每个list元素，但每一轮都是基于上一轮输出和本轮输入组合计算，最后输出一个标量
 参考：https://www.liaoxuefeng.com/wiki/001374738125095c955c1e6d8bb493182103fac9270762a000/00141861202544241651579c69d4399a9aa135afef28c44000
 '''
+# map()的基础演示
 input = [1,2,3,4,5]
 def fn(x):
     return x**2
 out = list(map(fn, input))  # map返回的是一个迭代器
+out1 = [*map(fn,input)]
+# map在multi_apply中的高级应用(参考mmdetection)
+def multi_apply(func, *args, **kwargs):
+    pfunc = partial(func, **kwargs) if kwargs else func # 用partial()函数先绑定kwargs
+    map_results = map(pfunc, *args)                     # 对输入进行map()，返回一个map迭代对象，使用list可转化成对应的list
+    return tuple(map(list, zip(*map_results)))          # 对输出map对象先解包，然后zip组合，然后zip转list，然后装入tuple
 
+
+# reduce()的基础演示
 from functools import reduce
 input = [1,2,3,4,5]
 def fn(x,y):

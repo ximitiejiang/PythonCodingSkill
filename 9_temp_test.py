@@ -6,44 +6,33 @@ Created on Thu Feb 14 17:48:13 2019
 @author: ubuntu
 """
 import torch
+import torch.nn.functional as F
 import torch.nn as nn
-import torch.functional as F
-# FPN的实现方式: 实现一个简单的FPN结构
-class FPN_neck():
-    def __init__(self):
-        self.outs_layers = 5                  # 定义需要FPN输出的特征层数
-        self.lateral_conv = nn.ModuleList()   # 横向卷积1x1，用于调整层数为统一的256
-        self.fpn_conv = nn.ModuleList()       # FPN卷积3x3，用于抑制中间上采样之后的两层混叠产生的混叠效应
-        in_channels = [256,512,1024,2048]
-        out_channels = 256
-        for i in range(5):
-            lc = nn.Sequential(nn.Conv2d(in_channels[i],out_channels, 1, 1, 0),  # 1x1保证尺寸不变，层数统一到256
-                               nn.BatchNorm2d(),
-                               nn.ReLU())
-            fc = nn.Sequential(nn.Conv2d(in_channels[i],out_channels,1, 1, 1),   # 3x3保证尺寸不变。注意s和p的参数修改来保证尺寸不变
-                               nn.BatchNorm2d(),
-                               nn.ReLU())
-            self.lateral_conv.append(lc)
-            self.fpn_conv.append(fc)
-    def forward(self, feats):
-        lateral_outs = []
-        for i, lc in enumerate(self.lateral_conv):
-            lateral_outs.append(lc(feats[i]))       # 获得横向输出
-        for i in range(2,0,-1):                     # 进行上采样和混叠
-            lateral_outs[i] += F.interpolate(lateral_outs[i+1], scale_factor=2, mode='nearest')
-        lateral_outs.append(nn.MaxPool2d())         # 增加一路maxpool输出
-        outs = []
-        for i, fc in enumerate(self.fpn_conv):      # 获得fpn卷积层的输出
-            outs.append(fc(lateral_outs[i]))
-        if len(outs) < self.outs_layers:                 # 如果需要的输出特征图层超过当前backbone的输出，则用maxpool替代
-            for i in len(self.outs_layers - len(outs)):
-                outs.append(F.max_pool2d(outs[-1], 1, stride=2))
-        return outs
-    
-feats_channels = [256,512,1024,2048]
-feats_sizes = [(152,256),(76,128),(38,64),(19,32)]
-feats = []
-for i in range(4):  # 构造假数据
-    feats.append(torch.randn(2,feats_channels[i],feats_sizes[i][0],feats_sizes[i][1]))
-fpn = FPN_neck()
-outs = fpn(feats)
+# 创建一个RPN head: 用于rpn/faster rcnn，输入的特征来自FPN，通道数相同，所以分类回归只需要3个卷积层
+class RPN_head(nn.Module):
+    def __init__(self, num_anchors):
+        super().__init__()
+        self.num_anchors = num_anchors
+        self.rpn_conv = nn.Conv2d(256, 256, 3, 1, 1)  #
+        self.rpn_cls = nn.Conv2d(256, self.num_anchors*2, 1, 1, 0)     # 多分类：输出通道数就是2*anchors，因为每个像素位置会有2个anchors (如果是2分类，也就是采用sigmoid而不是softmax，则只需要anchors个通道)
+        self.rpn_reg = nn.Conv2d(256, self.num_anchors*4, 1, 1, 0)     # bbox回归：需要回归x,y,w,h四个参数
+    def forward_single(self,feat):  # 对单层特征图的转换
+        ft_cls = []
+        ft_reg = []
+        rpn_ft = self.rpn_conv(feat)
+        ft_cls = self.rpn_cls(F.relu(rpn_ft))  #
+        ft_reg = self.rpn_reg(F.relu(rpn_ft))
+        return ft_cls, ft_reg
+    def forward(self,feats):       # 对多层特征图的统一转换
+        map_results = map(self.forward_single, feats)
+        return tuple(map(list, zip(*map_results)))  # map解包，然后zip组合成元组，然后转成list，然后放入tuple
+                                                    # ([(2,18,h,w),(..),(..),(..),(..)], 
+                                                    #  [(2,36,h,w),(..),(..),(..),(..)])
+channels = 256
+sizes = [(152,256), (76,128), (38,64), (19,32), (10,16)]
+fpn_outs = []
+for i in range(5):
+    fpn_outs.append(torch.randn(2,channels,sizes[i][0],sizes[i][1]))
+rpn = RPN_head(9)  # 每个数据网格点有9个anchors
+results = rpn(fpn_outs)  # ([ft_cls0, ft_cls1, ft_cls2, ft_cls3, ft_cls4],
+                         #  [ft_reg0, ft_reg1, ft_reg2, ft_reg3, ft_reg4])

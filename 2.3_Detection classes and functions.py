@@ -12,10 +12,21 @@ Created on Mon Jan 21 18:24:32 2019
 # resnet作为backbone的修改
 
 
-# VGG作为backbone的修改
+# 普通VGG16： blocks = [2,2,3,3,3]每个block包含conv3x3+bn+relu，算上最后3层linear总共带参层就是16层，也就是vgg16名字由来
+class VGG16(nn.Module):
+    def __init__():
+        super().__init__()
+        self.blocks = [2,2,3,3,3]
+        for i in self.blocks:
+            layers.append(make_vgg_layer())
 
-
-
+# SSD修改的VGG: 需要提取出6路多尺度的特征图
+class SSD_VGG16(VGG16):
+    def __init__():
+        super().__init__()
+        
+    def forward(self, feats):
+        pass
 
 # %%
 """如何从backbone获得multi scale多尺度不同分辨率的输出？
@@ -31,26 +42,26 @@ Created on Mon Jan 21 18:24:32 2019
      如果只有横向抽取多尺度特征而没有进行邻层融合，效果不好作者认为是semantic gap不同层语义偏差较大导致
      如果只有纵向也就是只从最后一层反向上采样，效果不好作者认为是多次上采样导致特征位置更不准确
 
-2. 方式2：通过，比如在SSD detection模型中采用的就是？
+2. 方式2：通过backbone直接获得多尺度特征图，比如在SSD detection模型中就是直接从VGG16获得6路多尺度特征图
 
 """
 import torch
 import torch.nn as nn
-import torch.functional as F
+import torch.nn.functional as F
 # FPN的实现方式: 实现一个简单的FPN结构
 class FPN_neck(nn.Module):
     def __init__(self):
-        super().__inite__()
+        super().__init__()
         self.outs_layers = 5                  # 定义需要FPN输出的特征层数
         self.lateral_conv = nn.ModuleList()   # 横向卷积1x1，用于调整层数为统一的256
         self.fpn_conv = nn.ModuleList()       # FPN卷积3x3，用于抑制中间上采样之后的两层混叠产生的混叠效应
         in_channels = [256,512,1024,2048]
         out_channels = 256
-        for i in range(5):
+        for i in range(4):
             lc = nn.Sequential(nn.Conv2d(in_channels[i],out_channels, 1, 1, 0),  # 1x1保证尺寸不变，层数统一到256
                                nn.BatchNorm2d(out_channels),                                 # stride=1, padding=0
                                nn.ReLU(inplace=True))
-            fc = nn.Sequential(nn.Conv2d(in_channels[i],out_channels, 3, 1, 1),  # 3x3保证尺寸不变。注意s和p的参数修改来保证尺寸不变
+            fc = nn.Sequential(nn.Conv2d(out_channels,out_channels, 3, 1, 1),    # 3x3保证尺寸不变，层数不变，注意s和p的参数修改来保证尺寸不变
                                nn.BatchNorm2d(out_channels),                                 # stride=1, padding=1
                                nn.ReLU(inplace=True))
             self.lateral_conv.append(lc)
@@ -59,48 +70,117 @@ class FPN_neck(nn.Module):
     def forward(self, feats):
         lateral_outs = []
         for i, lc in enumerate(self.lateral_conv):
-            lateral_outs.append(lc(feats[i]))       # 获得横向输出
-        for i in range(2,0,-1):                     # 进行上采样和混叠
+            lateral_outs.append(lc(feats[i]))       # 获得横向输出(4组)
+        for i in range(2,0,-1):                     # 进行上采样和混叠(3组修改，1组不变)
             lateral_outs[i] += F.interpolate(lateral_outs[i+1], scale_factor=2, mode='nearest')
         outs = []
-        for i, fc in enumerate(self.fpn_conv):      # 获得fpn卷积层的输出
-            outs.append(fc(lateral_outs[i]))
-        if len(outs) < self.outs_layers:            # 如果需要的输出特征图层超过当前backbone的输出，则用maxpool替代
-            for i in len(self.outs_layers - len(outs)):
-                outs.append(F.max_pool2d(outs[-1], 1, stride=2)) # 用maxpool做进一步特征图尺寸缩减
+        for i in range(4):                          # 获得fpn卷积层的输出(4组)
+            outs.append(self.fpn_conv[i](lateral_outs[i]))
+        if len(outs) < self.outs_layers:            # 如果需要的输出特征图层超过当前backbone的输出，则用maxpool增加输出
+            for i in range(self.outs_layers - len(outs)):
+                outs.append(F.max_pool2d(outs[-1], 1, stride=2)) # 用maxpool做进一步特征图下采样尺寸缩减h=(19-1+0)/2 +1=10
         return outs
     
-feats_channels = [256,512,1024,2048]
-feats_sizes = [(152,256),(76,128),(38,64),(19,32)]
+channels = [256,512,1024,2048]
+sizes = [(152,256),(76,128),(38,64),(19,32)]
 feats = []
 for i in range(4):  # 构造假数据
-    feats.append(torch.randn(2,feats_channels[i],feats_sizes[i][0],feats_sizes[i][1]))
+    feats.append(torch.randn(2, channels[i], sizes[i][0], sizes[i][1]))
 
 fpn = FPN_neck()
-outs = fpn(feats)
+outs = fpn(feats)  # 输出5组特征图(size为阶梯状分辨率，152x256, 76x128, 38x64, 19x32, 10x16)
+                   # 该输出特征size跟输入图片尺寸相关，此处256-128-64-32-16是边界
     
+# ssd detection中，ssd head获得的多尺度特征图直接来自VGG16(但VGG16需要做微调)
+channels = [512, 1024, 512, 256, 256, 256]
+sizes = [(38,38),(19,19),(10,10),(5,5),(3,3),(1,1)]                   
+
+# %% 
+"""如何把特征图转化成提供给loss函数进行评估的固定大小的尺寸？
+这部分工作一般是在head完成：为了确保输出的特征满足loss函数要求，需要根据分类回归的预测参数个数进行特征尺寸/通道调整
+1. head的输入：
+    >带FPN的head，输入特征图的通道数会被FPN统一成相同的(FPN做过上采样和叠加要求通道数一样)，比如RPN/FasterRCNN
+    >不带FPN的head，输入通道数是变化的，比如ssd
+
+2. head的输出：输出通道数就是预测参数个数，每一个通道(即一层)就用于预测一个参数
+A.方式1：把分类和回归任务分开，分别预测，比如ssd/rpn/faster rcnn
+    >分类支线，需要用卷积层预测bbox属于哪个类，所以需要的通道数n1 = 20
+    >回归支线，需要用卷积层预测bbox坐标x/y/w/h，所以需要的通道数n2 = x,y,w,h = 4
     
-# 
+B.方式2：把分类和回归任务一起做，一起预测，比如yolo
+    >需要用卷积层同时预测bbox分类和bbox坐标，所以需要的通道数n=(x,y,w,h,c)+20类=25, 其中c为置信度
+    
+"""
+import torch
+import torch.nn.functional as F
+import torch.nn as nn
+# 创建一个RPN head: 用于rpn/faster rcnn，
+# 输入的特征来自FPN，通道数相同，所以分类回归只需要3个卷积层
+class RPN_head(nn.Module):
+    def __init__(self, num_anchors):
+        super().__init__()
+        self.num_anchors = num_anchors
+        self.rpn_conv = nn.Conv2d(256, 256, 3, 1, 1)  #
+        self.rpn_cls = nn.Conv2d(256, self.num_anchors*2, 1, 1, 0)     # 多分类：输出通道数就是2*anchors，因为每个像素位置会有2个anchors (如果是2分类，也就是采用sigmoid而不是softmax，则只需要anchors个通道)
+        self.rpn_reg = nn.Conv2d(256, self.num_anchors*4, 1, 1, 0)     # bbox回归：需要回归x,y,w,h四个参数
+    def forward_single(self,feat):  # 对单层特征图的转换
+        ft_cls = []
+        ft_reg = []
+        rpn_ft = self.rpn_conv(feat)
+        ft_cls = self.rpn_cls(F.relu(rpn_ft))  #
+        ft_reg = self.rpn_reg(F.relu(rpn_ft))
+        return ft_cls, ft_reg
+    def forward(self,feats):       # 对多层特征图的统一转换
+        map_results = map(self.forward_single, feats)
+        return tuple(map(list, zip(*map_results)))  # map解包，然后zip组合成元组，然后转成list，然后放入tuple
+                                                    # ([(2,18,h,w),(..),(..),(..),(..)], 
+                                                    #  [(2,36,h,w),(..),(..),(..),(..)])
+channels = 256
+sizes = [(152,256), (76,128), (38,64), (19,32), (10,16)]
+fpn_outs = []
+for i in range(5):
+    fpn_outs.append(torch.randn(2,channels,sizes[i][0],sizes[i][1]))
+rpn = RPN_head(9)        # 每个数据网格点有9个anchors
+results = rpn(fpn_outs)  # ([ft_cls0, ft_cls1, ft_cls2, ft_cls3, ft_cls4],
+                         #  [ft_reg0, ft_reg1, ft_reg2, ft_reg3, ft_reg4])
+    
+# 创建一个SSD head: 用于ssd
+# 输入的特征直接来自VGG，通道数不同，所以分类回归需要对应个数，比rpn/faster rcnn的卷积层要多一些
+class SSD_head(nn.Module):
+    def __init__(self):
+        self.ssd_cls = []
+        self.ssd_reg = []
+        for i in range(6):
+            self.ssd_cls.append(nn.Conv2d())
+            
+    def forward(self,feats):
+        ft1 = self.rpn_conv(feats)
+        ft2 = self.rpn_cls(F.relu(ft1))
+        ft3 = self.rpn_reg(F.relu(ft1))
+channels = [512,1024,512,256,256,256]
+sizes = [(38,38),(19,19),(10,10),(5,5),(3,3),(1,1)]
+        
+# 创建一个YOLO head: 用于yolo
+#
+
 
 
 # %%
-'''Q. head有哪些，特点是什么？
-'''
-# ssd: 采用ssd head (继承自bbox head)
-
-
-
-# %%
-'''Q.如何产生base anchors?
+"""Q.如何产生base anchors?
 参考：
-1. 
-'''
+要生成每一层特征层需要的anchors，分成如下几步：
+1. 定义anchor base size：这步定义的base size=[4,8,16,32,64]取决于特征图的size大小，
+   比如256边界的anchor size取4，128边界取8，64边界取16, 
+2. 创建base anchors
+3. 
+"""
 import torch
 def gen_base_anchors(base_size, ctr, ratios, scale_major, scales):
     """从anchor_generator类中提取出如下函数,对interface做了微调，可以对不同类型的特征层生成不同尺寸的anchor组
     如FPN出来的5层特征，可以生成5组anchors
     Args:
-        d
+        base_size(list): [4,8,16,32,64]
+        ctr()
     Returns:
         base_anchors()
     """
