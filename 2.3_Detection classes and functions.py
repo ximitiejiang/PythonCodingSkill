@@ -165,9 +165,9 @@ sizes = [(38,38),(19,19),(10,10),(5,5),(3,3),(1,1)]
 
 
 
-# %%
+# %%    anchor的三部曲：(base anchor) -> (anchor list) -> (anchor target)
 """Q.如何产生base anchors?
-参考：
+base anchors是指特征图上每个网格上的anchor集合，通常一个网格上会有3-9个anchors
 要生成每一层特征层需要的anchors，分成如下几步：
 1. 定义anchor base size：这步定义的base size=[4,8,16,32,64]取决于特征图的size大小，
    比如256边界的anchor size取4，128边界取8，64边界取16, 
@@ -191,7 +191,6 @@ def gen_base_anchors(base_size, ctr, ratios, scale_major, scales):
         y_ctr = 0.5 * (h - 1)
     else:
         x_ctr, y_ctr = ctr
-
     h_ratios = torch.sqrt(ratios)  #
     w_ratios = 1 / h_ratios
     if scale_major:
@@ -200,26 +199,32 @@ def gen_base_anchors(base_size, ctr, ratios, scale_major, scales):
     else:
         ws = (w * scales[:, None] * w_ratios[None, :]).view(-1)
         hs = (h * scales[:, None] * h_ratios[None, :]).view(-1)
-
     base_anchors = torch.stack(
         [
             x_ctr - 0.5 * (ws - 1), y_ctr - 0.5 * (hs - 1),
             x_ctr + 0.5 * (ws - 1), y_ctr + 0.5 * (hs - 1)
         ],
         dim=-1).round()
-
     return base_anchors
 
 anchors = gen_base_anchors()
 
 
-# %%
-"""Q.如何产生base anchors?
+# %%    anchor的三部曲：(base anchor) -> (anchor list) -> (anchor target)
+"""Q.如何产生anchor list?
 """
 
-# %% 
-"""Q.如何筛选anchors?
+# %%    anchor的三部曲：(base anchor) -> (anchor list) -> (anchor target)
+"""Q.如何筛选出anchor target?
 """
+
+
+# %%
+"""Q. 如何对物体检测卷积网络的输出进行损失评估，跟常规分类网络的评估有什么区别？
+1. 分类损失
+2. 回归损失
+"""
+
 
 # %% 
 """常说的One stage和two stage detection的主要区别在哪里？

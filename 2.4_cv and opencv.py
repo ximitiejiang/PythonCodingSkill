@@ -50,14 +50,16 @@ cv2.imwrite(path, img, params)
 '''-----------------------------------------------------------------------
 Q. 读取和显示视频
 参考：https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_gui/py_video_display/py_video_display.html#display-video
+1. cap = cv2.VideoCapture(): 可用来打开摄像头，或者打开一段视频
+2. cap.read(): 返回
 '''
 import matplotlib.pyplot as plt
-cap = cv2.VideoCapture(0)   # 创建视频帧捕捉对象, 0为device index，会同时打开摄像头
+cap = cv2.VideoCapture(0)   # 创建视频帧捕捉对象, 定义0为device index，会打开编号为0的摄像头
 
 while(True):
-    if not cap.isOpened(): # 有时cap没有初始化capture对象，可通过isOpen()进行检查，如果不对则重新初始化
+    if not cap.isOpened():  # 有时cap没有初始化capture对象，可通过isOpen()进行检查，如果不对则重新初始化
         cap.open()    
-    ret, frame = cap.read()     # Capture frame-by-frame, 返回True/False和帧，
+    ret, frame = cap.read()     # Capture frame-by-frame, 返回True/False和帧
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     plt.imshow(gray)
     break
@@ -387,10 +389,13 @@ path=''
 # 8. transpose - (c,h,w) - bgr(-2.x~2.x)
 # 9. to tensor - (c,h,w) - bgr(-2.x~2.x) - 影响bbox
 
+
+
 '''---------------------------------------------------------------------
 Q. 什么是图像的mask，怎么创建mask并使用mask在图像上？
 1. 图像的按位操作bitwise operation：cv2.bitwise_not(), cv2.bitwise_and(), cv2.bitwise_or()
 2. mask的概念类似pcb板的掩膜概念，用来提取感兴趣的，遮挡不感兴趣的部分
+    >
 '''
 # 创建规则形状的mask
 mask = np.zeros((h,w),dtype=np.uint8)  # 注意mask的数值格式需要根图片一致，所以需要指定成np.uint8，否则后边bitwise操作报错
