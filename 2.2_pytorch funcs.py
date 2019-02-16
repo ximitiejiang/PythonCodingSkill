@@ -193,13 +193,12 @@ b1 = b0.item()              # 单tensor转标量
 Q. tensor的维度转换
 1. 维度变换：t.transpose(), t.permute()
 2. 维度加减：t.view(), t.reshape(), t.squeeze(), t.unsqueeze()
+   也可针对tensor使用numpy认可的None的方式 t[None, :], t[:, None], t[..., None]
 '''
 from numpy import random
 import torch
 d0 = random.randint(0,255, size=(300,500))
 t0 = random.randint(0,255, size=(3,300,500)) # (c,h,w)
-
-
 
 # 维度变换顺序
 d1 = torch.tensor(d0) 
@@ -223,6 +222,19 @@ b6 = b0.reshape(6,-1)
 
 b7 = b0.view(-1,1)     # (n, 1)  view跟reshape功能一样，
                        # 但view是专供tensor，reshape适用范围更广，且reshape不怕有contiguous问题的数据
+c1 = torch.tensor([1,2,3,4,5])      # 一维tensor(5,)
+c2 = c1[:,None]                     # 升维到二维tensor(5,1)
+
+
+'''-----------------------------------------------------------------------
+Q. tensor的多维相加怎么做？
+1. 扩维相加：这种扩维相加适合于？？？
+'''
+t1 = torch.tensor([[1,2],[3,4],[5,6],[7,8]])  # (4,2)
+t2 = torch.tensor([[1,2],[3,4],[5,6]]) # (3,2)
+
+t3 = t1[None, :, :] 
+t4 = t2[:, None, :]
 
 '''------------------------------------------------------------------------
 Q. tensor的转置跟python不太一样，如何使用，如何避免not contiguous的问题？
@@ -261,18 +273,17 @@ b1.is_contiguous()  # transpose后不连续
 Q. 对tensor的堆叠
 1. python堆叠用np.stack(), np.concatenate()
 2. tensor堆叠用torch.stack(), torch.cat()
-3. 都是1维堆叠用stack, 二维堆叠用concatenate，横竖同时堆叠用repeat
+3. 都是1维堆叠用stack (升维堆叠成2维), 二维堆叠用concatenate (维持二维堆叠)
 '''
 t1 = torch.tensor([1,2,3,4,5])
 t2 = torch.tensor([6,7,8,9,10])
 t3 = torch.stack((t1,t2),0)  # 注意 torch使用dim关键字代替了numpy的axis
+t4 = torch.stack((t1,t2),1)  #
 
 t4 = torch.tensor([[1,2,3,4,5],[6,7,8,9,10]])
 t5 = torch.tensor([[11,12,13,14,15],[16,17,18,19,20]])
 t6 = torch.cat((t4,t5),0)
 t7 = torch.cat((t4,t5),1)
-
-t8 = t4.repeat(2,3)
 
 # 对比numpy的堆叠
 import numpy as np
@@ -290,12 +301,36 @@ d8 = np.concatenate((d4,d5),1)
 Q. 对tensor的广播式扩展，跟堆叠有什么区别？
 1. repeat是把同一个数据堆叠，而stack/cat是把不同数据堆叠
 2. t.repeat(m,n)是把原数据堆叠成m行，n列，这是更便捷的行列同时堆叠，而stack/cat是一次只能往一个方向堆叠
+
+# 注意跟numpy的区别：
+1. torch的repeat是tensor的属性，只能后置，不能前置函数式
+2. torch的repeat的参数是(m,n)m行n列，可同时多维堆叠，其实相当于np.tile()函数 (np.repeat是单个方向堆叠，np.tile()是多个方向堆叠)
+   nunmpy的repeat只能堆叠一个维度方向（且一维只能水平水平，一维竖直堆叠就需要先扩维到2维再完成)
 '''
 t1 = torch.tensor([1,2,3,4,5])
 t2 = torch.tensor([6,7,8,9,10])
 t3 = torch.stack((t1,t2),0)  # stack在行方向上堆叠
 
 t4 = t1.repeat(2,1).transpose(1,0)
+
+# 跟numpy的区别：torch的repeat跟np.repeat不太一样，反而类似于np.tile()
+d1 = np.array([1,2,3,4,5])
+d2 = np.repeat(d1,3,axis=0)      # 只能这样水平堆叠，如果设置axis=1的堆叠就会报错
+d3 = np.repeat(d1[None, :],3,axis=0)  # np.repeat()单维度堆叠
+
+d4 = np.tile(d1, (3,3))          # 多维度堆叠
+
+t1 = torch.tensor([1,2,3,4,5])   
+t4 = t1.repeat((3,3))            # torch的repeat()结果跟np.tile()一样，都是可以同时在多个维度同时堆叠
+
+
+'''-----------------------------------------------------------------------
+Q. 对tensor的展平？
+1. torch.flatten() 跟np.flatten()基本一致（flatten都是非inplace操作）
+2. torch没有类似于np的ravel()的inplace操作函数
+'''
+t1 = torch.tensor([[1,2,3,4,5],[6,7,8,9,10]])
+t2 = t1.flatten()  # 此时t1不变
 
 
 

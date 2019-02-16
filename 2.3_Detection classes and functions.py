@@ -120,9 +120,9 @@ class RPN_head(nn.Module):
     def __init__(self, num_anchors):
         super().__init__()
         self.num_anchors = num_anchors
-        self.rpn_conv = nn.Conv2d(256, 256, 3, 1, 1)  #
-        self.rpn_cls = nn.Conv2d(256, self.num_anchors*2, 1, 1, 0)     # 多分类：输出通道数就是2*anchors，因为每个像素位置会有2个anchors (如果是2分类，也就是采用sigmoid而不是softmax，则只需要anchors个通道)
-        self.rpn_reg = nn.Conv2d(256, self.num_anchors*4, 1, 1, 0)     # bbox回归：需要回归x,y,w,h四个参数
+        self.rpn_conv = nn.Conv2d(256, 256, 3, 1, 1)                   # conv1: 特征过滤
+        self.rpn_cls = nn.Conv2d(256, self.num_anchors*2, 1, 1, 0)     # conv2: 多分类：输出通道数就是2*anchors，因为每个像素位置会有2个anchors (如果是2分类，也就是采用sigmoid而不是softmax，则只需要anchors个通道)
+        self.rpn_reg = nn.Conv2d(256, self.num_anchors*4, 1, 1, 0)     # conv3: bbox回归：需要回归x,y,w,h四个参数
     def forward_single(self,feat):  # 对单层特征图的转换
         ft_cls = []
         ft_reg = []
@@ -168,51 +168,71 @@ sizes = [(38,38),(19,19),(10,10),(5,5),(3,3),(1,1)]
 # %%    anchor的三部曲：(base anchor) -> (anchor list) -> (anchor target)
 """Q.如何产生base anchors?
 base anchors是指特征图上每个网格上的anchor集合，通常一个网格上会有3-9个anchors
-要生成每一层特征层需要的anchors，分成如下几步：
-1. 定义anchor base size：这步定义的base size=[4,8,16,32,64]取决于特征图的size大小，
-   比如256边界的anchor size取4，128边界取8，64边界取16, 
-2. 创建base anchors
-3. 
+1. 为什么是9个base anchor, 为什么是这些尺寸的anchors?
+    在yolov3的文献中介绍说这些anchor是通过对数据集中所有anchors进行聚类，聚类参数k从1-15, 
+    (k再大则模型复杂度太高了，因为anchor过多)发现k=9所得平均重合IOU最优，虽然每次聚类的9个anchor稍有不同，
+    但基本上在voc上平均IOU大约是67%左右(可参考_test_yolov3_kmeans_on_voc.py)
+2. 要生成每一层特征层需要的anchors，分成如下几步：
+    >定义anchor base size：这步定义的base size=[4,8,16,32,64]取决于特征图的size大小，
+     比如256边界的anchor size取4，128边界取8，64边界取16, 
+    >创建base anchors
+3. 对每层特征图使用一定数量anchors：
+    >比如rpn/fasterrcnn针对每层特征图使用9个base anchors, 而yolo针对每层特征图使用3个base anchors，
+    >原则是越大的特征图，则使用越小的anchors: 因为越大特征图就是越浅层特征图，
+     因此特征趋向于低语义/小尺寸物体，适合小尺寸anchors
 """
-import torch
-def gen_base_anchors(base_size, ctr, ratios, scale_major, scales):
-    """从anchor_generator类中提取出如下函数,对interface做了微调，可以对不同类型的特征层生成不同尺寸的anchor组
-    如FPN出来的5层特征，可以生成5组anchors
+def gen_base_anchors_mine(anchor_base, ratios, scales):
+    """生成9个base anchors, [xmin,ymin,xmax,ymax]
     Args:
-        base_size(list): [4,8,16,32,64]
-        ctr()
-    Returns:
-        base_anchors()
+        anchor_base(float): 表示anchor的基础尺寸
+        ratios(list(float)): 表示h/w，由于r=h/w, 所以可令h'=sqrt(r), w'=1/sqrt(r), h/w就可以等于r了
+        scales(list(float)): 表示整体缩放倍数
+    1. 计算h, w
+        h = base * scale * sqrt(ratio)
+        w = base * scale * sqrt(1/ratio)
+    2. 计算坐标
+        xmin = x_center - w/2
+        ymin = y_center - h/2
+        xmax = x_center + w/2
+        ymax = y_center + h/2
+        
     """
-    w = base_size
-    h = base_size
-    if ctr is None:  #如果不输入中心点，则取w/2，h/2为中心点
-        x_ctr = 0.5 * (w - 1)
-        y_ctr = 0.5 * (h - 1)
-    else:
-        x_ctr, y_ctr = ctr
-    h_ratios = torch.sqrt(ratios)  #
-    w_ratios = 1 / h_ratios
-    if scale_major:
-        ws = (w * w_ratios[:, None] * scales[None, :]).view(-1)
-        hs = (h * h_ratios[:, None] * scales[None, :]).view(-1)
-    else:
-        ws = (w * scales[:, None] * w_ratios[None, :]).view(-1)
-        hs = (h * scales[:, None] * h_ratios[None, :]).view(-1)
-    base_anchors = torch.stack(
-        [
-            x_ctr - 0.5 * (ws - 1), y_ctr - 0.5 * (hs - 1),
-            x_ctr + 0.5 * (ws - 1), y_ctr + 0.5 * (hs - 1)
-        ],
-        dim=-1).round()
-    return base_anchors
+    ratios = torch.tensor(ratios) 
+    scales = torch.tensor(scales)
+    w = anchor_base
+    h = anchor_base
+    x_ctr = 0.5 * w
+    y_ctr = 0.5 * h
+    
+    base_anchors = torch.zeros(len(ratios)*len(scales),4)   # (n, 4)
+    for i in range(len(ratios)):
+        for j in range(len(scales)):
+            h = anchor_base * scales[j] * torch.sqrt(ratios[i])
+            w = anchor_base * scales[j] * torch.sqrt(1. / ratios[i])
+            index = i*len(scales) + j
+            base_anchors[index, 0] = x_ctr - 0.5 * w  # 
+            base_anchors[index, 1] = y_ctr - 0.5 * h
+            base_anchors[index, 2] = x_ctr + 0.5 * w
+            base_anchors[index, 3] = y_ctr + 0.5 * h
+    
+    return base_anchors.round()
+    
+import torch    
+anchor_strides = [4., 8., 16., 32., 64.]
+anchor_base_sizes = anchor_strides      # 基础尺寸
+anchor_scales = [8., 16., 32.]             # 缩放比例
+anchor_ratios = [0.5, 1.0, 2.0]         # w/h比例
 
-anchors = gen_base_anchors()
-
+num_anchors = len(anchor_scales) * len(anchor_ratios)
+base_anchors = []
+for anchor_base in anchor_base_sizes:
+    base_anchors.append(gen_base_anchors_mine(anchor_base, anchor_ratios, anchor_scales))
+    
 
 # %%    anchor的三部曲：(base anchor) -> (anchor list) -> (anchor target)
 """Q.如何产生anchor list?
 """
+
 
 # %%    anchor的三部曲：(base anchor) -> (anchor list) -> (anchor target)
 """Q.如何筛选出anchor target?
