@@ -115,18 +115,25 @@ t12 = torch.sin(t1)
 
 '''-----------------------------------------------------------------------
 Q. tensor的reduction缩减（规约）计算函数有哪些？
+缩减操作的函数不多：
+1. max/min/argmax/argmin: 不带dim则返回一个值，带dim则返回tuple(tensor(max),tensor(argmax))
+2. sum/cumsum
+3. mean/std/var/median/mode: 只有这组不能带dim
 '''
 t0 = torch.tensor([[-1.0, 0],[1.5,3]])
 # max, min
-t2 = t0.max()
-t3 = t0.min()# argmax, argmin
+t2 = t0.max() # 不带dim, 返回一个值
+t3 = t0.min()  
+t4 = t0.max(dim=0) # 带dim，返回两个tensor,一个是max,一个是index
 t1 = torch.argmax(t0, dim=0)  # 返回的是该direction方向index
 # sum
 t4 = torch.sum(t0)
+t5 = torch.sum(t0, dim=1)
 # cumsum
 t5 = torch.cumsum(t0,dim=0)  # 逐步累加
 # mean, std, var, median, mode
 t6 = t0.mean()
+t6-1 = t0.mean()
 t7 = t0.std()
 t8 = t0.median()
 t9 = t0.mode()
