@@ -307,6 +307,8 @@ def bbox_overlap_mine(bb1, bb2, mode='iou'):
     Args:
         bb1(tensor): (m, 4) [xmin,ymin,xmax,ymax]
         bb2(tensor): (n, 4) [xmin,ymin,xmax,ymax]
+    Return:
+        ious(tensor): (m,n)
     1. 计算两个bbox面积：area = (xmax - xmin)*(ymax - ymin)
     2. 计算两个bbox交集：
         >关键是找到交集方框的xmin,ymin,xmax,ymax
@@ -344,9 +346,10 @@ ious2 = bbox_overlap_mine(bb1, bb2)
 
 
 # %%    anchor的三部曲：(base anchor) -> (anchor list) -> (anchor target)
-"""Q.如何筛选出anchor target?
-anchor target的目的是
-1. 第一步需要对anchors进行assign和sampling(采样)：
+"""Q.如何对all anchor进行指定与标记?
+对anchor进行标记的目的是对anchor进行初步筛选，确保每个anchor要么是正样本(1)要么是负样本(0)要么是无关样本(-1)
+其中正样本是指与gt的iou>0.7, 负样本是指与gt的0<iou<0.3, 无关样本是指？
+是通过assigner()指定器来完成
 """
 
 

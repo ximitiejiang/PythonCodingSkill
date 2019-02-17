@@ -154,6 +154,8 @@ def bbox_overlap_mine(bb1, bb2, mode='iou'):
     Args:
         bb1(tensor): (m, 4) [xmin,ymin,xmax,ymax]
         bb2(tensor): (n, 4) [xmin,ymin,xmax,ymax]
+    Return:
+        ious(tensor): (m,n)
     1. 计算两个bbox面积：area = (xmax - xmin)*(ymax - ymin)
     2. 计算两个bbox交集：
         >关键是找到交集方框的xmin,ymin,xmax,ymax
@@ -199,11 +201,12 @@ def assigner(bboxes, gt_bboxes):
     neg_iou_thr = 0.3  # 负样本阀值：iou < 0.3 就为负样本
     min_pos_iou = 0.3  # 
     overlaps = bbox_overlap_mine(gt_bboxes, bboxes) # (m,n)代表m个gt, n个anchors
+    n_gt, n_bbox = overlaps.shape
     # 第一步：先创建一个与所有anchor对应的矩阵，取值-1(代表没有用的anchor)
+    assigned = overlaps.new_full((overlaps.size(1),), -1)  # (n,)对应n个anchors, 填充-1表示无关样本
+    max_overlap, argmax_overlap = overlaps.max(dim=0)      # (n,)对应n个anchors
+    # 第二步：标记负样本
     
-    max_overlap, argmax_overlap = overlaps.max(dim=0)
-    pass
-    # 第二步：
 
 
 

@@ -29,17 +29,19 @@ torch.full((2,3),10)
 torch.arange(1,10,2)  # (start, end, step)这跟切片一样，跟array统一
 torch.linspace(3,10,5) # (start, end, n_num)
 
-# 另一种创建tensor的体系：先创建空的指定类型的tensor,然后初始化
-t1 = torch.tensor((), dtype=torch.float32)
-t1 = torch.FloatTensor().new_zeros((2,3))
-t1 = torch.IntTensor().
-t1 = torch.LongTensor().
-
-t1.new_zeros((2,3))
-t1.new_ones((2,3))
-t1.new_full((2,3),3.5)
+# 另一种是对照一个已有tensor创建一个新tensor,具有相同dtype/device
+# 而size可以重新指定，填充value也可指定
+t1.new_zeros((2,3))   # 填充0
+t1.new_ones((2,3))    # 填充1
+t1.new_full((2,3),3.5) # 填充任意值
 t1.new_empty((2,3))
 t1.random()
+
+# 还有一种创建tensor的体系：先创建空的指定类型的tensor,然后初始化
+t1 = torch.tensor((), dtype=torch.float32)
+t1 = torch.FloatTensor().new_zeros((2,3))
+t1 = torch.IntTensor().new_full((2,3))
+t1 = torch.LongTensor().new_full((2,3))
 
 # 创建时指定数据格式和是否求导
 t0 = torch.tensor([1.,2.,3.], requires_grad=True)     # 只要带小数点就是float
@@ -117,10 +119,11 @@ t12 = torch.sin(t1)
 Q. tensor的reduction缩减（规约）计算函数有哪些？
 缩减操作的函数不多：
 1. max/min/argmax/argmin: 不带dim则返回一个值，带dim则返回tuple(tensor(max),tensor(argmax))
+   注意pytorch里边max()函数非常特殊，在指定dim可以同时返回value和index
 2. sum/cumsum
 3. mean/std/var/median/mode: 只有这组不能带dim
 '''
-t0 = torch.tensor([[-1.0, 0],[1.5,3]])
+t0 = torch.tensor([[-1.0, 0, 3., 2.],[1.5, 3, -4., 0.8]])
 # max, min
 t2 = t0.max() # 不带dim, 返回一个值
 t3 = t0.min()  
