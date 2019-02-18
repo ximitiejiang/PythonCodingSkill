@@ -109,8 +109,10 @@ def grid_anchors_mine(featmap_size, stride, base_anchors):
         featmap_size(list(float))
         stride(float): 代表该特征图相对于原图的下采样比例，也就代表每个网格的感受野是多少尺寸的原图网格，比如1个就相当与stride x stride大小的一片原图
         device
+    Return:
+        all_anchors(tensor): (n,4), 这里的n就等于特征图网格个数*每个网格的base anchor个数(比如9个)
     1. 先计算该特征图对应原图像素大小 = 特征图大小 x 下采样比例
-    2. 然后生成网格坐标xx, yy并展平：先得到x坐标，再meshgrid思想得到网格xx坐标，再展平
+    2. 然后生成网格坐标xx, yy并展平：先得到x, y坐标，再meshgrid思想得到网格xx, yy坐标，再展平
        其中x坐标就是按照采样比例，每隔1个stride取一个坐标
     3. 然后堆叠出[xx,yy,xx,yy]分别叠加到anchor原始坐标[xmin,ymin,xmax,ymax]上去(最难理解，广播原则)
     4. 最终得到特征图上每个网格点上都安放的n个base_anchors
@@ -152,10 +154,10 @@ def bbox_overlap_mine(bb1, bb2, mode='iou'):
     """bbox的重叠iou计算：iou = Intersection-over-Union交并比(假定bb1为gt_bboxes)
        还有一个iof = intersection over foreground就是交集跟gt_bbox的比
     Args:
-        bb1(tensor): (m, 4) [xmin,ymin,xmax,ymax]
-        bb2(tensor): (n, 4) [xmin,ymin,xmax,ymax]
+        bb1(tensor): (m, 4) [xmin,ymin,xmax,ymax], 通常取bb1输入gt
+        bb2(tensor): (n, 4) [xmin,ymin,xmax,ymax], 通常取bb2输入all anchors
     Return:
-        ious(tensor): (m,n)
+        ious(tensor): (m,n) 代表的就是m行gt跟n列anchors的ious网格
     1. 计算两个bbox面积：area = (xmax - xmin)*(ymax - ymin)
     2. 计算两个bbox交集：
         >关键是找到交集方框的xmin,ymin,xmax,ymax
@@ -189,34 +191,153 @@ def bbox_overlap_mine(bb1, bb2, mode='iou'):
 
 def assigner(bboxes, gt_bboxes):
     """anchor指定器：用于区分anchor的身份是正样本还是负样本还是无关样本
-    正样本标记为1, 负样本标记为0, 无关样本标记为-1
+    正样本标记为1+n(n为index标记), 负样本标记为0, 无关样本标记为-1
     Args:
         bboxes(tensor): (m,4)
         gt_bboxes(tensor): (n,4)
+    Return:
+        assigned(tensor): (m,) 代表m个bboxes的身份tensor，其值value=[-1,1,2..n]分别表示所对应的gt(-1表示无关，1~n表示第1~n个gt，没有0)
     1. 先创建空矩阵，值设为-1
-    2. 
+    2. 再把所有0<iou<0.3的都筛为负样本(0)，iou>0.7的都筛为正样本(1+idx)
+    3. 再把该gt最适配的anchor也标为正样本(1+idx)：即gt对应的iou最大的anchor
+       注意基于gt找到的iou最高的anchor，往往不是该anchor的最高iou，所以这一步是把anchor中只要高于该iou的所有anchor都提取为fg
     
     """
     pos_iou_thr = 0.7  # 正样本阀值：iou > 0.7 就为正样本
     neg_iou_thr = 0.3  # 负样本阀值：iou < 0.3 就为负样本
-    min_pos_iou = 0.3  # 
+    min_pos_iou = 0.3  # 预测值最小iou阀值
     overlaps = bbox_overlap_mine(gt_bboxes, bboxes) # (m,n)代表m个gt, n个anchors
     n_gt, n_bbox = overlaps.shape
     # 第一步：先创建一个与所有anchor对应的矩阵，取值-1(代表没有用的anchor)
-    assigned = overlaps.new_full((overlaps.size(1),), -1)  # (n,)对应n个anchors, 填充-1表示无关样本
-    max_overlap, argmax_overlap = overlaps.max(dim=0)      # (n,)对应n个anchors
-    # 第二步：标记负样本
+    assigned = overlaps.new_full((overlaps.size(1),), -1, dtype=torch.int64)  # (n,)对应n个anchors, 填充-1表示无关样本
+                                                                              # 注意这里dtype要改一下，否则跟下面相加的int64冲突
+    max_overlap, argmax_overlap = overlaps.max(dim=0)      # (n,)对应n个anchors，表示每个anchor跟哪一个gt的iou最大 (该变量跟assigned同尺寸，用来给assigned做筛选)
+    gt_max_overlap, gt_argmax_overlap = overlaps.max(dim=1)# (m,)对应m个gt，表示每个gt跟那个anchor的iou最大
+    # 第二步：标记负样本，阀值定义要经可能让负样本数量跟正样本数量相当，避免样本不平衡问题
+    assigned[(max_overlap >= 0) & (max_overlap < neg_iou_thr)] = 0  # 0< iou <0.3, value=0
+    # 第三步：标记正样本，阀值定义要经可能让负样本数量跟正样本数量相当，避免样本不平衡问题
+    # 注意：value = 1 + n, 其中n为第n个gt的意思，所以value范围[1, n_gt+1], value值正好反映了所对应的gt
+    assigned[max_overlap >= pos_iou_thr] = 1 + argmax_overlap[max_overlap >= pos_iou_thr] # iou >0.7, value = 1 + 位置值
+    # 第四步：标记预测值foreground(也称前景)，也就是每个gt所对应的最大iou为阀值，大于该阀值都算fg
+    # 注意：只要取值等于该gt的最大iou都被提取，通常不止一个最大iou。value值范围[1,n_gt+1]代表所对应gt
+    for i in range(n_gt):
+        if gt_max_overlap[i] >= min_pos_iou:
+            max_iou_idx = overlaps[i]==gt_max_overlap[i] # 从第i行提取iou最大的位置的bool list
+            assigned[max_iou_idx] = 1 + i   # fg的value比正样本的value偏小
+    return assigned
     
 
 
+def random_sampler(assigned, bboxes):
+    """anchor抽样器: 基于随机采样方式,从all anchors里边先分离出正样本和负样本，
+    然后在正负样本中分别按照比例抽取总数固定的样本个数用于训练(通常抽需256个样本)
+    Args:
+        assigned(tensor): (m,) 代表m个anchor的身份指定, 取值范围[-1,1,2,..n]
+        bboxes()
+    Return:
+        pos_inds(tensor): (j,) 代表指定数量的anchor正样本的index列表
+        neg_inds(tensor): (k,) 代表指定数量的anchor负样本的index列表
+        
+    """
+    num_expected = 256   # 总的采样个数
+    pos_fraction = 0.5   # 正样本占比
+    num_expect_pos = int(num_expected * pos_fraction)
+    # 正样本抽样：通常正样本数量较少，不会超过num ecpected
+    pos_inds = torch.nonzero(assigned > 0)  # (j,1) 正样本的index号
+    if torch.numel(pos_inds)!=0:
+        pos_inds = pos_inds.squeeze(1)      # (j,)
+    if torch.numel(pos_inds) > num_expect_pos:  # 如果正样本数太多则抽样
+        pos_rand_inds = torch.randperm(len(pos_inds))[:num_expect_pos] # 先对index随机排序，然后抽取前n个数
+        pos_inds = pos_inds[pos_rand_inds]
+        num_sampled_pos = num_expect_pos
+    else:   # 如果正样本数太少，则更新实际采样的数量num_sampled_pos，从而负样本数会增加，保证总数固定
+        num_sampled_pos = len(pos_inds)
+#        candidates = np.arrange(len(pos_inds))  # 也可用numpy来实现采样，速度比torch快
+#        np.random.shuffle(candidates)
+#        rand_inds = cnadidates[:num_expected*pos_fraction]
+#        return pos_inds[]
+    # 负样本抽样：通常负样本数量较多，所有anchors里边可能70%以上iou都>0，即都为负样本
+    neg_inds = torch.nonzero(assigned == 0) # (k, 1)负样本的index号
+    if torch.numel(neg_inds)!=0:
+        neg_inds = neg_inds.squeeze(1)      # (k,)
+    if torch.numel(neg_inds) > num_expected - num_sampled_pos:
+        neg_rand_inds = torch.randperm(len(neg_inds))[:(num_expected - num_sampled_pos)]
+        neg_inds = neg_inds[neg_rand_inds]
+    return pos_inds, neg_inds
 
-def sampler():
-    """anchor抽样器"""
-    pass
     
-def anchor_target_mine():
-    pass
+def bbox2delta(prop, gt, mean=[0,0,0,0], std=[1,1,1,1]):
+    """对每个gt bbox所对应的多个proposal anchor进行回归：关键理解是多个anchor对应了1个gt bbox
+    那么这些proposal是分布在gt的周围，需要找到一个回归模型的参数，使用回归后的anchor坐标作为预测值
+    这就好比：一组散点(多个proposal anchor)先拟合出一条回归曲线，然后用回归曲线计算出的值作为预测值
+    在做proposal anchor的回归前，先把xmin/ymin/xmax/ymax转化为x/y/w/h的原因，是因为???
+    Args:
+        prop(tensor): (j,4) 代表正样本anchors的坐标(xmin,ymin,xmax,ymax)
+        gt(tensor): (j,4) 代表每一个正样本anchors所预测对应的gt的坐标
+        mean(list)
+        std(list)
+    Returns:
+        deltas
+    """
+    # 把proposal的bbox坐标xmin,ymin,xmax,ymax转换xctr,yctr,w,h
+    px = 0.5 * (prop[...,0] + prop[...,2])
+    py = 0.5 * (prop[...,1] + prop[...,3])
+    pw = prop[...,2] - prop[...,0]
+    ph = prop[...,3] - prop[...,1]
+    # 把gt的bbox坐标xmin,ymin,xmax,ymax转换xctr,yctr,w,h
+    gx = 0.5 * (gt[...,0] + gt[...,2])
+    gy = 0.5 * (gt[...,1] + gt[...,3])
+    gw = gt[...,2] - gt[...,0]
+    gh = gt[...,3] - gt[...,1]
+    # 计算二者的
+    dx = (gx - px) / pw
+    dy = (gy - py) / ph
+    dw = torch.log(gw / pw)
+    dh = torch.log(gh / ph)
+    deltas = torch.stack([dx,dy,dw,dh], dim=-1)
+    
+    mean = 
+    std = 
+    deltas = 
+    
+    return deltas
 
+def anchor_target_mine(gt_bboxes, anchors, assigned, pos_inds, neg_inds):
+    """anchor目标：
+    注意，这里的anchors需要是valid anchors，同时传入assigner/sampler的也应该是valid anchors
+    Args:
+        gt_bboxes(tensor): (m,4) 代表标签bboxes
+        anchors(tensor): (n,4) 代表所有网格上的anchors, 每个网格上有9个base anchors
+        assigned(tensor): (n,) 指定器输出结果，代表n个anchor的身份指定[-1,0,1,2..m]
+        pos_inds(tensor): (j,) 采样器输出结果，代表j个采样得到的正样本anchors的index
+        neg_inds(tensor): (k,) 采样器输出结果，代表k个采样得到的负样本anchors的index
+        
+    Return:
+        
+    """
+    # 先创建0数组
+    bbox_targets = torch.zeros_like(anchors)
+    bbox_weights = torch.zeros_like(anchors)
+    labels = anchors.new_zeros(anchors.shape[0],dtype=torch.int64)
+    labels_weights = anchors.new_zeros(anchors.shape[0], dtype= torch.float32)
+    # 采样index转换为bbox坐标
+    pos_bboxes = anchors[pos_inds]  # (j,4)正样本index转换为bbox坐标
+    neg_bboxes = anchors[neg_inds]  # (k,4)负样本index转换为bbox坐标
+    # 生成每个正样本所对应的gt坐标，用来做bbox回归
+    pos_assigned = assigned[pos_inds] - 1       # 提取每个正样本所对应的gt(由于gt是大于1的1,2..)，值减1正好就是从0开始第i个gt的含义
+    pos_gt_bboxes = gt_bboxes[pos_assigned,:]   # (j,4) 生成每个正样本所对应gt的坐标
+    #对正样本相对于gt做bbox回归
+    pos_bbox_targets = bbox2delta(pos_bboxes, pos_gt_bboxes)      # 对正样本的预测值，标签值进行回归计算
+    # ?更新bbox_targets/bbox_weights
+    bbox_targets = 
+    bbox_weights
+    # ?更新labels/labels_weights
+    
+    # unmap
+    
+    return labels, labels_weights, bbox_targets, bbox_weights
+    
+    
 
 #-------------base anchors---------------------   
 import torch    
@@ -279,15 +400,11 @@ gt_bboxes = torch.tensor(gt_bboxes, dtype=torch.float32)
 bboxes = all_anchors2  # (n,4)
 ious = bbox_overlap_mine(gt_bboxes, bboxes)
 
-assign_result = assigner(bboxes, gt_bboxes)
+assigned = assigner(bboxes, gt_bboxes)
 
-assign_result, sampling_result = assign_and_sample(anchors, gt_bboxes, None, None, cfg)
-gt_bboxes_ignore = None
-gt_labels = None
-bbox_assigner.assign(bboxes, gt_bboxes, None, None)
-bbox_sampler.sample(assign_result, bboxes, gt_bboxes, None)
+pos_inds, neg_inds = random_sampler(assigned, bboxes)
 
-
+anchor_target_mine(gt_bboxes, all_anchors2, assigned, pos_inds, neg_inds)
 
 
 

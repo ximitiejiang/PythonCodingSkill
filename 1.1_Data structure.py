@@ -497,6 +497,7 @@ Q: 如何生成正态分布的随机数据？
 
 核心功能2： 随机打乱序列
 random.permutation(lst)
+random.shuffle(lst)    inplace操作
 核心功能3：从一组数随机选一个
 random.choice(lst)
 '''
@@ -535,6 +536,9 @@ for j in range(10):
 np.random.permutation([1,2,3])  # 输入一个list，输出一个打乱的list
 np.random.permutation(5)   # 可简写为5代表0开始的5个数，相当于range(5)
 np.random.permutation(np.array([[1,2,3],[4,5,6]])) # 如果是多维矩阵，却只能随机打乱行，对元素和列无影响
+
+t = [2,1,3,7,5]    # 虽然是np的函数，但支持list
+np.random.shuffle(t) # inplace操作
 
 # 从指定list中随机选一个数
 lst = [1,10,100,1000]
@@ -784,6 +788,13 @@ plt.hist(r.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='red')
 
 '''-------------------------------------------------------------------------
 Q. Numpy的排序筛选
+numpy排序: 
+    排序返回数值: np.sort(a)返回副本, a.sort(axis=1)在原数据上直接操作 (这个sort函数是numpy自己的，跟python的sort不一样)
+    排序返回index: np.argsort(a)
+numpy筛选：
+    筛选返回bool list: a>0
+    筛选返回value: a[a>0]
+    筛选返回index: np.where(a>0)
 '''
 # list的排序和筛选
 a1 = [2,1,4,3,6]
@@ -793,11 +804,16 @@ d0 = [i for i in a1 if i >3]   # list筛选：列表式筛选
 d1 = {key:value for key,value in a2.items() if value > 4} # 字典筛选： 字典式筛选
 
 # array的排序
-b1 = np.array([[2,1,5,3,8,4],[3,5,7,8,9,4]])
+b1 = np.array([[2,7,0,5,8,4],[3,5,7,8,9,4]])
+np.sort(b1, axis=0)
+np.sort(b1, axis=1)
+b1.sort(axis=1)       # 
+
 np.argsort(b1)                 # 排序 - 返回index
 
-
 # array的筛选：可以返回3种类型的数据：bool/value/index，可以说非常灵活。
+# 核心思想：筛选一般返回bool,因为bool很方便，跟切片可以结合a[bool]直接获得对应位置的数值
+# 虽然index也有一样效果，但bool不需要记位置，显然更快捷，而inidex倒往往需要用函数才能获得
 b1[...,1] > 2                  # 直接判断筛选，返回bool list
 b2 = b1[...,1][b1[...,1] > 2]  # 直接判断筛选，返回value list
 np.where(b1>2)                 # 函数判断筛选，返回index list
@@ -808,7 +824,11 @@ a_bool = a > 0
 b_bool = (a > 0) & (a < 1)
 
 a[a > 0]
-a[(a > 0) & (a < 1)]
+a[(a > 0) & (a < 1)]     # 把bool list往切片一丢，就能得到数值
+b = np.where(a>0)
+a[b]                     # 把index往切片一丢，也能得到数值，跟丢bool是一样的
+
+
 
 '''-------------------------------------------------------------------------
 Q. Numpy的数学计算函数要么是采用math库对单个元素的计算，要么就是采用numpy()的计算函数

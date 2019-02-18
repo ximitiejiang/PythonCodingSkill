@@ -9,11 +9,14 @@ Created on Sun Jan  6 09:49:15 2019
 
 '''-----------------------------data-------------------------------------------
 Q. tensor的创建
-1. pytorch中数据类型：
-    torch.FloatTensor(): float32
-    torch.DoubleTensor(): float64
-    torch.IntTensor(): int32
-    torch.LongTensor(): int64
+1. pytorch中数据类型：其中最常用的torch.float/torch.long
+    dtype=torch.float32/torch.float, 代表float32 (常用，是pytorch要求的输入类型)
+    dtype=torch.float64/torch.double, 代表float64
+    dtype=torch.uint8, 代表uint8
+    dtype=torch.int8, 代表int8,
+    dtype=torch.int16/torch.short, 代表int16,
+    dtype=torch.int32/torch.int, 代表int32,
+    dtype=torch.int64/torch.long, 代表int64 (常用，是)
 2. 
 '''
 import torch
@@ -31,11 +34,20 @@ torch.linspace(3,10,5) # (start, end, n_num)
 
 # 另一种是对照一个已有tensor创建一个新tensor,具有相同dtype/device
 # 而size可以重新指定，填充value也可指定
-t1.new_zeros((2,3))   # 填充0
-t1.new_ones((2,3))    # 填充1
-t1.new_full((2,3),3.5) # 填充任意值
-t1.new_empty((2,3))
-t1.random()
+t1 = torch.tensor([[1.5, 2.1],[3.2, 4.7]])
+t1.new_zeros((2,3), dtype=torch.float32)    # 填充0
+t1.new_ones((2,3), dtype=torch.float32)     # 填充1
+t1.new_full((2,3),3.5, dtype=torch.float32) # 填充任意值
+t1.new_empty((2,3), dtype=torch.float32)
+
+t0 = torch.tensor([[1,2,3],[3,2,1]])
+torch.zeros_like(t0)      # 填充0
+torch.ones_like(t0)       # 填充1
+torch.empty_like(t0)      # 填充随机值
+torch.full_like(t0, 3.5)  # 填充任意值，dtype会强制转换到源数据的格式，也可用dtype指定
+torch.rand_like(t0, dtype=torch.float32)   # 填充平均分布[0,1]的随机值, 这里需要指定dtype否则沿用了t0的dtype，就会报错
+torch.randint_like(t0, 1,10)
+torch.randn_like(t0, dtype=torch.float32)
 
 # 还有一种创建tensor的体系：先创建空的指定类型的tensor,然后初始化
 t1 = torch.tensor((), dtype=torch.float32)
@@ -63,18 +75,29 @@ print(data, t1,t2)
 
 '''-----------------------------------------------------------------------
 Q. pytorch如何产生随机数？
+1. 生成随机数: torch.rand(), torch.randn(), torch.randint()
+
+2. 随机乱序: torch.randperm(int)
+
+3. 随机抽样：torch没有这种函数，只能用torch.randperm(int)结合index来实现
 '''
-# 选分布，定义size: 取值范围只在(0,1)
-a1 = torch.rand(2,3)                  # 指定均匀分布，定义尺寸
-a2 = torch.randn(2,3)                 # 指定标准正态分布，定义尺寸
+# 选分布，定义size: 取值范围只在(0,1) (对应np.random.rand(), np.random.randn())
+torch.rand(2,3)                  # 实数，指定均匀分布(0,1)，定义尺寸
+torch.randn(2,3)                 # 实数，指定标准正态分布N(0,1)，定义尺寸
 
-# 选取值范围，定义size：分布只为均匀分布
-a3 = torch.randint(1,10, size=(2,3))  # 指定分布，定义取值范围和尺寸
-a4 = torch                            # 似乎缺少一个numpy的uniform
-
+# 选取值范围，定义size：分布只为均匀分布 (对应np.random.randint(), np.random.uniform())
+torch.randint(1,10, size=(2,3))  # 整数，指定均匀分布(low, high)，定义取值范围和尺寸
+                                 # 似乎缺少一个numpy的uniform: 实数版
 b4 = np.random.uniform(1,10,size=(2,3))
 
+# 随机抽取(对应numpy的np.random.choic(lst))： pytorch没有，可间接用torch.randperm实现
 
+# 随机乱序(对应numpy的np.random.permutation(), np.random.shuffle())
+# torch中做随机抽样的函数只有torch.randperm()结合index来做
+# torch.randperm(int) 可以在int处输入index的len，即可对index进行打乱，然后抽样即可
+t = torch.tensor([30,10,55,73,42,21,93,81,32])
+rand_ind_3 = torch.randperm(len(t))[:3]        # 先把index随机，并提取出需要的随机个数
+t1 = t[rand_ind_3]                             # 切片得到随机值
 
 '''-----------------------------------------------------------------------
 Q. tensor的核心计算函数？
@@ -152,11 +175,55 @@ data = torch.LongTensor([1,0,4])
 one_hot_code = torch.zeros(3,5).scatter_(1, data.view(-1,1), 1)
 
 
+
+'''-----------------------------------------------------------------------
+Q. tensor的排序和筛选
+一个基本思想是：筛选一般都是返回bool，所以numpy/torch基本也是这个原则
+
+1. 首先参考numpy:
+(1)numpy排序: 
+    排序返回数值: a.sort()在原数据上直接操作, sorted(a)返回副本原数据不变
+    排序返回index: np.argsort(a)
+(2)numpy筛选：
+    筛选返回bool: a>0
+    筛选返回value: a[a>0]
+    筛选返回index: np.where(a>0)
+2. pytorch的实施
+(1) tensor的排序
+    排序返回数值/index: t1, indics = torch.sort(t, dim=1)
+    排序返回index: torch.argsort()
+(2) tensor的筛选(2类，一类返回bool，一类返回index)：
+    筛选返回bool： 有如下函数，也有重载运算符
+        torch.gt(t, value) ，大于
+        torch.ge(t, value)，大于等于
+        torch.eq(t, value), 等于，还有一个torch.equal(t1,t2)是比较函数而不是筛选
+        torch.lt(t, value)，小于
+        torch.le(t, value)，小于等于
+        torch.ne(t), 不等于
+    筛选返回index/value:
+        torch.nonzero(t): 筛选返回非0的index
+        torch.topk(t, k, dim=1): 筛选返回topk的值和index, 返回的是最大的k个，也可设置largest=False返回最小的k个
+        torch.max(t, dim=1): 筛选返回max的值和index
+'''
+# -------tensor排序---------------
+t = torch.tensor([[2,0,13,-8,0],[-3,7,0,32,3]])
+t.sort(dim=0)
+# -------tensor筛选---------------
+t = torch.tensor([[2,0,13,-8,0],[-3,7,0,32,3]])
+# 获得bool
+t > 0
+t >=13
+t ==0
+t != 0
+# 获得index
+torch.nonzero(t)
+
+
 '''-----------------------------------------------------------------------
 Q. tensor的比较函数有哪些？
 '''
-# eq, ge, gt, le, lt, ne
-torch.eq(t0,t1)
+# equal, ge, gt, le, lt, ne 除了
+torch.equal(t0,t1)
 torch.ge(t0,t1)
 torch.gt(t0,t1)
 torch.ne(t0,t1)
@@ -238,7 +305,7 @@ c2 = c1[:,None]                     # 升维到二维tensor(5,1)
 
 '''-----------------------------------------------------------------------
 Q. tensor的多维相加怎么做？
-1. 扩维相加：这种扩维相加适合于？？？
+1. 扩维相加：这种扩维相加是继承自numpy，适合于高维数组的循环运算
 '''
 t1 = torch.tensor([[1,2],[3,4],[5,6],[7,8]])  # (4,2)
 t2 = torch.tensor([[1,2],[3,4],[5,6]]) # (3,2)
