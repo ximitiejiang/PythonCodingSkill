@@ -134,7 +134,10 @@ def grid_anchors_mine(featmap_size, stride, base_anchors):
     # 需要想到把(38912,4)提取出(1,4)的方式是升维到(38912,1,4)与(9,4)相加
     all_anchors = base_anchors + shifts[:,None,:]   # 利用广播法则(9,4)+(38912,1,4)->(39812,9,4)
     all_anchors = all_anchors.view(-1,4)            # 部分展平到(n,4)得到每个anchors的实际坐标(图像左上角为(0,0)原点)                      
-
+    
+    # valid flag计算：用于？？？
+    
+    
     return all_anchors
 
 def bbox_overlap(bboxes1,bboxes2,mode='iou'):
@@ -277,15 +280,15 @@ def bbox2delta(prop, gt, mean=[0,0,0,0], std=[1,1,1,1]):
         mean(list)
         std(list)
     Returns:
-        deltas
+        deltas(tensor): (j,4) 代表
     """
     # 把proposal的bbox坐标xmin,ymin,xmax,ymax转换xctr,yctr,w,h
-    px = 0.5 * (prop[...,0] + prop[...,2])
+    px = 0.5 * (prop[...,0] + prop[...,2])  # (j,)
     py = 0.5 * (prop[...,1] + prop[...,3])
     pw = prop[...,2] - prop[...,0]
     ph = prop[...,3] - prop[...,1]
     # 把gt的bbox坐标xmin,ymin,xmax,ymax转换xctr,yctr,w,h
-    gx = 0.5 * (gt[...,0] + gt[...,2])
+    gx = 0.5 * (gt[...,0] + gt[...,2])   
     gy = 0.5 * (gt[...,1] + gt[...,3])
     gw = gt[...,2] - gt[...,0]
     gh = gt[...,3] - gt[...,1]
@@ -294,11 +297,11 @@ def bbox2delta(prop, gt, mean=[0,0,0,0], std=[1,1,1,1]):
     dy = (gy - py) / ph
     dw = torch.log(gw / pw)
     dh = torch.log(gh / ph)
-    deltas = torch.stack([dx,dy,dw,dh], dim=-1)
+    deltas = torch.stack([dx,dy,dw,dh], dim=-1)  # (j, 4)
     
-    mean = 
-    std = 
-    deltas = 
+    mean = deltas.new_tensor(mean).unsqueeze(0)
+    std = deltas.new_tensor(std).unsqueeze(0)
+    deltas = deltas.sub_(mean).div_(std)
     
     return deltas
 
@@ -315,25 +318,39 @@ def anchor_target_mine(gt_bboxes, anchors, assigned, pos_inds, neg_inds):
     Return:
         
     """
+    # 对flag做处理
+    
+    # rpn head的gt labels list传入的是None，所以在anchor target中创建了list=[None,...None]
+    gt_labels_list = [None for _ in range(num_imgs)]
     # 先创建0数组
-    bbox_targets = torch.zeros_like(anchors)
-    bbox_weights = torch.zeros_like(anchors)
-    labels = anchors.new_zeros(anchors.shape[0],dtype=torch.int64)
-    labels_weights = anchors.new_zeros(anchors.shape[0], dtype= torch.float32)
+    bbox_targets = torch.zeros_like(anchors)  # (n,4)
+    bbox_weights = torch.zeros_like(anchors)  # (n,4)
+    labels = anchors.new_zeros(anchors.shape[0],dtype=torch.int64) # (n,)
+    labels_weights = anchors.new_zeros(anchors.shape[0], dtype= torch.float32) # (n,)
     # 采样index转换为bbox坐标
     pos_bboxes = anchors[pos_inds]  # (j,4)正样本index转换为bbox坐标
     neg_bboxes = anchors[neg_inds]  # (k,4)负样本index转换为bbox坐标
     # 生成每个正样本所对应的gt坐标，用来做bbox回归
     pos_assigned = assigned[pos_inds] - 1       # 提取每个正样本所对应的gt(由于gt是大于1的1,2..)，值减1正好就是从0开始第i个gt的含义
     pos_gt_bboxes = gt_bboxes[pos_assigned,:]   # (j,4) 生成每个正样本所对应gt的坐标
-    #对正样本相对于gt做bbox回归
-    pos_bbox_targets = bbox2delta(pos_bboxes, pos_gt_bboxes)      # 对正样本的预测值，标签值进行回归计算
-    # ?更新bbox_targets/bbox_weights
-    bbox_targets = 
-    bbox_weights
-    # ?更新labels/labels_weights
+    if len(pos_inds) > 0:
+        #对正样本相对于gt做bbox回归
+        pos_bbox_targets = bbox2delta(pos_bboxes, pos_gt_bboxes) # (j, 4)得到的是每个proposal anchor对应回归target的回归参数
+        # ?更新bbox_targets/bbox_weights
+        bbox_targets[pos_inds, :] = pos_bbox_targets  # 所有anchor中正样本的坐标更新为targets的deltas坐标？
+        bbox_weights[pos_inds, :] = 1.0               # 所有anchor中正样本的权重更新为1
+        # ?更新labels/labels_weights
+        labels[pos_inds] = gt_labels[sampling_result.pos_assigned_gt_inds]
+        label_weights[pos_inds] = 1.0  # cfg中pos_weight可自定义，如果定义-1说明用默认值则设为1
+    if len(neg_inds) > 0:
+        label_weights[neg_inds] = 1.0
+        
+    #
     
-    # unmap
+    # unmap: 采用默认的unmap_outputs =True
+    num_total_anchors
+    labels = unmap(labels, num_total_anchors, inside_flags)
+    label_weights = unmap(label_weights, num_total_anchors, inside_flags)
     
     return labels, labels_weights, bbox_targets, bbox_weights
     
@@ -383,6 +400,7 @@ valid1 = valid[:,None].expand(152,9)
 valid = valid[:, None].expand(
     valid.size(0), num_base_anchors).contiguous().view(-1)
 """
+
 #-------------bbox ious---------------------
 bb1 = torch.tensor([[-20.,-20.,20.,20.],[-30.,-30.,30.,30.]])
 bb2 = torch.tensor([[-25.,-25.,25.,25.],[-15.,-15.,15.,15.],[-25,-25,50,50]])
