@@ -6,11 +6,8 @@ Created on Thu Feb 14 17:48:13 2019
 @author: ubuntu
 """
 
-import torch
-import numpy as np
-
 def gen_base_anchors(anchor_base, anchor_ratios, anchor_scales):
-    """生成9个base_anchors: [xmin,ymin,xmax,ymax]
+    """生成n个base_anchors: [xmin,ymin,xmax,ymax]
         xmin = x_center - 
         ymin = 
         xmax = 
@@ -39,12 +36,18 @@ def gen_base_anchors(anchor_base, anchor_ratios, anchor_scales):
     return base_anchors
 
 
-def gen_base_anchors_mine(anchor_base, ratios, scales):
-    """生成9个base anchors, [xmin,ymin,xmax,ymax]
+def gen_base_anchors_mine(anchor_base, ratios, scales, scale_major=True):
+    """生成n个base anchors/[xmin,ymin,xmax,ymax],生成的base anchors的个数取决于输入
+    的scales/ratios的个数，早期一般输入3个scale和3个ratio,则每个网格包含9个base anchors
+    现在一些算法为了减少计算量往往只输入一个scale=8, 而ratios输入3个[0.5, 1.0, 2.0]，
+    所以对每个网格就包含3个base anchors
     Args:
         anchor_base(float): 表示anchor的基础尺寸
         ratios(list(float)): 表示h/w，由于r=h/w, 所以可令h'=sqrt(r), w'=1/sqrt(r), h/w就可以等于r了
         scales(list(float)): 表示整体缩放倍数
+        scale_major(bool): 表示是否以scale作为anchor变化主体，如果是则先乘scale再乘ratio
+    Returns:
+        base_anchors(tensor): (m,4)
     1. 计算h, w
         h = base * scale * sqrt(ratio)
         w = base * scale * sqrt(1/ratio)
@@ -75,6 +78,7 @@ def gen_base_anchors_mine(anchor_base, ratios, scales):
     
     return base_anchors.round()
 
+
 def _meshgrid(x, y, row_major=True):
     xx = x.repeat(len(y))
     yy = y.view(-1, 1).repeat(1, len(x)).view(-1)
@@ -104,13 +108,14 @@ def grid_anchors(featmap_size, stride, base_anchors, device='cpu'):
 
 
 def grid_anchors_mine(featmap_size, stride, base_anchors):
-    """基于base anchors把特征图的每个网格都放置anchors
+    """基于base anchors把特征图每个网格所对应的原图感受野都放置base anchors
     Args:
-        featmap_size(list(float))
-        stride(float): 代表该特征图相对于原图的下采样比例，也就代表每个网格的感受野是多少尺寸的原图网格，比如1个就相当与stride x stride大小的一片原图
-        device
+        featmap_size(list(float)): (a,b)
+        stride(float): 代表该特征图相对于原图的下采样比例，也就代表每个网格的感受野
+                      是多少尺寸的原图网格，比如1个就相当与stride x stride大小的一片原图
+        device(str)
     Return:
-        all_anchors(tensor): (n,4), 这里的n就等于特征图网格个数*每个网格的base anchor个数(比如9个)
+        all_anchors(tensor): (n,4), 这里的n就等于特征图网格个数*每个网格的base anchor个数(比如3或9个)
     1. 先计算该特征图对应原图像素大小 = 特征图大小 x 下采样比例
     2. 然后生成网格坐标xx, yy并展平：先得到x, y坐标，再meshgrid思想得到网格xx, yy坐标，再展平
        其中x坐标就是按照采样比例，每隔1个stride取一个坐标
@@ -126,7 +131,7 @@ def grid_anchors_mine(featmap_size, stride, base_anchors):
     shift_xx = shift_xx.flatten()   # (38912,) 代表了原始图的每个网格点x坐标，用于给x坐标平移
     shift_yy = shift_yy.flatten()   # (38912,) 代表了原始图的每个网格点y坐标，用于给y坐标平移
     
-    shifts = torch.stack([shift_xx, shift_yy, shift_xx, shift_yy], dim=-1) # 堆叠成4行给4个坐标[xmin,ymin,xmax,ymax], (38912,4)
+    shifts = torch.stack([shift_xx, shift_yy, shift_xx, shift_yy], dim=-1) # 堆叠成4列给4个坐标[xmin,ymin,xmax,ymax], (38912,4)
     shifts = shifts.type_as(base_anchors)   # 从int64转换成torch认可的float32
     
     # anchor坐标(9,4)需要基于网格坐标(38912,4)进行平移：平移后应该是每个网格点有9个anchor
@@ -135,10 +140,65 @@ def grid_anchors_mine(featmap_size, stride, base_anchors):
     all_anchors = base_anchors + shifts[:,None,:]   # 利用广播法则(9,4)+(38912,1,4)->(39812,9,4)
     all_anchors = all_anchors.view(-1,4)            # 部分展平到(n,4)得到每个anchors的实际坐标(图像左上角为(0,0)原点)                      
     
-    # valid flag计算：用于？？？
-    
-    
     return all_anchors
+
+
+def valid_flags(featmap_size, valid_size, num_base_anchors, device='cpu'):
+    """对all anchors的每个anchor定义合法标志：由于最后一个特征层尺寸是ceil()方式缩小
+    该特征层再乘以stride放大回去会比原始图像偏大，这是定义的valid flag就是通过meshgrid
+    思想对每个特征图上的网格点生成一个flag，用来标记该网格是否是合法的，如果合法就是1
+    不合法就是0。合法代表该网格在原图有对应感受野。(在rpn里边似乎所有的都合法)
+    同时由于是对每个网格对应的anchor做，所以还要扩展乘以base-anchor的个数。
+    扩展时最关键搞清展平时的过程要跟anchor的排列顺序一致：base_anchors展平时是每层的n个base_anchor先展平
+    然后逐层展平，也就是每组base anchor是放在一起的。所以这里的valid复制3组就相当于
+    n组base anchor，展平后也是每组anchor的flag放在一起，这个顺序是不能乱的。这也是为什么
+    是valid[:,None]而不是valid[None, :], 要放成n列确保n个base anchor展平时是放在一起的。
+    Args:
+        featmap_size(list): [h,w] 代表网络计算出来的特征图大小，前几层都能被32整除，缩小放大回去尺寸跟原图一样
+                            只有最后一层放大后会比原图大
+        valid_size(list): [h,w] 代表合法尺寸，该尺寸是通过pad_shape按比例缩小stride倍数
+                           后取整ceil()，并与特征图的h,w之间，选择更小的值作为合法尺寸w,h
+    Return:
+        valid(tensor): (k,) 代表每个网格，但复制了base anchor组并拼接在一行，k数量=网格数量×base anchor数量，保证每个anchor有一个flag
+    """
+    feat_h, feat_w = featmap_size
+    valid_h, valid_w = valid_size
+    v_x = torch.zeros(feat_w, dtype=torch.uint8, device=device)
+    v_y = torch.zeros(feat_h, dtype=torch.uint8, device=device)
+    v_x[:valid_w] = 1
+    v_y[:valid_h] = 1
+    
+    v_xx = v_x[:,None].repeat((len(v_y)),1)
+    v_yy = v_y[None,:].repeat((1,len(v_x)))
+    
+    v_xx = v_xx.flatten()  # (k,)
+    v_yy = v_yy.flatten()  # (k,)
+    
+    valid = v_xx & v_yy    # (k,) 只有横坐标纵坐标都为1才为valid
+    valid = valid[:,None].repeat(1, num_base_anchors).view(-1)  # 先变换成(k,1)，再复制成(k,3),再展平成(3*k,)的一维数组
+    return valid
+
+def inside_flags(anchors, valid_flags, img_shape, allowed_border):
+    """对all anchors的边界进行评估，如果超出图像边界，则不使用即标记为0
+    Args:
+        anchors(tensor): (m,4) 代表特征图上所有anchors
+        valid_flags(tensor): (k,) 代表特征图上每个
+        img_shape(tuple): [h,w]
+        allowed_border(int): 代表anchor超出图像边界的距离，为>=0的整数
+    Return:
+        inside(tensor): (k,)
+    """
+    img_h, img_w = img_shape[:2]
+    if allowed_border >= 0:
+        inside = valid_flags & \
+            (anchors[:, 0] >= -allowed_border) & \
+            (anchors[:, 1] >= -allowed_border) & \
+            (anchors[:, 2] < img_w + allowed_border) & \
+            (anchors[:, 3] < img_h + allowed_border)
+    else:
+        inside = valid_flags
+    return inside
+
 
 def bbox_overlap(bboxes1,bboxes2,mode='iou'):
 
@@ -184,7 +244,7 @@ def bbox_overlap_mine(bb1, bb2, mode='iou'):
     
     xymin = torch.max(bb1[:, None, :2], bb2[:,:2])  # 由于m个gt要跟n个anchor分别比较，所以需要升维度
     xymax = torch.min(bb1[:, None, 2:], bb2[:,2:])  # 所以(m,1,2) vs (n,2) -> (m,n,2)
-    wh = (xymax -xymin).clamp(0)   # 得到宽高w, h (m,n,2)
+    wh = (xymax -xymin).clamp(min=0)   # 得到宽高w, h (m,n,2)
     
     overlap = wh[:,:,0] * wh[:,:,1]   # (m,n)*(m,n) -> (m,n),其中m个gt的n列w, 乘以m个gt的n列h
     
@@ -280,7 +340,7 @@ def bbox2delta(prop, gt, mean=[0,0,0,0], std=[1,1,1,1]):
         mean(list)
         std(list)
     Returns:
-        deltas(tensor): (j,4) 代表
+        deltas(tensor): (j,4) 代表了从proposal到gt的回归参数(因为两者很接近，回归参数也很小，一般都是小于1的小数)
     """
     # 把proposal的bbox坐标xmin,ymin,xmax,ymax转换xctr,yctr,w,h
     px = 0.5 * (prop[...,0] + prop[...,2])  # (j,)
@@ -305,8 +365,11 @@ def bbox2delta(prop, gt, mean=[0,0,0,0], std=[1,1,1,1]):
     
     return deltas
 
-def anchor_target_mine(gt_bboxes, anchors, assigned, pos_inds, neg_inds):
-    """anchor目标：
+def unmap(d1,d2,d3):
+    pass
+
+def anchor_target_mine(gt_bboxes, anchors, assigned, pos_inds, neg_inds, inside_f, gt_labels):
+    """anchor目标：首先对anchor的合法性进行过滤，取出合法anchors(没有超边界)，
     注意，这里的anchors需要是valid anchors，同时传入assigner/sampler的也应该是valid anchors
     Args:
         gt_bboxes(tensor): (m,4) 代表标签bboxes
@@ -314,43 +377,42 @@ def anchor_target_mine(gt_bboxes, anchors, assigned, pos_inds, neg_inds):
         assigned(tensor): (n,) 指定器输出结果，代表n个anchor的身份指定[-1,0,1,2..m]
         pos_inds(tensor): (j,) 采样器输出结果，代表j个采样得到的正样本anchors的index
         neg_inds(tensor): (k,) 采样器输出结果，代表k个采样得到的负样本anchors的index
+        inside_f(tensor): (n,) 对anchor在图像边界内部的判断结果[0,1]，每个anchor一个flag
         
     Return:
-        
+        labels
+        labels_weights
+        bbox_targets
+        bbox_weights
     """
-    # 对flag做处理
-    
-    # rpn head的gt labels list传入的是None，所以在anchor target中创建了list=[None,...None]
-    gt_labels_list = [None for _ in range(num_imgs)]
+    # 先基于inside_flag获得inside anchors: 代表的是在图像边界以内的anchors
+    inside_anchors = anchors[inside_f,:]
     # 先创建0数组
-    bbox_targets = torch.zeros_like(anchors)  # (n,4)
-    bbox_weights = torch.zeros_like(anchors)  # (n,4)
-    labels = anchors.new_zeros(anchors.shape[0],dtype=torch.int64) # (n,)
-    labels_weights = anchors.new_zeros(anchors.shape[0], dtype= torch.float32) # (n,)
+    bbox_targets = torch.zeros_like(inside_anchors)  # (n,4)
+    bbox_weights = torch.zeros_like(inside_anchors)  # (n,4)
+    labels = anchors.new_zeros(inside_anchors.shape[0],dtype=torch.int64) # (n,)
+    labels_weights = anchors.new_zeros(inside_anchors.shape[0], dtype= torch.float32) # (n,)
     # 采样index转换为bbox坐标
     pos_bboxes = anchors[pos_inds]  # (j,4)正样本index转换为bbox坐标
-    neg_bboxes = anchors[neg_inds]  # (k,4)负样本index转换为bbox坐标
     # 生成每个正样本所对应的gt坐标，用来做bbox回归
     pos_assigned = assigned[pos_inds] - 1       # 提取每个正样本所对应的gt(由于gt是大于1的1,2..)，值减1正好就是从0开始第i个gt的含义
     pos_gt_bboxes = gt_bboxes[pos_assigned,:]   # (j,4) 生成每个正样本所对应gt的坐标
     if len(pos_inds) > 0:
         #对正样本相对于gt做bbox回归
         pos_bbox_targets = bbox2delta(pos_bboxes, pos_gt_bboxes) # (j, 4)得到的是每个proposal anchor对应回归target的回归参数
-        # ?更新bbox_targets/bbox_weights
-        bbox_targets[pos_inds, :] = pos_bbox_targets  # 所有anchor中正样本的坐标更新为targets的deltas坐标？
+        # 更新bbox_targets/bbox_weights
+        bbox_targets[pos_inds, :] = pos_bbox_targets  # 所有anchor中正样本的坐标更新为targets的deltas坐标
         bbox_weights[pos_inds, :] = 1.0               # 所有anchor中正样本的权重更新为1
-        # ?更新labels/labels_weights
-        labels[pos_inds] = gt_labels[sampling_result.pos_assigned_gt_inds]
-        label_weights[pos_inds] = 1.0  # cfg中pos_weight可自定义，如果定义-1说明用默认值则设为1
+        # 更新labels/labels_weights
+        labels[pos_inds] = 1            # 默认gt_labels=None，所以labels对应target的位置设置为1
+        labels_weights[pos_inds] = 1.0  # cfg中pos_weight可自定义，如果定义-1说明用默认值则设为1
     if len(neg_inds) > 0:
-        label_weights[neg_inds] = 1.0
-        
-    #
-    
+        labels_weights[neg_inds] = 1.0
+
     # unmap: 采用默认的unmap_outputs =True
-    num_total_anchors
+    num_total_anchors = anchors.size(0)
     labels = unmap(labels, num_total_anchors, inside_flags)
-    label_weights = unmap(label_weights, num_total_anchors, inside_flags)
+    labels_weights = unmap(labels_weights, num_total_anchors, inside_flags)
     
     return labels, labels_weights, bbox_targets, bbox_weights
     
@@ -360,16 +422,19 @@ def anchor_target_mine(gt_bboxes, anchors, assigned, pos_inds, neg_inds):
 import torch    
 anchor_strides = [4., 8., 16., 32., 64.]
 anchor_base_sizes = anchor_strides      # 基础尺寸
-anchor_scales = [8., 16., 32.]          # 缩放比例
+#anchor_scales = [8., 16., 32.]          # 缩放比例
+anchor_scales = [8.]                    # 只传入1个scale，减少anchors的个数
 anchor_ratios = [0.5, 1.0, 2.0]         # w/h比例
 
 num_anchors = len(anchor_scales) * len(anchor_ratios)
 base_anchors = []
+base_anchors2 = []
 for anchor_base in anchor_base_sizes:
     base_anchors.append(gen_base_anchors_mine(anchor_base, anchor_ratios, anchor_scales))
-
+    base_anchors2.append(gen_base_anchors(anchor_base, anchor_ratios, anchor_scales))
+    
 #-------------all anchors---------------------
-featmap_sizes = [(152,256), (76,128), (38,64), (19,32), (10,16)]
+featmap_sizes = [(152,200), (76,100), (38,50), (19,25), (10,13)]
 strides = [4,8,16,32,64]    # 针对resnet的下采样比例，5路分别缩减尺寸 
 
 i=0
@@ -379,52 +444,57 @@ base_anchor = base_anchors[i]
 all_anchors1 = grid_anchors(featmap_size, stride, base_anchor)
 all_anchors2 = grid_anchors_mine(featmap_size, stride, base_anchor)
 
+#-------------flags---------------------
+valid_size = featmap_size   # 这里沿用rpn的形式，由于加入对数据32倍数的padding,特征图大小跟valid size一样
+num_base_anchors = len(base_anchor)
+allowed_border = 0
+img_shape = (600, 800)
 
-"""
-#-------------valid flag---------------------
-feat_h, feat_w = (152,256)
-valid_h, valid_w = (148,240)
-num_base_anchors = 9
-assert valid_h <= feat_h and valid_w <= feat_w
+valid_f = valid_flags(featmap_size, valid_size, num_base_anchors, device='cpu')
 
-valid_x = torch.zeros(feat_w, dtype=torch.uint8)
-valid_y = torch.zeros(feat_h, dtype=torch.uint8)
-valid_x[:valid_w] = 1
-valid_y[:valid_h] = 1
-#valid_xx, valid_yy = _meshgrid(valid_x, valid_y)
-valid_xx = valid_x.repeat((len(valid_y),1))
-valid_yy = valid_y[:,None].repeat(1,len(valid_x))
-
-valid = valid_xx & valid_yy   # (152, 256)
-valid1 = valid[:,None].expand(152,9)
-valid = valid[:, None].expand(
-    valid.size(0), num_base_anchors).contiguous().view(-1)
-"""
+inside_f = inside_flags(all_anchors2, valid_f, img_shape, allowed_border)
 
 #-------------bbox ious---------------------
-bb1 = torch.tensor([[-20.,-20.,20.,20.],[-30.,-30.,30.,30.]])
-bb2 = torch.tensor([[-25.,-25.,25.,25.],[-15.,-15.,15.,15.],[-25,-25,50,50]])
-ious1 = bbox_overlap(bb1,bb2)
-ious2 = bbox_overlap_mine(bb1, bb2)
+#bb1 = torch.tensor([[-20.,-20.,20.,20.],[-30.,-30.,30.,30.]])
+#bb2 = torch.tensor([[-25.,-25.,25.,25.],[-15.,-15.,15.,15.],[-25,-25,50,50]])
+#ious1 = bbox_overlap(bb1,bb2)
+#ious2 = bbox_overlap_mine(bb1, bb2)
 
-#-------------anchor target---------------------
-# 开始anchor target: rpn head中使用的anchor target()基本沿用默认设置，sampling=True
+#-------------ious---------------------
 sampling =True  # 调用anchor target时没指定就沿用默认设置
-# 在anchor target single()中，先调用assign_and_sample()
-# 获得assign result, sample result
 import pickle
 gt_bboxes = pickle.load(open('test/test_data/test9_bboxes.txt','rb'))  # gt bbox (m,4)
 gt_bboxes = torch.tensor(gt_bboxes, dtype=torch.float32)
-bboxes = all_anchors2  # (n,4)
-ious = bbox_overlap_mine(gt_bboxes, bboxes)
+gt_labels = [None, None]
+ious = bbox_overlap_mine(gt_bboxes, all_anchors2)
 
-assigned = assigner(bboxes, gt_bboxes)
+#-------------ious/assigner/sampler---------------------
+assigned = assigner(all_anchors2, gt_bboxes)
 
-pos_inds, neg_inds = random_sampler(assigned, bboxes)
+pos_inds, neg_inds = random_sampler(assigned, all_anchors2)
 
-anchor_target_mine(gt_bboxes, all_anchors2, assigned, pos_inds, neg_inds)
+#-------------anchor target---------------------
+labels, labels_weights, bbox_targets, bbox_weights = anchor_target_mine(
+        gt_bboxes, all_anchors2, assigned, pos_inds, neg_inds, inside_f, gt_labels)
 
 
 
+"""一组参考数据(2张图片)
+# 基于pad_shape进行下采样缩放得到的5张特征图，由于前面padding到32倍数，所以下采样不需要取整
+# 但最后一张特征图是64倍，所以相除结果必然是.5，采用ceil的方式得到(10,13)
+# 我理解为什么没有用64倍做padding，是防止太多padding的0进去
+featmap_sizes = [[152, 200], [76, 100], [38, 50], [19, 25], [10, 13]]
 
+ori_shape = (375, 500, 3)  # 原图(h,w,c)
+img_shape = (600, 800, 3)  # 图片放大到[1000,600]以内
+pad_shape = (608, 800, 3)  # 图片加padding能够被32整除(但rpn最大下采样比例是64?)
+scale_factor = 1.6
+flip = False
+
+ori_shape = 375, 500, 3
+img_shape = 600, 800, 3
+pad_shape = 608, 800, 3
+scale_factor = 1.6
+flip = True        
+"""
 

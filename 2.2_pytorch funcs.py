@@ -287,8 +287,8 @@ t2 = t1.permute(1,2,0)  # (h,w,c), permute()可以用于更多维
 # 行或者列变换顺序
 
 # 维度增减
-b0 = torch.tensor([[1,2,3,4,5,6],[4,5,6,7,8,9]])  # (2,3)
-b1 = b0.unsqueeze(0)                  # (1,2,3)     
+b0 = torch.tensor([[1,2,3,4,5,6],[4,5,6,7,8,9]])  # (2,6)
+b1 = b0.unsqueeze(0)                  # (1,2,6)     
 b2 = b1.squeeze(0)
 
 b3 = b0.unsqueeze(1)
@@ -299,8 +299,35 @@ b6 = b0.reshape(6,-1)
 
 b7 = b0.view(-1,1)     # (n, 1)  view跟reshape功能一样，
                        # 但view是专供tensor，reshape适用范围更广，且reshape不怕有contiguous问题的数据
+
+b8 = b0.view(1,-1)    #变为二维数组(1,n)
+b9 = b0.view(-1)      #变为一维数组(n,)  这个用法也很常见，很方便————————最常用多维变一维
+
 c1 = torch.tensor([1,2,3,4,5])      # 一维tensor(5,)
-c2 = c1[:,None]                     # 升维到二维tensor(5,1)
+c2 = c1[:,None]                     # 升维到二维tensor(5,1)————————最常用一维变多维
+
+
+
+'''-------------------------------------------------------------------------
+Q. 上一问题中发现有很多不同的命令实现展平，但展平算法一样吗？
+结论：展平算法都一样，从第一个维度循环，然后到第二个维度
+1. 二维展平：逐行展平
+3. 三维展平：先到层，第0层逐行展平，第1行逐行展平....
+'''
+import torch
+# 二维展平
+a = torch.tensor([[1,2,3,4,5],[6,7,8,9,10]])  
+a.flatten()
+a.view(-1)
+a.reshape(-1)
+a.view(1,-1)
+a.view(-1,1)
+
+# 三维展平
+a = torch.tensor([[[1,2],[3,4]],[[5,6],[7,8]]])
+a.flatten()
+a.view(-1)
+a.reshape(-1,1)
 
 
 '''-----------------------------------------------------------------------
@@ -354,9 +381,11 @@ Q. 对tensor的堆叠
 '''
 t1 = torch.tensor([1,2,3,4,5])
 t2 = torch.tensor([6,7,8,9,10])
-t3 = torch.stack((t1,t2),0)  # 注意 torch使用dim关键字代替了numpy的axis
-t4 = torch.stack((t1,t2),1)  #
+torch.stack((t1,t2),0)  # 注意 torch使用dim关键字代替了numpy的axis
+torch.stack((t1,t2),1)  #
 
+torch.stack([t1,t2],-1) # dim=-1的理解参考np.stack()非常顺的去理解(m,)升维到(m,1)然后n个堆叠成(m,n)，顺滑！
+                        # 在一些算法中dim=-1是经常被使用的一个小方法。
 t4 = torch.tensor([[1,2,3,4,5],[6,7,8,9,10]])
 t5 = torch.tensor([[11,12,13,14,15],[16,17,18,19,20]])
 t6 = torch.cat((t4,t5),0)
@@ -388,7 +417,22 @@ t1 = torch.tensor([1,2,3,4,5])
 t2 = torch.tensor([6,7,8,9,10])
 t3 = torch.stack((t1,t2),0)  # stack在行方向上堆叠
 
-t4 = t1.repeat(2,1).transpose(1,0)
+# t.repeat()相当与tile,非常方便
+t1.repeat(3,2)
+
+# 另一种同一数据的堆叠方法是用t.expand(),该方法跟t.repeat()类似,但只适合二维
+# 并且expand的行列计数方式跟repeat不同，他采用的是定义生成的结果数组的行数和列数
+# 而repeat是定义把源数组看成一个元素堆叠成几行几列。
+t1 = torch.tensor([1,2,3,4,5])
+t1.expand(2,5)          # 堆叠成2行5列元素
+t1.repeat(2,1)          # 等效写法：源数组整体堆叠成2行1列
+
+t1[:,None].expand(5,3)  # 变列，堆叠成5行3列个元素
+t1[:,None].expand(-1,3) # 等效写法，不变的元素维度省略成-1
+t1[:,None].repeat(1,3)   # 等效写法，原数组整体堆叠成1行3列
+
+t2 = torch.tensor([[1,2,3],[4,5,6]])
+t2.expand(2,6)
 
 # 跟numpy的区别：torch的repeat跟np.repeat不太一样，反而类似于np.tile()
 d1 = np.array([1,2,3,4,5])

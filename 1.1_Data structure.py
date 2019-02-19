@@ -645,6 +645,9 @@ Q4. 如何进行堆叠和展平？
     3. stack: 升维堆叠。通常用于处理一维，且在一维数据下也能axis=0/1两个方向，且自动输出升为2维。虽然能够处理2维但要求输入size相同。
     4. 一般来说：一维数据用stack处理(胜在两个axis都可操作)，二维以上用concatenate(胜在不同size也能堆叠)
        一般来说：普通数据用stack/concatenate，tensor数据也一样用stack/cat
+    5. pytorch的对应：
+        np.stack() -> torch.stack()                                # 用在一维(升维堆叠)
+        np.concatenate([a1,a2],axis=1) -> torch.cat([t1,t2],dim=1) # 用在二维(维度不变)
 ------------------------------------------------------------
 '''
 import numpy as np
@@ -673,32 +676,38 @@ c4=np.concatenate((c0,c1),axis=1)  # 报错！ 因为(2,2)与(1,2)如果在axis=
 c5=np.concatenate((c0,c2),axis=1)  # ok
 # stack堆叠
 # stack在处理一维堆叠的直观效果很好，类似在两个轴上分别叠加，一维直观效果比concatenate好（concatenate不能处理一维axis=1的情况）
-# 但stack本质上是先升维再堆叠：
+# 但stack本质上是先升维再堆叠： axis = i 就是先增加一个i维度，该维度=1, 
+# 先改写数组为升维以后的数组，然后在该维度叠加
 a0 = np.array([1,2,3])
 a1 = np.array([4,5,6])
 
-a2 = np.stack((a0,a1),axis=0)   # stack()可以用于一维数据的多轴操作，且自动完成升维: (3,) -> (1,3) ->堆叠变(2,3)
-a3 = np.stack((a0,a1),axis=1)  #stack多轴都可操作，自动升维: (3,) -> (3,1) -> 堆叠变(3,2)
+np.stack((a0,a1),axis=0)   # stack()可以用于一维数据的多轴操作，且自动完成升维: (3,) -> (1,3) ->堆叠变(2,3)
+np.stack((a0,a1),axis=1)  # (3,)升维到(3,1)堆叠变(3,2)
 
-b0 = np.array([[1,2],[3,4]])  
-b1 = np.array([[5,6],[7,8]])
+# axis=-1的用法: 很适合理解一维的变化过程，一个(3,)的数组在最后追加一个维度为(3,1)然后n个堆叠为(3,n)，
+# 非常自然的理解，非常顺滑的理解，得益于-1的认识以后，所有理解都通了。
+np.stack((a0,a1), -1)
 
 # stack处理多维
-b2 = np.stack((b0,b1),axis=0)  # 原来(2,2)升维到(1,2,2), 两个(1,2,2)的axis=0轴堆叠成(2,2,2)
-b3 = np.stack((b0,b1),axis=1)  # 原来(2,2)升维到(2,1,2)，两个(2,1,2)的axis=1轴堆叠成(2,2,2)
-b4 = np.stack((b0,b1),axis=2)  # 原来(2,2)升维到(2,2,1)，两个(2,2,1)的axis=2轴堆叠成(2,2,2)
+b0 = np.array([[1,2],[3,4]])  
+b1 = np.array([[5,6],[7,8]])
+np.stack((b0,b1),axis=0)  # 原来(2,2)升维到(1,2,2), 两个(1,2,2)的axis=0轴堆叠成(2,2,2)
+np.stack((b0,b1),axis=1)  # 原来(2,2)升维到(2,1,2)，两个(2,1,2)的axis=1轴堆叠成(2,2,2)
+np.stack((b0,b1),axis=2)  # 原来(2,2)升维到(2,2,1)，两个(2,2,1)的axis=2轴堆叠成(2,2,2)
 
 
 d0 = np.array([[1,2,3],[4,5,6]])
 d1 = np.array([[1,2,3],[4,5,6]])
 d2 = np.array([[1,2,3],[4,5,6]])
-d4 = np.stack((d0,d1,d2), axis=0)  # (2,3)升维到(1,2,3),再在axis=0方向concatenate成(3,2,3)
-d5 = np.stack((d0,d1,d2), axis=1)  # (2,3)升维到(2,1,3),再在axis=1方向concatenate成(2,3,3)
-d6 = np.stack((d0,d1,d2), axis=2)  # (2,3)升维到(2,3，1),再在axis=2方向concatenate成(2,3,3)
+np.stack((d0,d1,d2), axis=0)  # (2,3)升维到(1,2,3),再在axis=0方向concatenate成(3,2,3)
+np.stack((d0,d1,d2), axis=1)  # (2,3)升维到(2,1,3),再在axis=1方向concatenate成(2,3,3)
+np.stack((d0,d1,d2), axis=2)  # (2,3)升维到(2,3,1),再在axis=2方向concatenate成(2,3,3)
 
-d7 = np.concatenate((d0,d1,d2), axis=0)  # 不升维，直观在行方向上组合
-d8 = np.concatenate((d0,d1,d2), axis=1)  # 不升维，直观在列方向上组合
+np.concatenate((d0,d1,d2), axis=0)  # 不升维，直观在行方向上组合
+np.concatenate((d0,d1,d2), axis=1)  # 不升维，直观在列方向上组合
 
+# axis=-1的用法
+np.stack((d0,d1), -1)  # axis=-1 就是指最后一个维度，这里原本2个维度，所以-1指下一个维度，等效于axis=2
 
 # 进一步看一下应用最广的一维的情况总结：
 a1 = [1,2,3,4,5]
@@ -715,8 +724,12 @@ a6 = np.concatenate((a1,a2),axis=1)  # concatenate报错
 
 '''------------------------------------------------------------------------
 Q. 如何进行数据的重复叠加？(堆叠是少量不同数组组合，重复叠加是大量相同数组组合)
-1. 使用np.repeat((m,n)) 在某一维堆叠: 一维数组只能水平堆叠(要竖直堆叠就先升维)，二维数组两个维度都可以
+1. 使用np.repeat((m,n)) 在某一维堆叠: 一维数组只能水平堆叠(想要竖直堆叠就先升维度)，二维数组两个维度都可以
 2. 使用np.tile((m,n)) 同时在二维堆叠
+
+3. pytorch的对应
+    np.repeat() -> t.expand()  # 单维度堆叠(只是t.expand仅针对单维度数组，且对维度计算方式是按子元素而不是常规的源堆叠数组) 
+    np.tile() -> t.repeat(m,n) # 双维度同时堆叠，所以基本上numpy/pytorch都用这行的这两个函数，比前一行的方便。
 '''
 import numpy as np
 # 一维数组，只能水平重复
@@ -795,6 +808,10 @@ numpy筛选：
     筛选返回bool list: a>0
     筛选返回value: a[a>0]
     筛选返回index: np.where(a>0)
+numpy能够很好的处理筛选的问题，最常见的多条件筛选，最常用的方法是flag list，
+通过不同的判断方式(f1>0, f2<-2之类)得到不同的flag分别代表不同条件结果，
+然后f1 & f2 & f3..，即可得到最终的条件flag，最后data[flag]即可得到需要的数据。
+非常方便。
 '''
 # list的排序和筛选
 a1 = [2,1,4,3,6]
@@ -827,6 +844,12 @@ a[a > 0]
 a[(a > 0) & (a < 1)]     # 把bool list往切片一丢，就能得到数值
 b = np.where(a>0)
 a[b]                     # 把index往切片一丢，也能得到数值，跟丢bool是一样的
+
+# 多条件筛选实例
+data = np.random.randint(1,100,size=(10,3))
+
+
+
 
 
 

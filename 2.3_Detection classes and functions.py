@@ -186,12 +186,16 @@ base anchors是指特征图上每个网格上的anchor集合，通常一个网�
     >原则是越大的特征图，则使用越小的anchors: 因为越大特征图就是越浅层特征图，
      因此特征趋向于低语义/小尺寸物体，适合小尺寸anchors
 """
-def gen_base_anchors_mine(anchor_base, ratios, scales):
-    """生成9个base anchors, [xmin,ymin,xmax,ymax]
+def gen_base_anchors_mine(anchor_base, ratios, scales, scale_major=True):
+    """生成n个base anchors/[xmin,ymin,xmax,ymax],生成的base anchors的个数取决于输入
+    的scales/ratios的个数，早期一般输入3个scale和3个ratio,则每个网格包含9个base anchors
+    现在一些算法为了减少计算量往往只输入一个scale=8, 而ratios输入3个[0.5, 1.0, 2.0]，
+    所以对每个网格就包含3个base anchors
     Args:
         anchor_base(float): 表示anchor的基础尺寸
         ratios(list(float)): 表示h/w，由于r=h/w, 所以可令h'=sqrt(r), w'=1/sqrt(r), h/w就可以等于r了
         scales(list(float)): 表示整体缩放倍数
+        scale_major(bool): 表示是否以scale作为anchor变化主体，如果是则先乘scale再乘ratio
     1. 计算h, w和anchor中心点坐标(是相对于图像左上角的(0,0)点的相对坐标，也就是假设anchor都是在图像左上角
        后续再通过平移移动到整个图像每一个网格点)
         h = base * scale * sqrt(ratio)
@@ -484,6 +488,7 @@ def delta2bbox():
 
 # %% 
 """新出的RetinaNet号称结合了one-stage, two-stage的优缺点，提出的Focal loss有什么特点？
+是否采用Focal loss就不需要对不平衡数据进行sampling采样？那Focal loss如何解决数据不平衡问题？
 """
 
 
