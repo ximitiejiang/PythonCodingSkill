@@ -254,7 +254,7 @@ def bbox_overlap_mine(bb1, bb2, mode='iou'):
 
 def assigner(bboxes, gt_bboxes):
     """anchor指定器：用于区分anchor的身份是正样本还是负样本还是无关样本
-    正样本标记为1+n(n为index标记), 负样本标记为0, 无关样本标记为-1
+    正样本标记为1+n(n为第几个gt), 负样本标记为0, 无关样本标记为-1
     Args:
         bboxes(tensor): (m,4)
         gt_bboxes(tensor): (n,4)
@@ -268,7 +268,7 @@ def assigner(bboxes, gt_bboxes):
     """
     pos_iou_thr = 0.7  # 正样本阀值：iou > 0.7 就为正样本
     neg_iou_thr = 0.3  # 负样本阀值：iou < 0.3 就为负样本
-    min_pos_iou = 0.3  # 预测值最小iou阀值
+    min_pos_iou = 0.3  # 预测值最小iou阀值，确保至少这个阀值应该大于负样本的最大阀值
     overlaps = bbox_overlap_mine(gt_bboxes, bboxes) # (m,n)代表m个gt, n个anchors
     n_gt, n_bbox = overlaps.shape
     # 第一步：先创建一个与所有anchor对应的矩阵，取值-1(代表没有用的anchor)
@@ -284,7 +284,7 @@ def assigner(bboxes, gt_bboxes):
     # 第四步：标记预测值foreground(也称前景)，也就是每个gt所对应的最大iou为阀值，大于该阀值都算fg
     # 注意：只要取值等于该gt的最大iou都被提取，通常不止一个最大iou。value值范围[1,n_gt+1]代表所对应gt
     for i in range(n_gt):
-        if gt_max_overlap[i] >= min_pos_iou:
+        if gt_max_overlap[i] >= min_pos_iou:   #如果gt最适配的anchor对应iou大于阀值才提取
             max_iou_idx = overlaps[i]==gt_max_overlap[i] # 从第i行提取iou最大的位置的bool list
             assigned[max_iou_idx] = 1 + i   # fg的value比正样本的value偏小
     return assigned
@@ -437,7 +437,7 @@ for anchor_base in anchor_base_sizes:
 featmap_sizes = [(152,200), (76,100), (38,50), (19,25), (10,13)]
 strides = [4,8,16,32,64]    # 针对resnet的下采样比例，5路分别缩减尺寸 
 
-i=0
+i=2
 featmap_size = featmap_sizes[i]
 stride = strides[i]
 base_anchor = base_anchors[i]
