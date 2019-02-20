@@ -191,11 +191,16 @@ def gen_base_anchors_mine(anchor_base, ratios, scales, scale_major=True):
     的scales/ratios的个数，早期一般输入3个scale和3个ratio,则每个网格包含9个base anchors
     现在一些算法为了减少计算量往往只输入一个scale=8, 而ratios输入3个[0.5, 1.0, 2.0]，
     所以对每个网格就包含3个base anchors
+    生成的base anchor大小取决与anchor base大小，由于每个特征图的anchor base都不同，
+    所以每个特征图对应base anchor大小也不同，浅层大特征图由于stride小，对应anchor base
+    也小，也就是大特征图反而对应小anchor，数量更多的小anchor
     Args:
         anchor_base(float): 表示anchor的基础尺寸
         ratios(list(float)): 表示h/w，由于r=h/w, 所以可令h'=sqrt(r), w'=1/sqrt(r), h/w就可以等于r了
         scales(list(float)): 表示整体缩放倍数
         scale_major(bool): 表示是否以scale作为anchor变化主体，如果是则先乘scale再乘ratio
+    Returns:
+        base_anchors(tensor): (m,4)
     1. 计算h, w和anchor中心点坐标(是相对于图像左上角的(0,0)点的相对坐标，也就是假设anchor都是在图像左上角
        后续再通过平移移动到整个图像每一个网格点)
         h = base * scale * sqrt(ratio)
@@ -250,13 +255,14 @@ anchor list产生目的就是要让feature map上每一个网格所对应的原�
 最后平移这组anchor到原图的每一块对应区域(对应取余的面积就是stride x stride)
 """
 def grid_anchors_mine(featmap_size, stride, base_anchors):
-    """基于base anchors把特征图的每个网格都放置anchors
+    """基于base anchors把特征图每个网格所对应的原图感受野都放置base anchors
     Args:
-        featmap_size(list(float))
-        stride(float): 代表该特征图相对于原图的下采样比例，也就代表每个网格的感受野是多少尺寸的原图网格，比如1个就相当与stride x stride大小的一片原图
-        device
+        featmap_size(list(float)): (a,b)
+        stride(float): 代表该特征图相对于原图的下采样比例，也就代表每个网格的感受野
+                      是多少尺寸的原图网格，比如1个就相当与stride x stride大小的一片原图
+        device(str)
     Return:
-        all_anchors(tensor): (n,4), 这里的n就等于特征图网格个数*每个网格的base anchor个数(比如9个)
+        all_anchors(tensor): (n,4), 这里的n就等于特征图网格个数*每个网格的base anchor个数(比如3或9个)
     1. 先计算该特征图对应原图像素大小 = 特征图大小 x 下采样比例
     2. 然后生成网格坐标xx, yy并展平：先得到x, y坐标，再meshgrid思想得到网格xx, yy坐标，再展平
        其中x坐标就是按照采样比例，每隔1个stride取一个坐标
@@ -269,10 +275,10 @@ def grid_anchors_mine(featmap_size, stride, base_anchors):
     shift_xx = shift_x[None,:].repeat((len(shift_y), 1))   # (152,256)
     shift_yy = shift_y[:, None].repeat((1, len(shift_x)))  # (152,256)
     
-    shift_xx = shift_xx.flatten()   # 展平为(38912,) 代表了原始图的每个网格点x坐标，用于给x坐标平移
-    shift_yy = shift_yy.flatten()   # 展平为(38912,) 代表了原始图的每个网格点y坐标，用于给y坐标平移
+    shift_xx = shift_xx.flatten()   # (38912,) 代表了原始图的每个网格点x坐标，用于给x坐标平移
+    shift_yy = shift_yy.flatten()   # (38912,) 代表了原始图的每个网格点y坐标，用于给y坐标平移
     
-    shifts = torch.stack([shift_xx, shift_yy, shift_xx, shift_yy], dim=-1) # 堆叠成4行给4个坐标[xmin,ymin,xmax,ymax], (38912,4)
+    shifts = torch.stack([shift_xx, shift_yy, shift_xx, shift_yy], dim=-1) # 堆叠成4列给4个坐标[xmin,ymin,xmax,ymax], (38912,4)
     shifts = shifts.type_as(base_anchors)   # 从int64转换成torch认可的float32
     
     # anchor坐标(9,4)需要基于网格坐标(38912,4)进行平移：平移后应该是每个网格点有9个anchor
@@ -280,7 +286,7 @@ def grid_anchors_mine(featmap_size, stride, base_anchors):
     # 需要想到把(38912,4)提取出(1,4)的方式是升维到(38912,1,4)与(9,4)相加
     all_anchors = base_anchors + shifts[:,None,:]   # 利用广播法则(9,4)+(38912,1,4)->(39812,9,4)
     all_anchors = all_anchors.view(-1,4)            # 部分展平到(n,4)得到每个anchors的实际坐标(图像左上角为(0,0)原点)                      
-
+    
     return all_anchors
 
 import torch    
@@ -338,7 +344,7 @@ def bbox_overlap_mine(bb1, bb2, mode='iou'):
     
     xymin = torch.max(bb1[:, None, :2], bb2[:,:2])  # 由于m个gt要跟n个anchor分别比较，所以需要升维度
     xymax = torch.min(bb1[:, None, 2:], bb2[:,2:])  # 所以(m,1,2) vs (n,2) -> (m,n,2)
-    wh = (xymax -xymin).clamp(0)   # 得到宽高w, h (m,n,2)
+    wh = (xymax -xymin).clamp(min=0)   # 得到宽高w, h (m,n,2)
     
     overlap = wh[:,:,0] * wh[:,:,1]   # (m,n)*(m,n) -> (m,n),其中m个gt的n列w, 乘以m个gt的n列h
     
@@ -359,7 +365,7 @@ ious2 = bbox_overlap_mine(bb1, bb2)
 """
 def assigner(bboxes, gt_bboxes):
     """anchor指定器：用于区分anchor的身份是正样本还是负样本还是无关样本
-    正样本标记为1+n(n为index标记), 负样本标记为0, 无关样本标记为-1
+    正样本标记为1+n(n为第几个gt), 负样本标记为0, 无关样本标记为-1
     Args:
         bboxes(tensor): (m,4)
         gt_bboxes(tensor): (n,4)
@@ -369,10 +375,11 @@ def assigner(bboxes, gt_bboxes):
     2. 再把所有0<iou<0.3的都筛为负样本(0)，iou>0.7的都筛为正样本(1+idx)
     3. 再把该gt最适配的anchor也标为正样本(1+idx)：即gt对应的iou最大的anchor
        注意基于gt找到的iou最高的anchor，往往不是该anchor的最高iou，所以这一步是把anchor中只要高于该iou的所有anchor都提取为fg
+    
     """
     pos_iou_thr = 0.7  # 正样本阀值：iou > 0.7 就为正样本
     neg_iou_thr = 0.3  # 负样本阀值：iou < 0.3 就为负样本
-    min_pos_iou = 0.3  # 预测值最小iou阀值
+    min_pos_iou = 0.3  # 预测值最小iou阀值，确保至少这个阀值应该大于负样本的最大阀值
     overlaps = bbox_overlap_mine(gt_bboxes, bboxes) # (m,n)代表m个gt, n个anchors
     n_gt, n_bbox = overlaps.shape
     # 第一步：先创建一个与所有anchor对应的矩阵，取值-1(代表没有用的anchor)
@@ -385,10 +392,10 @@ def assigner(bboxes, gt_bboxes):
     # 第三步：标记正样本，阀值定义要经可能让负样本数量跟正样本数量相当，避免样本不平衡问题
     # 注意：value = 1 + n, 其中n为第n个gt的意思，所以value范围[1, n_gt+1], value值正好反映了所对应的gt
     assigned[max_overlap >= pos_iou_thr] = 1 + argmax_overlap[max_overlap >= pos_iou_thr] # iou >0.7, value = 1 + 位置值
-    # 第四步：标记预测值foreground(也称前景)，也就是每个gt所对应的最大iou为阀值，大于该阀值都算fg
+    # 第四步：标记预测值foreground(也称前景)，也就是每个gt所对应的最大iou为阀值, 但这个阀值先要判断至少大于负样本你的上阀值
     # 注意：只要取值等于该gt的最大iou都被提取，通常不止一个最大iou。value值范围[1,n_gt+1]代表所对应gt
     for i in range(n_gt):
-        if gt_max_overlap[i] >= min_pos_iou:
+        if gt_max_overlap[i] >= min_pos_iou:   #如果gt最适配的anchor对应iou大于阀值才提取
             max_iou_idx = overlaps[i]==gt_max_overlap[i] # 从第i行提取iou最大的位置的bool list
             assigned[max_iou_idx] = 1 + i   # fg的value比正样本的value偏小
     return assigned
@@ -452,10 +459,11 @@ sample_result = random_sampler(assign_result, bboxes)
 
 
 # %%
-"""Q. 从assigner/sampler得到正样本的anchors后，如何跟gt bbox进行损失计算？
+"""Q. 从assigner/sampler得到正样本的anchors后，如何跟gt bbox进行修正，让proposal更接近gt？
 从assigner/sampler得到正负样本的ind，转换后就能得到正负样本anchor的坐标，称为proposals(j,4)
 为了跟实际gt bbox进行比较，只需要提取正样本的bbox坐标组，以及该正样本所对应的gt bbox的坐标组
-两者进行？？？？
+两者进行bbox回归，g = f(p)，p为proposal anchors，g为gt bbox，然后求出f函数的参数dx,dy,dw,dh
+每一组anchor对应了一组(dx,dy,dw,dh)
 """
 def bbox2delta():
     """"""
@@ -468,8 +476,145 @@ def delta2bbox():
 
 # %%
 """Q. 从assigner/sampler得到正样本的anchors后，最终如何生成anchor targets?
-"""
 
+"""
+def anchor_target_mine(gt_bboxes, inside_anchors, inside_f, assigned, 
+                       pos_inds, neg_inds, num_all_anchors, num_level_anchors, gt_labels):
+    """anchor目标：首先对anchor的合法性进行过滤，取出合法anchors(没有超边界)，
+    注意，这里的inside_anchors需要是经valid_flag/inside_flag过滤的anchors，
+    同时传入assigner/sampler的也应该是valid_flag/inside_flag过滤的anchors得到的输出assigned/pos_inds/neg_inds
+    首先生成正样本的回归参数(dx,dy,dw,dh)，然后生成对应的正样本权重=1，
+    再生成正样本标签=1，和正样本+负样本标签权重=1
+    再借用inside_flags把求得的target/weights都映射回原始all_anchors的尺寸中。
+    最后借用num_level_anchors把求得的target/weights都按anchors的分布数分割到每一个level
+    注1：对于多尺度anchor的处理方式就是在anchor target之前把多尺度特征的anchor list/valid flag
+    先concatenate在一列，就相当与单尺度问题了。而对于batch的多图片问题，则需要multi_apply()解决
+    注2：为了保证loss的输入格式，这里把输出额外加了一个list[]，后续改为多图时，用multi_apply也会放在list里
+    Args:
+        gt_bboxes(tensor): (m,4) 代表标签bboxes
+        inside_anchors(tensor): (n,4) 代表网格上的anchors在图像边沿以内的anchors(即在inside_flags中的anchors)
+        inside_f(tensor): (n_max,) 代表筛选所有anchors在图像边沿以内的标签
+        assigned(tensor): (n,) 指定器输出结果，代表n个anchor的身份指定[-1,0,1,2..m]
+        pos_inds(tensor): (j,) 采样器输出结果，代表j个采样得到的正样本anchors的index
+        neg_inds(tensor): (k,) 采样器输出结果，代表k个采样得到的负样本anchors的index
+        num_all_anchors(int): (n_max,) 初始生成的所有all_anchors(没有经过valid_flag/inside_flag过滤)
+        gt_labels(tensor): (m,) optional可输入gt对应标签，也可不输入
+    Return:
+        labels_list([tensor]): (n_max,) 代表的是正样本所在位置的标签，默认取1, 非正样本取0
+        labels_weights_list([tensor]): (n_max, ) 代表的是正样本+负样本所在位置的权重，默认取1，其他无关样本取0
+        bbox_targets_list([tensor]): (n_max,4) 代表的是正样本所对应的回归函数参数(dx,dy,dw,dh), 非正样本为0
+        bbox_weights_list([tensor]): (n_max,4) 代表对应正样本所对应参数坐标的权重(1,1,1,1), 非正样本为0
+    """
+    
+    # 先创建0数组
+    bbox_targets = torch.zeros_like(inside_anchors)  # (n,4)
+    bbox_weights = torch.zeros_like(inside_anchors)  # (n,4)
+    labels = inside_anchors.new_zeros(inside_anchors.shape[0],dtype=torch.int64) # (n,)
+    labels_weights = inside_anchors.new_zeros(inside_anchors.shape[0], dtype= torch.float32) # (n,)
+    # 采样index转换为bbox坐标
+    pos_bboxes = inside_anchors[pos_inds]  # (j,4)正样本index转换为bbox坐标
+    # 生成每个正样本所对应的gt坐标，用来做bbox回归
+    pos_assigned = assigned[pos_inds] - 1       # 提取每个正样本所对应的gt(由于gt是大于1的1,2..)，值减1正好就是从0开始第i个gt的含义
+    pos_gt_bboxes = gt_bboxes[pos_assigned,:]   # (j,4) 生成每个正样本所对应gt的坐标
+    if len(pos_inds) > 0:
+        #对正样本相对于gt做bbox回归
+        pos_bbox_targets = bbox2delta(pos_bboxes, pos_gt_bboxes) # (j, 4)得到的是每个proposal anchor对应回归target的回归参数
+        # 更新bbox_targets/bbox_weights
+        bbox_targets[pos_inds, :] = pos_bbox_targets  # 所有anchor中正样本的坐标更新为targets的deltas坐标
+        bbox_weights[pos_inds, :] = 1.0               # 所有anchor中正样本的权重更新为1
+        # 更新labels/labels_weights
+        labels[pos_inds] = 1            # 默认gt_labels=None，所以labels对应target的位置设置为1
+        labels_weights[pos_inds] = 1.0  # cfg中pos_weight可自定义，如果定义-1说明用默认值则设为1
+    if len(neg_inds) > 0:
+        labels_weights[neg_inds] = 1.0
+
+    # unmap: 采用默认的unmap_outputs =True
+    # unmap的目的是把inside_anchors所对应的输出映射回原来all_anchors
+    # 这里做了额外处理：由于只是验证单图，没有multi_apply，也就没有把tensor装在list中，所以手动加了list外框
+    labels = [unmap(labels, num_all_anchors, inside_f)]
+    labels_weights = [unmap(labels_weights, num_all_anchors, inside_f)]
+    bbox_targets = [unmap(bbox_targets, num_all_anchors, inside_f)]
+    bbox_weights = [unmap(bbox_weights, num_all_anchors, inside_f)]
+    
+    # 计算total_pos/total_neg: 单图和为256, 如果多图batch则需要累加
+    num_total_pos = len(pos_inds)
+    num_total_neg = len(neg_inds)
+    
+    # 分解到每一个特征图层上：
+    labels_list = distribute_to_level(labels, num_level_anchors)
+    labels_weights_list = distribute_to_level(labels_weights, num_level_anchors)
+    bbox_targets_list = distribute_to_level(bbox_targets, num_level_anchors)
+    bbox_weights_list = distribute_to_level(bbox_weights, num_level_anchors)
+    
+    return (labels_list, labels_weights_list, 
+            bbox_targets_list, bbox_weights_list,
+            num_total_pos, num_total_neg)
+
+def unmap(data, total, inds, fill=0):
+    """借用inside_flags把得到的data映射回原来的total数据中：
+    即创建一个跟原来all anchors尺寸一样的0数组，然后把target数据放入指定位置
+    """
+    if data.dim() == 1:
+        unmapped = data.new_full((total,), fill)
+        unmapped[inds] = data
+    else:
+        new_size = (total, ) + data.size()[1:]       # (m,) + (n,) = (m,n)  
+        unmapped = data.new_full(new_size, fill)
+        unmapped[inds, :] = data
+    return unmapped
+
+def distribute_to_level(all_data, num_level_anchors):
+    """借用每个特征图上产生的anchors个数，把所有anchor target的生成变量
+    按照anchors的数量分布，都分配到每个特征图上去
+    Args:
+        all_data(list): [tensor1_img1, tensor2_img2...] 代表每张图片对应的targets输出变量(可以是bbox_targets/weights/labels..)
+        num_level_anchors(list): [num_level1, num_level,..] 代表每级特征图上anchors的个数,比如[105792, 26448, 6612, 1653, 450]
+    Returns:
+        level_data(list): [level1, level2,...] 代表每个level包含的数据tensor, 如果是多图，则tensor为多行来表示，单图则tensor为单行
+    """
+    all_data = torch.stack(all_data, 0)  # 列方向堆叠，把多图多tensor堆叠成一个tensor -> (n_img, n_anchors)
+    level_data = []
+    start = 0
+    for n in num_level_anchors:
+        end = start + n 
+        level_data.append(all_data[:,start:end].squeeze(0))  # 按level分割
+        start = end
+    return level_data
+
+
+
+# %%
+"""Q. 得到的anchor targets到底怎么理解，怎么做loss损失计算？
+"""
+def loss_single(cls_score, bbox_pred, labels, labels_weights, 
+                bbox_targets, bbox_weights, num_total_samples):
+    """基于卷积网络的输出和anchor target的输出，进行单张图片的损失计算
+    Args:
+        cls_score(tensor): (b,c,h,w) 代表head最终输出的特征图比如(2,3,152,240)
+        bbox_pred(tensor): (b,x,h,w) 其中x是由预测bbox的尺寸个数决定的(a个预测框*b个预测框参数，比如=3*(xmin,ymin,xmax,ymax)=3*4=12)
+                            比如(2,12,152,240)
+        labels(tensor): (n_max,) 代表的是正样本所在位置的标签，默认取1, 非正样本取0
+        labels_weights(tensor): (n_max, ) 代表的是正样本+负样本所在位置的权重，默认取1，其他无关样本取0
+        bbox_targets(tensor): (n_max,4) 代表的是正样本所对应的回归函数参数(dx,dy,dw,dh), 非正样本为0
+        bbox_weights(tensor): (n_max,4) 代表对应正样本所对应参数坐标的权重(1,1,1,1), 非正样本为0
+        num_total_samples(int): 代表？？
+    Return:
+        loss_cls(tensor): (1,)  分类损失
+        loss_reg(tensor): (1,)  回归损失
+    """
+    # 分类损失计算    
+    labels = labels.reshape(-1,1)
+    labels_weights = labels_weights.reshape(-1,1)
+    cls_score = cls_score.permute(0,2,3,1).reshape(-1,1) # (b,c,h,w)->(b,h,w,c)->(x,)
+    cls_criterion = weighted_binary_cross_entropy
+    loss_cls = cls_criterion(cls_score, labels, labels_weights, 
+                             avg_factor=num_total_samples)
+    # 回归损失计算
+    bbox_targets = bbox_targets.reshape(-1,4)
+    
+    loss_reg = weighted_smoothl1(bbox_pred, bbox_targets, bbox_weights,
+                                 beta = 1./9., avg_factor=num_total_samples)
+    return loss_cls, loss_reg
 
 
 

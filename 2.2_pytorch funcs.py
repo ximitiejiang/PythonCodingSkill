@@ -394,9 +394,16 @@ t1 = torch.tensor([1,2,3,4,5])
 t2 = torch.tensor([6,7,8,9,10])
 torch.stack((t1,t2),0)  # 注意 torch使用dim关键字代替了numpy的axis
 torch.stack((t1,t2),1)  #
-
+# stack([t1,t2],-1) dim=-1的用法
 torch.stack([t1,t2],-1) # dim=-1的理解参考np.stack()非常顺的去理解(m,)升维到(m,1)然后n个堆叠成(m,n)，顺滑！
                         # 在一些算法中dim=-1是经常被使用的一个小方法。
+
+# torch.stack()天然跟list融合，因为list一般都是一维的
+# 用list作为存放各种数据的容器，然后把这个list往stack里一丢，非常方便 
+lst = [t1,t2,t1,t2]
+torch.stack(lst, dim=1)
+                        
+# torch.cat()                        
 t4 = torch.tensor([[1,2,3,4,5],[6,7,8,9,10]])
 t5 = torch.tensor([[11,12,13,14,15],[16,17,18,19,20]])
 t6 = torch.cat((t4,t5),0)
@@ -406,7 +413,8 @@ t7 = torch.cat((t4,t5),1)
 import numpy as np
 d1 = [1,2,3,4,5]
 d2 = [6,7,8,9,10]
-d3 = np.stack((d1,d2),0)  # numpy使用axis关键字
+np.stack((d1,d2),0)  # numpy使用axis关键字
+np.stack([d1,d2],1)
 
 d4 = [[1,2,3,4,5],[6,7,8,9,10]]
 d5 = [[11,12,13,14,15],[16,17,18,19,20]]

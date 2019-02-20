@@ -5,6 +5,8 @@ Created on Thu Feb 14 17:48:13 2019
 
 @author: ubuntu
 """
+import numpy as np
+import torch    
 
 def gen_base_anchors(anchor_base, anchor_ratios, anchor_scales):
     """生成n个base_anchors: [xmin,ymin,xmax,ymax]
@@ -41,6 +43,9 @@ def gen_base_anchors_mine(anchor_base, ratios, scales, scale_major=True):
     的scales/ratios的个数，早期一般输入3个scale和3个ratio,则每个网格包含9个base anchors
     现在一些算法为了减少计算量往往只输入一个scale=8, 而ratios输入3个[0.5, 1.0, 2.0]，
     所以对每个网格就包含3个base anchors
+    生成的base anchor大小取决与anchor base大小，由于每个特征图的anchor base都不同，
+    所以每个特征图对应base anchor大小也不同，浅层大特征图由于stride小，对应anchor base
+    也小，也就是大特征图反而对应小anchor，数量更多的小anchor
     Args:
         anchor_base(float): 表示anchor的基础尺寸
         ratios(list(float)): 表示h/w，由于r=h/w, 所以可令h'=sqrt(r), w'=1/sqrt(r), h/w就可以等于r了
@@ -48,9 +53,12 @@ def gen_base_anchors_mine(anchor_base, ratios, scales, scale_major=True):
         scale_major(bool): 表示是否以scale作为anchor变化主体，如果是则先乘scale再乘ratio
     Returns:
         base_anchors(tensor): (m,4)
-    1. 计算h, w
+    1. 计算h, w和anchor中心点坐标(是相对于图像左上角的(0,0)点的相对坐标，也就是假设anchor都是在图像左上角
+       后续再通过平移移动到整个图像每一个网格点)
         h = base * scale * sqrt(ratio)
         w = base * scale * sqrt(1/ratio)
+        x_ctr = h/2
+        y_ctr = w/2
     2. 计算坐标
         xmin = x_center - w/2
         ymin = y_center - h/2
@@ -180,10 +188,12 @@ def valid_flags(featmap_size, valid_size, num_base_anchors, device='cpu'):
 
 def inside_flags(anchors, valid_flags, img_shape, allowed_border):
     """对all anchors的边界进行评估，如果超出图像边界，则不使用即标记为0
+    inside_flags输出应该跟valid_flags一样，只是对应flags的值根据边界情况有更新
+    且两种flags的尺寸都是一维的且包含所有anchors的数据
     Args:
-        anchors(tensor): (m,4) 代表特征图上所有anchors
-        valid_flags(tensor): (k,) 代表特征图上每个
-        img_shape(tuple): [h,w]
+        anchors(tensor): (m,4) 代表特征图对应到原图上所有anchors
+        valid_flags(tensor): (k,) 代表特征图对应到原图上每个anchor的合法标志位
+        img_shape(tuple): [h,w] 代表原图大小(该原图是指经过图像预处理的尺寸规范化的原图)
         allowed_border(int): 代表anchor超出图像边界的距离，为>=0的整数
     Return:
         inside(tensor): (k,)
@@ -281,7 +291,7 @@ def assigner(bboxes, gt_bboxes):
     # 第三步：标记正样本，阀值定义要经可能让负样本数量跟正样本数量相当，避免样本不平衡问题
     # 注意：value = 1 + n, 其中n为第n个gt的意思，所以value范围[1, n_gt+1], value值正好反映了所对应的gt
     assigned[max_overlap >= pos_iou_thr] = 1 + argmax_overlap[max_overlap >= pos_iou_thr] # iou >0.7, value = 1 + 位置值
-    # 第四步：标记预测值foreground(也称前景)，也就是每个gt所对应的最大iou为阀值，大于该阀值都算fg
+    # 第四步：标记预测值foreground(也称前景)，也就是每个gt所对应的最大iou为阀值, 但这个阀值先要判断至少大于负样本你的上阀值
     # 注意：只要取值等于该gt的最大iou都被提取，通常不止一个最大iou。value值范围[1,n_gt+1]代表所对应gt
     for i in range(n_gt):
         if gt_max_overlap[i] >= min_pos_iou:   #如果gt最适配的anchor对应iou大于阀值才提取
@@ -365,35 +375,72 @@ def bbox2delta(prop, gt, mean=[0,0,0,0], std=[1,1,1,1]):
     
     return deltas
 
-def unmap(d1,d2,d3):
-    pass
+def unmap(data, total, inds, fill=0):
+    """借用inside_flags把得到的data映射回原来的total数据中：
+    即创建一个跟原来all anchors尺寸一样的0数组，然后把target数据放入指定位置
+    """
+    if data.dim() == 1:
+        unmapped = data.new_full((total,), fill)
+        unmapped[inds] = data
+    else:
+        new_size = (total, ) + data.size()[1:]       # (m,) + (n,) = (m,n)  
+        unmapped = data.new_full(new_size, fill)
+        unmapped[inds, :] = data
+    return unmapped
 
-def anchor_target_mine(gt_bboxes, anchors, assigned, pos_inds, neg_inds, inside_f, gt_labels):
+def distribute_to_level(all_data, num_level_anchors):
+    """借用每个特征图上产生的anchors个数，把所有anchor target的生成变量
+    按照anchors的数量分布，都分配到每个特征图上去
+    Args:
+        all_data(list): [tensor1_img1, tensor2_img2...] 代表每张图片对应的targets输出变量(可以是bbox_targets/weights/labels..)
+        num_level_anchors(list): [num_level1, num_level,..] 代表每级特征图上anchors的个数,比如[105792, 26448, 6612, 1653, 450]
+    Returns:
+        level_data(list): [level1, level2,...] 代表每个level包含的数据tensor, 如果是多图，则tensor为多行来表示，单图则tensor为单行
+    """
+    all_data = torch.stack(all_data, 0)  # 列方向堆叠，把多图多tensor堆叠成一个tensor -> (n_img, n_anchors)
+    level_data = []
+    start = 0
+    for n in num_level_anchors:
+        end = start + n 
+        level_data.append(all_data[:,start:end].squeeze(0))  # 按level分割
+        start = end
+    return level_data
+
+def anchor_target_mine(gt_bboxes, inside_anchors, inside_f, assigned, 
+                       pos_inds, neg_inds, num_all_anchors, num_level_anchors, gt_labels):
     """anchor目标：首先对anchor的合法性进行过滤，取出合法anchors(没有超边界)，
-    注意，这里的anchors需要是valid anchors，同时传入assigner/sampler的也应该是valid anchors
+    注意，这里的inside_anchors需要是经valid_flag/inside_flag过滤的anchors，
+    同时传入assigner/sampler的也应该是valid_flag/inside_flag过滤的anchors得到的输出assigned/pos_inds/neg_inds
+    首先生成正样本的回归参数(dx,dy,dw,dh)，然后生成对应的正样本权重=1，
+    再生成正样本标签=1，和正样本+负样本标签权重=1
+    再借用inside_flags把求得的target/weights都映射回原始all_anchors的尺寸中。
+    最后借用num_level_anchors把求得的target/weights都按anchors的分布数分割到每一个level
+    注1：对于多尺度anchor的处理方式就是在anchor target之前把多尺度特征的anchor list/valid flag
+    先concatenate在一列，就相当与单尺度问题了。而对于batch的多图片问题，则需要multi_apply()解决
+    注2：为了保证loss的输入格式，这里把输出额外加了一个list[]，后续改为多图时，用multi_apply也会放在list里
     Args:
         gt_bboxes(tensor): (m,4) 代表标签bboxes
-        anchors(tensor): (n,4) 代表所有网格上的anchors, 每个网格上有9个base anchors
+        inside_anchors(tensor): (n,4) 代表网格上的anchors在图像边沿以内的anchors(即在inside_flags中的anchors)
+        inside_f(tensor): (n_max,) 代表筛选所有anchors在图像边沿以内的标签
         assigned(tensor): (n,) 指定器输出结果，代表n个anchor的身份指定[-1,0,1,2..m]
         pos_inds(tensor): (j,) 采样器输出结果，代表j个采样得到的正样本anchors的index
         neg_inds(tensor): (k,) 采样器输出结果，代表k个采样得到的负样本anchors的index
-        inside_f(tensor): (n,) 对anchor在图像边界内部的判断结果[0,1]，每个anchor一个flag
-        
+        num_all_anchors(int): (n_max,) 初始生成的所有all_anchors(没有经过valid_flag/inside_flag过滤)
+        gt_labels(tensor): (m,) optional可输入gt对应标签，也可不输入
     Return:
-        labels
-        labels_weights
-        bbox_targets
-        bbox_weights
+        labels_list([tensor]): (n_max,) 代表的是正样本所在位置的标签，默认取1, 非正样本取0
+        labels_weights_list([tensor]): (n_max, ) 代表的是正样本+负样本所在位置的权重，默认取1，其他无关样本取0
+        bbox_targets_list([tensor]): (n_max,4) 代表的是正样本所对应的回归函数参数(dx,dy,dw,dh), 非正样本为0
+        bbox_weights_list([tensor]): (n_max,4) 代表对应正样本所对应参数坐标的权重(1,1,1,1), 非正样本为0
     """
-    # 先基于inside_flag获得inside anchors: 代表的是在图像边界以内的anchors
-    inside_anchors = anchors[inside_f,:]
+    
     # 先创建0数组
     bbox_targets = torch.zeros_like(inside_anchors)  # (n,4)
     bbox_weights = torch.zeros_like(inside_anchors)  # (n,4)
-    labels = anchors.new_zeros(inside_anchors.shape[0],dtype=torch.int64) # (n,)
-    labels_weights = anchors.new_zeros(inside_anchors.shape[0], dtype= torch.float32) # (n,)
+    labels = inside_anchors.new_zeros(inside_anchors.shape[0],dtype=torch.int64) # (n,)
+    labels_weights = inside_anchors.new_zeros(inside_anchors.shape[0], dtype= torch.float32) # (n,)
     # 采样index转换为bbox坐标
-    pos_bboxes = anchors[pos_inds]  # (j,4)正样本index转换为bbox坐标
+    pos_bboxes = inside_anchors[pos_inds]  # (j,4)正样本index转换为bbox坐标
     # 生成每个正样本所对应的gt坐标，用来做bbox回归
     pos_assigned = assigned[pos_inds] - 1       # 提取每个正样本所对应的gt(由于gt是大于1的1,2..)，值减1正好就是从0开始第i个gt的含义
     pos_gt_bboxes = gt_bboxes[pos_assigned,:]   # (j,4) 生成每个正样本所对应gt的坐标
@@ -410,16 +457,73 @@ def anchor_target_mine(gt_bboxes, anchors, assigned, pos_inds, neg_inds, inside_
         labels_weights[neg_inds] = 1.0
 
     # unmap: 采用默认的unmap_outputs =True
-    num_total_anchors = anchors.size(0)
-    labels = unmap(labels, num_total_anchors, inside_flags)
-    labels_weights = unmap(labels_weights, num_total_anchors, inside_flags)
+    # unmap的目的是把inside_anchors所对应的输出映射回原来all_anchors
+    # 这里做了额外处理：由于只是验证单图，没有multi_apply，也就没有把tensor装在list中，所以手动加了list外框
+    labels = [unmap(labels, num_all_anchors, inside_f)]
+    labels_weights = [unmap(labels_weights, num_all_anchors, inside_f)]
+    bbox_targets = [unmap(bbox_targets, num_all_anchors, inside_f)]
+    bbox_weights = [unmap(bbox_weights, num_all_anchors, inside_f)]
     
-    return labels, labels_weights, bbox_targets, bbox_weights
+    # 计算total_pos/total_neg: 单图和为256, 如果多图batch则需要累加
+    num_total_pos = len(pos_inds)
+    num_total_neg = len(neg_inds)
     
+    # 分解到每一个特征图层上：
+    labels_list = distribute_to_level(labels, num_level_anchors)
+    labels_weights_list = distribute_to_level(labels_weights, num_level_anchors)
+    bbox_targets_list = distribute_to_level(bbox_targets, num_level_anchors)
+    bbox_weights_list = distribute_to_level(bbox_weights, num_level_anchors)
     
+    return (labels_list, labels_weights_list, 
+            bbox_targets_list, bbox_weights_list,
+            num_total_pos, num_total_neg)
+
+
+def loss_single(cls_score, bbox_pred, labels, labels_weights, 
+                bbox_targets, bbox_weights, num_total_samples):
+    """基于卷积网络的输出和anchor target的输出，进行单张图片的损失计算
+    Args:
+        cls_score(tensor): (b,c,h,w) 代表head最终输出的特征图比如(2,3,152,240)
+        bbox_pred(tensor): (b,x,h,w) 其中x是由预测bbox的尺寸个数决定的(a个预测框*b个预测框参数，比如=3*(xmin,ymin,xmax,ymax)=3*4=12)
+                            比如(2,12,152,240)
+        labels(tensor): (n_max,) 代表的是正样本所在位置的标签，默认取1, 非正样本取0
+        labels_weights(tensor): (n_max, ) 代表的是正样本+负样本所在位置的权重，默认取1，其他无关样本取0
+        bbox_targets(tensor): (n_max,4) 代表的是正样本所对应的回归函数参数(dx,dy,dw,dh), 非正样本为0
+        bbox_weights(tensor): (n_max,4) 代表对应正样本所对应参数坐标的权重(1,1,1,1), 非正样本为0
+        num_total_samples(int): 代表？？
+    Return:
+        loss_cls(tensor): (1,)  分类损失
+        loss_reg(tensor): (1,)  回归损失
+    """
+    from models.head_support.losses import weighted_binary_cross_entropy, weighted_smoothl1
+    # 分类损失计算    
+    labels = labels.reshape(-1,1)
+    labels_weights = labels_weights.reshape(-1,1)
+    cls_score = cls_score.permute(0,2,3,1).reshape(-1,1) # (b,c,h,w)->(b,h,w,c)->(x,)
+    cls_criterion = weighted_binary_cross_entropy
+    loss_cls = cls_criterion(cls_score, labels, labels_weights, 
+                             avg_factor=num_total_samples)
+    # 回归损失计算
+    bbox_targets = bbox_targets.reshape(-1,4)
+    
+    loss_reg = weighted_smoothl1(bbox_pred, bbox_targets, bbox_weights,
+                                 beta = 1./9., avg_factor=num_total_samples)
+    return loss_cls, loss_reg
+    
+#--------------输入参数-------------------------------------
+ori_shape = (330,500,3)
+img_shape = (600,901,3)
+pad_shape = (608,928,3)
+scale_factor = 1.8
+flip = False
+feat_sizes = [(pad_shape[0]/4, pad_shape[1]/4),
+              (pad_shape[0]/8, pad_shape[1]/8),
+              (pad_shape[0]/16, pad_shape[1]/16),
+              (pad_shape[0]/32, pad_shape[1]/32),
+              (np.ceil(pad_shape[0]/64), np.ceil(pad_shape[1]/64))]  
+# TODO: pytorch在处理余数的逻辑是什么？
 
 #-------------base anchors---------------------   
-import torch    
 anchor_strides = [4., 8., 16., 32., 64.]
 anchor_base_sizes = anchor_strides      # 基础尺寸
 #anchor_scales = [8., 16., 32.]          # 缩放比例
@@ -428,25 +532,22 @@ anchor_ratios = [0.5, 1.0, 2.0]         # w/h比例
 
 num_anchors = len(anchor_scales) * len(anchor_ratios)
 base_anchors = []
-base_anchors2 = []
 for anchor_base in anchor_base_sizes:
     base_anchors.append(gen_base_anchors_mine(anchor_base, anchor_ratios, anchor_scales))
-    base_anchors2.append(gen_base_anchors(anchor_base, anchor_ratios, anchor_scales))
     
 #-------------all anchors---------------------
 featmap_sizes = [(152,200), (76,100), (38,50), (19,25), (10,13)]
 strides = [4,8,16,32,64]    # 针对resnet的下采样比例，5路分别缩减尺寸 
 
-i=2
-featmap_size = featmap_sizes[i]
-stride = strides[i]
-base_anchor = base_anchors[i]
-all_anchors1 = grid_anchors(featmap_size, stride, base_anchor)
-all_anchors2 = grid_anchors_mine(featmap_size, stride, base_anchor)
+# 生成所有特征层的anchors
+anchor_list = []
+for i in len(featmap_sizes):
+    anchors = grid_anchors_mine(featmap_sizes[i], strides[i], base_anchors[i])
+    anchor_list.append(anchors)
 
 #-------------flags---------------------
 valid_size = featmap_size   # 这里沿用rpn的形式，由于加入对数据32倍数的padding,特征图大小跟valid size一样
-num_base_anchors = len(base_anchor)
+num_base_anchors = len(base_anchors[0])
 allowed_border = 0
 img_shape = (600, 800)
 
@@ -454,6 +555,9 @@ valid_f = valid_flags(featmap_size, valid_size, num_base_anchors, device='cpu')
 
 inside_f = inside_flags(all_anchors2, valid_f, img_shape, allowed_border)
 
+inside_anchors = all_anchors2[inside_f,:]
+num_all_anchors = len(all_anchors2)
+num_level_anchors = [anchors.size(0) for anchors in all_anchors2]
 #-------------bbox ious---------------------
 #bb1 = torch.tensor([[-20.,-20.,20.,20.],[-30.,-30.,30.,30.]])
 #bb2 = torch.tensor([[-25.,-25.,25.,25.],[-15.,-15.,15.,15.],[-25,-25,50,50]])
@@ -466,17 +570,25 @@ import pickle
 gt_bboxes = pickle.load(open('test/test_data/test9_bboxes.txt','rb'))  # gt bbox (m,4)
 gt_bboxes = torch.tensor(gt_bboxes, dtype=torch.float32)
 gt_labels = [None, None]
-ious = bbox_overlap_mine(gt_bboxes, all_anchors2)
+ious = bbox_overlap_mine(gt_bboxes, inside_anchors)
 
 #-------------ious/assigner/sampler---------------------
-assigned = assigner(all_anchors2, gt_bboxes)
+assigned = assigner(inside_anchors, gt_bboxes)
 
-pos_inds, neg_inds = random_sampler(assigned, all_anchors2)
+pos_inds, neg_inds = random_sampler(assigned, inside_anchors)
 
 #-------------anchor target---------------------
-labels, labels_weights, bbox_targets, bbox_weights = anchor_target_mine(
-        gt_bboxes, all_anchors2, assigned, pos_inds, neg_inds, inside_f, gt_labels)
+labels, labels_weights, bbox_targets, \
+bbox_weights, num_total_pos, num_total_neg = \
+anchor_target_mine(gt_bboxes, inside_anchors, inside_f, assigned, 
+    pos_inds, neg_inds, num_all_anchors, num_level_anchors, gt_labels)
 
+# ------------loss--------------------------------
+cls_score = torch.randn(1,)
+bbox_pred = torch.randn(1,)
+num_total_samples = num_total_pos + num_total_neg
+loss_single(cls_score, bbox_pred, labels, labels_weights, 
+                bbox_targets, bbox_weights, num_total_samples)
 
 
 """一组参考数据(2张图片)
