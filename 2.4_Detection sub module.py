@@ -5,6 +5,16 @@ Created on Mon Jan 21 18:24:32 2019
 
 @author: ubuntu
 """
+
+# %%
+"""视觉检测这块如何分方向：
+1. 分类/classification: 只需要对整个图形类别分类，比如：这张图像有气球
+2. 对象检测/object detectin：需要识别具体物体的类型和位置，比如：这张图形有7个气球，每个气球的位置框
+3. 语义分割/Semantic segmentation：需要识别气球，还要把气球从背景中整体分离出来，比如：这张图片有7个气球，分成气球和背景两部分
+4. 实例分割/Instance Segmentation：需要识别气球，还要吧每个气球都单独分离并给出每个气球像素，比如：这张图片有7个气球，分成7组独立气球和1组背景
+可以认为从1到4难度逐渐加大。
+参考：https://blog.csdn.net/qq_15969343/article/details/80167215
+"""
             
 # %%
 '''Q. backbones有哪些，跟常规network有什么区别？

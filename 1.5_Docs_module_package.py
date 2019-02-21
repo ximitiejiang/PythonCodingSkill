@@ -286,6 +286,16 @@ Q: 如何读取xml文件
 obj.findall('tagname'): 返回list, 是所有tag匹配的element对象的合集
 obj.find('tagname'): 返回对象，是第一个tag匹配的element对象
 obj.text: 如果obj已经是最后一级tag，则可以用.text命令取出内部数据。
+常用操作过程：
+    1. 获得树: tree = ET.parse(path)
+    2. 获得根: root = tree.getroot()
+    3. 查找具体对象
+        obj =root.find()
+        objs = root.findall()
+        for i in objs:
+            ...
+    4. 如果已经到最里边一层对象了，则获得字符串
+        obj.text
 
 '''
 import sys, os
