@@ -7,7 +7,7 @@ Created on Wed Feb 20 23:26:11 2019
 """
 
 # %% 
-"""数据集类的基本结构和原理？
+"""Q.数据集类的基本结构和原理？
 1. 数据集必须强制包含
 2. 数据集通常只需要传入ann_file地址，就能够完成数据集的创建，coco/voc都是这样
 """
@@ -27,7 +27,7 @@ class Dataset(object):
 
 
 # %%
-"""为什么数据集能够组合？如何实现？
+"""Q.为什么数据集能够组合？如何实现？
 """
 import bisect
 class ConcatDataset(Dataset):
@@ -67,7 +67,7 @@ class ConcatDataset(Dataset):
 
 
 # %%
-"""如何读取VOC dataset？
+"""Q.如何读取VOC dataset？
 """
 from torch.utils.data import Dataset
 import cv2
@@ -200,7 +200,7 @@ img_data = dataset[0]               # len = 10022
 
 
 # %%
-"""如何读取COCO dataset？
+"""Q.如何读取COCO dataset？
 """
 from pycocotools.coco import COCO
 from torch.utils.data import Dataset
@@ -212,7 +212,8 @@ import torch
 
 class CocoDataset(Dataset):
     """Coco数据集类
-    注意1：coco数据集有一个iscrowd标志，=0代表该annotation实例是单个对象，将在segmentation
+    注意1：需要预装coco api
+    注意2：coco数据集有一个iscrowd标志，=0代表该annotation实例是单个对象，将在segmentation
     处使用polygons格式给出，而如果=1代表该annotation实例为一组对象，将使用RLE格式给出
     注意2：json文件结构：5段式(info/licenses/images/annotations/categories)
     {
@@ -249,7 +250,7 @@ class CocoDataset(Dataset):
             "category_id": int,
             "segmentation": RLE or [polygon],
             "area": float,
-            "bbox": [x,y,width,height],         # 重要
+            "bbox": [x,y,width,height],         # 重要 (xmin,ymin,w,h)
             "iscrowd": 0 or 1,
             },
     categories{
@@ -262,8 +263,16 @@ class CocoDataset(Dataset):
         (2) train2017: 训练图片
         (3) val2017: 验证图片
         (4) test2017: 测试图片
-    2. 需要预安装coco api
-    
+    2. coco api的几个核心函数：如下6个函数就满足coco数据集处理需求了
+        (1) 创建coco对象：
+            coco = COCO(ann_file)
+        (2) 获得：
+            coco.getCatIds(): 获得所有分类
+            coco.getImgIds(): 
+            coco.getAnnIds(): 
+        (3) 加载：
+            coco.loadImgs(img_id)
+            coco.loadAnns(ann_id)
     Args:
         ann_file(list): ['ann1', 'ann2'..] 代表图片名检索文件，可以包含1-n个数据源的不同检索文件
         img_prefix(list): 代表检索文件名的前缀，前缀+检索文件名 = 完整文件名    
@@ -302,18 +311,18 @@ class CocoDataset(Dataset):
         # 读取图片：
         img_path = os.path.join(self.img_prefix, img_info['file_name'])
         img = cv2.imread(img_path)
-        # 读取图片辅助信息
+        # 读取图片辅助信息: 先要获得img_id, 然后才能得到ann_id, 然后才能得到ann_info
         img_id = self.img_infos[idx]['id']
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         ann_info = self.coco.loadAnns(ann_ids)
-        # 解析ann info
+        # 解析ann info: 得到的ann_info包含多个对象的ann_info, 当成dict操作
         gt_bboxes = []
         gt_labels = []
         gt_bboxes_ignore = []   # 多对象放在ignore，一般用来做segmentation，不用label_ignore?
         # 多对象数据放在ignore里，做物体检测先只考虑iscrowd=0的单对象情况
         for i, ann in enumerate(ann_info):
             x1,y1,w,h = ann['bbox']
-            bbox = [x1,y1,x1+w,y1+h]
+            bbox = [x1,y1,x1+w,y1+h]  #
             if ann['iscrowd']:
                 gt_bboxes_ignore.append(bbox)
             else:
@@ -341,8 +350,6 @@ class CocoDataset(Dataset):
 
         return img_data
 
-        
-        
     def __len__(self):
         pass
     
@@ -355,27 +362,44 @@ dataset = CocoDataset(ann_file[0], img_prefix[0])
 img_data = dataset[0]
     
 
+
+# %%
+"""Q.如果只做车辆和行人检测，如何从coco数据集分离出车辆和行人数据用来进行训练？
+"""
+
+
 # %%
 """对于图像的transform，有哪些方法可用？
-1. 读入图像：img = cv2.imread(path)                 - (h,w,c)/(bgr 0~255)/ndarray
-2. 显示图像：plt.imshow(img)，注意只能显示rgb        - (h,w,c)/(bgr 0~255)/ndarray
-3. 额外扩增：                                        - (h,w,c)/(bgr 0~255)/ndarray
-4. 缩放或尺寸变换：                                  - (h,w,c)/(bgr 0~255)/ndarray
-5. 归一化：                                          - (h,w,c)/(bgr -2.x~2.x)/ndarray
-6. bgr2rgb                                           - (h,w,c)/(rgb -2.x~2.x)/ndarray
+1. 读入图像：img = cv2.imread(path)                     - (h,w,c)/(bgr 0~255)/ndarray
+2. 显示图像：plt.imshow(img)，注意只能显示rgb             - (h,w,c)/(bgr 0~255)/ndarray
+3. 额外扩增：                                           - (h,w,c)/(bgr 0~255)/ndarray
+4. 缩放或尺寸变换：                                      - (h,w,c)/(bgr 0~255)/ndarray
+5. 归一化：                                            - (h,w,c)/(bgr -2.x~2.x)/ndarray
+6. bgr2rgb                                            - (h,w,c)/(rgb -2.x~2.x)/ndarray
 7. padding
 8. flip或rotate
 9. transpose                                          - (c,h,w)/(rgb -2.x~2.x)/ndarray
 10. to tensor                                         - (h,w,c)/(rgb -2.x~2.x)/tensor
 
 """
-# 
+import cv2
+import matplotlib.pyplot as plt
+img = cv2.imread('test/test_data/test.jpg')
+plt.imshow(img[...,[2,1,0]])
 
 
 
 # %%
+"""Q.如何做尺寸变换和尺寸缩放？
+
+"""
+
+cv2.resize(img, size, interpolation=interp_codes[interpolation])
+def imresize():
+    pass
 
 
+def imrescale():
 
 
 
