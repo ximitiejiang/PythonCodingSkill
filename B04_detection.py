@@ -755,12 +755,9 @@ def test_img(img, config_file, device = 'cuda:0', dataset='voc'):
     with torch.no_grad():
         result = model(return_loss=False, rescale=True, **data)
     # 7. 结果显示
-    # TODO：解析result的内容，显示result
     class_names = get_classes(dataset)
-    labels = [
-        np.full(bbox.shape[0], i, dtype=np.int32)
-        for i, bbox in enumerate(result)
-    ]
+    labels = [np.full(bbox.shape[0], i, dtype=np.int32) 
+        for i, bbox in enumerate(result)]
     labels = np.concatenate(labels)
     bboxes = np.vstack(result)
     img = mmcv.imread(img)
