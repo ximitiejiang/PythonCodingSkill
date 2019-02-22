@@ -5,10 +5,91 @@ Created on Wed Feb 20 23:26:11 2019
 
 @author: suliang
 """
+# %% 
+"""Q.数据集的图片，第一步是显示，如何是最优显示？
+1. plt.imshow()
+   cv2.imshow()
+2. 
+"""
+# 
+import matplotlib.pyplot as plt
+def imshow_bboxes(img, bboxes, 
+                  colors=(0,255,0),
+                  thickness=1):
+    """用来显示img和bboxes
+    注意颜色需要传入len=3的list/tuple，不能是字符str
+    Args:
+        img(ndarray): (h,w,c)/bgr 代表已读入的图片，为bgr颜色空间, 通道顺序(h,w,c), 内部会转成rgb来显示
+        bboxes(ndarray): (m,4)代表bboxes坐标,[xmin,ymin,xmax,ymax]
+        colors(str/list): 代表bboxes的颜色，支持每个bbox显示不同颜色
+    """
+    if not isinstance(bboxes, np.ndarray):      # 如果是直接读取img为ndarray，否则
+        bboxes = np.array(bboxes)                   # ndarray to list
+    if not isinstance(colors, list):
+        colors = [colors for _ in range(len(bboxes))]
+    
+    for i, bbox in enumerate(bboxes):
+        bbox = bbox.astype(np.int32)
+        lt = (bbox[0], bbox[1])
+        rb = (bbox[2], bbox[3])
+        cv2.rectangle(img,lt,rb,colors[i],thickness=thickness)
+    plt.imshow(img[...,[2,1,0]])    
+    
+
+def imshow_bboxes_labels(img, bboxes, labels, score_thr=0,
+                         class_names=None,
+                         bbox_colors=(0,255,0),
+                         text_colors=(0,255,0),
+                         thickness=1,
+                         font_scale=0.5):
+    """用来显示img和bboxes和labels
+    可用来显示train/val的现成img/bbox/label，此时bbox为4列坐标[xmin,ymin,xmax,ymax]
+    也可以用来显示test的预测结果img/bbox/label，此时bbox为5列坐标，第5列为置信度 [xmin,ymin,xmax,ymax,score]
+    Args:
+        img(ndarray): (h,w,c)/bgr 代表已读入的图片，为bgr颜色空间, 通道顺序(h,w,c), 内部会转成rgb来显示
+        bboxes(ndarray): (m,4),或(m,5)代表bboxes坐标,[xmin,ymin,xmax,ymax, /score]
+        labels(ndarray/list): (m,)代表每个对应bbox的label
+        score_thr(float): 代表预测的bbox的置信度，=0表示没有置信度的4列坐标，>0表示有置信度的5列坐标
+        class_names(list/tuple): 代表跟label编号对应的类型字符串列表
+        bbox_colors(str/list): 代表bboxes的颜色，支持每个bbox显示不同颜色
+        text_colors(str/list): 代表文字颜色，支持每种label显示不同颜色
+        font_scale(float): 代表字体缩放比例
+    """
+    if not isinstance(bboxes, np.ndarray):      # 如果是直接读取img为ndarray，否则
+        bboxes = np.array(bboxes)                   # ndarray to list
+    if not isinstance(bbox_colors, list):
+        bbox_colors = [bbox_colors for _ in range(len(bboxes))]
+    if not isinstance(text_colors, list):
+        text_colors = [text_colors for _ in range(len(bboxes))]
+    
+    if score_thr > 0: # 只显示置信度大于阀值的
+        scores = bboxes[:,-1]
+        score_id = scores > score_thr
+        # 获得scores, bboxes
+        scores = scores[score_id]
+        bboxes = bboxes[score_id]
+    # 获得label_text
+    if class_names is not None:
+        label_text = [class_names[label] for label in labels]
+    else:
+        label_text = ['cls {}'.format(label) for label in labels]
+    # 循环显示添加到img上
+    for i, bbox in enumerate(bboxes):
+        bbox = bbox.astype(np.int32)
+        lt = (bbox[0], bbox[1])
+        rb = (bbox[2], bbox[3])
+        cv2.rectangle(img, lt, rb, bbox_colors[i], thickness=thickness)
+        
+        if len(bbox) > 4:
+            label_text += '|{:.2f}'.format(bbox[-1])
+        cv2.putText(img, label_text[i], (bbox[0],bbox[1]-2),
+                    cv2.FONT_HERSHEY_COMPLEX, font_scale, text_colors[i])
+    plt.imshow(img[...,[2,1,0]])
+
 
 # %% 
 """Q.数据集类的基本结构和原理？
-1. 数据集必须强制包含
+1. 数据集必须强制包含__getitem__和__len__因为这是在实现切片和合并数据源必要的操作
 2. 数据集通常只需要传入ann_file地址，就能够完成数据集的创建，coco/voc都是这样
 """
 # 参考pytorch的基础类Dataset
@@ -197,6 +278,8 @@ voc12 = VOCDataset(ann_file[0], img_prefix[0])
 
 dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
 img_data = dataset[0]               # len = 10022
+imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels)
+
 
 
 # %%
@@ -361,13 +444,20 @@ img_prefix=[data_root + 'train2017/', data_root + 'val2017/']
 dataset = CocoDataset(ann_file[0], img_prefix[0])
 img_data = dataset[0]
     
-
+imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels)
 
 # %%
 """Q.如果只做车辆和行人检测，如何从coco数据集分离出车辆和行人数据用来进行训练？
 """
+class Coco_vehicle_person(CocoDataset):
+    """应该只需要重写init，保证img_ids读入的是需要的分类就可以了
+    """
+    def __init__(self, ann_file, img_prefix):
+        pass
 
 
+        
+        
 # %%
 """对于图像的transform，有哪些方法可用？
 1. 读入图像：img = cv2.imread(path)                     - (h,w,c)/(bgr 0~255)/ndarray
@@ -382,10 +472,6 @@ img_data = dataset[0]
 10. to tensor                                         - (h,w,c)/(rgb -2.x~2.x)/tensor
 
 """
-import cv2
-import matplotlib.pyplot as plt
-img = cv2.imread('test/test_data/test.jpg')
-plt.imshow(img[...,[2,1,0]])
 
 
 
@@ -394,15 +480,11 @@ plt.imshow(img[...,[2,1,0]])
 
 """
 
-cv2.resize(img, size, interpolation=interp_codes[interpolation])
+#cv2.resize(img, size, interpolation=interp_codes[interpolation])
 def imresize():
     pass
 
 
 def imrescale():
-
-
-
-
-
+    pass
     

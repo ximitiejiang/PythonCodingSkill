@@ -647,31 +647,160 @@ def loss_single(cls_score, bbox_pred, labels, labels_weights,
 """
 
 
+# %% 
+"""Q. 对已经训练完成的模型进行测试，第一步模型加载如何做？"""
+# model_zoo
+import os
+def load_url(url, model_dir=None, map_location=None, progress=True):
+    """pytorch用来在线下载模型以及从torch home调用模型的代码
+    1. model_dir可以设置，如果None，则用torch_home
+    2. 
+    """
+    if model_dir is None:
+        torch_home = os.path.expanduser(os.getenv('TORCH_HOME', '~/.torch'))
+        model_dir = os.getenv('TORCH_MODEL_ZOO', os.path.join(torch_home, 'models'))
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)   
+    parts = urlparse(url)
+    filename = os.path.basename(parts.path)
+    cached_file = os.path.join(model_dir, filename)
+    if not os.path.exists(cached_file):
+        sys.stderr.write('Downloading: "{}" to {}\n'.format(url, cached_file))
+        hash_prefix = HASH_REGEX.search(filename).group(1)
+        _download_url_to_file(url, cached_file, hash_prefix, progress=progress)
+    return torch.load(cached_file, map_location=map_location)
+# 测试一下，如下是我已经从mmdetection下载好放在.torch的torch home的一个模型
+url = 'https://s3.ap-northeast-2.amazonaws.com/open-mmlab/mmdetection/models/rpn_r50_fpn_1x_20181010-4a9c0712.pth'
+
+# checkpoint
+def load_checkpoint(model, filename, map_location=None, strict=False, logger=None):
+    """mmdetection用来加载模型参数的代码
+    """
+    if filename.startswith('modelzoo://'):
+        from torchvision.models.resnet import model_urls
+        model_name = filename[11:]
+        checkpoint = model_zoo.load_url(model_urls[model_name])
+    elif filename.startswith(('http://', 'https://')):
+        checkpoint = model_zoo.load_url(filename)
+    else:
+        if not osp.isfile(filename):
+            raise IOError('{} is not a checkpoint file'.format(filename))
+        checkpoint = torch.load(filename, map_location=map_location)
+    # get state_dict from checkpoint
+    if isinstance(checkpoint, OrderedDict):
+        state_dict = checkpoint
+    elif isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+        state_dict = checkpoint['state_dict']
+    else:
+        raise RuntimeError(
+            'No state_dict found in checkpoint file {}'.format(filename))
+    # strip prefix of state_dict
+    if list(state_dict.keys())[0].startswith('module.'):
+        state_dict = {k[7:]: v for k, v in checkpoint['state_dict'].items()}
+    # load state_dict
+    if hasattr(model, 'module'):
+        load_state_dict(model.module, state_dict, strict, logger)
+    else:
+        load_state_dict(model, state_dict, strict, logger)
+    return checkpoint
+
+
 
 # %%
 """Q. 如何对model效果进行test和评估？
-1. 跟train/val类似，先创建dataset/dataloader/model
-2. 运行每个detection模型中带对outputs = single_test()
+0. 可以test一张或几张图片，也可以test整个数据集的test数据
+    几张张图片的测试调用api中的：result = inference_detector() -> _inference_single()/_inference_generator()
+                          show_result(img, result)
+    数据集的测试调用：
 """
-def test(config_file, checkpoint_file, gpus, out_file, eval_method='proposal_fast'):
+import cv2
+import mmcv
+from mmdet.models import build_detector
+from mmdet.datasets.transforms import ImageTransform
+from mmdet.core import get_classes
+import numpy as np
+
+def test_img(img, config_file, device = 'cuda:0', dataset='voc'):
+    """测试单张图片：相当于恢复模型和参数后进行单次前向计算得到结果
+    注意由于没有dataloader，所以送入model的数据需要手动合成img_meta
+    1. 模型输入data的结构：需要手动配出来
+    2. 模型输出result的结构：
+    
+    """
+    # 1. 配置文件
+    cfg = mmcv.Config.fromfile(config_file)
+    cfg.model.pretrained = None
+    # 2. 模型
+    path = 'https://s3.ap-northeast-2.amazonaws.com/open-mmlab/mmdetection/models/rpn_r50_fpn_1x_20181010-4a9c0712.pth'
+    model = build_detector(cfg.model, test_cfg = cfg.test_cfg)
+    _ = load_checkpoint(model, path)
+    model = model.to(device)
+    # 3. 图形数据变换
+    img_transform = ImageTransform(size_divisor = cfg.data.test.size_divisor,
+                                   **cfg.img_norm_cfg)
+
+    # 5. 数据包准备
+    ori_shape = img.shape
+    img, img_shape, pad_shape, scale_factor = img_transform(img, scale= cfg.data.test.img_scale)
+    img = torch.tensor(img).to(device).unsqueeze(0)
+    
+    img_meta = [dict(ori_shape=ori_shape,
+                     img_shape=img_shape,
+                     pad_shape=pad_shape,
+                     scale_factor = scale_factor,
+                     flip=False)]
+
+    data = dict(img=[img], img_meta=[img_meta])
+    # 6. 结果计算
+    with torch.no_grad():
+        result = model(return_loss=False, rescale=True, **data)
+    # 7. 结果显示
+    # TODO：解析result的内容，显示result
+    class_names = get_classes(dataset)
+    labels = [
+        np.full(bbox.shape[0], i, dtype=np.int32)
+        for i, bbox in enumerate(result)
+    ]
+    labels = np.concatenate(labels)
+    bboxes = np.vstack(result)
+    img = mmcv.imread(img)
+    mmcv.imshow_det_bboxes(
+        img.copy(),
+        bboxes,
+        labels,
+        class_names=class_names,
+        score_thr=0.5)
+    
+    
+img = cv2.imread('test/test_data/test.jpg')
+config_file = 'test/test_data/faster_rcnn_r50_fpn_1x_voc0712.py'
+test_img(img, config_file)
+
+
+# %%
+"""Q. 如何对整个数据集进行测试评估？
+
+"""
+def test_dataset(config_file, checkpoint_file, gpus, out_file, eval_method='proposal_fast'):
     """测试一个数据集
     参考mmdetection/tools/test.py
     命令行用法：python tools/test.py <CONFIG_FILE> <CHECKPOINT_FILE> --gpus <GPU_NUM> --out <OUT_FILE>
+    执行过程：
+    1. 调用
+    2. 调用
     Args:
-        config_file(str):
-        checkpoint_file(str):
-        gpus(int):
-        out_file(str): 代表输出文件地址和文件名，必须是.pkl文件
-        eval_method(str):
+        config_file(str): 代表测试配置文件的路径(.py)，通常跟训练配置文件集成在一起的cfg
+        checkpoint_file(str): 代表模型文件的路径(.pth)
+        gpus(int): 代表gpus的个数(1~n)
+        out_file(str): 代表输出文件地址和文件名(.pkl)
+        eval_method(str): 代表评估方式, proposal_fast则表示
     """
-    dataset = CocoDataset()
+    pass
     
-    if eval_methos == 'proposal_fast':
-        
-
-
-
-
+    config_file
+    checkpoint_file
+    gpus
+    out_file
 
 
 

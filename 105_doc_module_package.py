@@ -75,7 +75,7 @@ Q: 如何通过print语句把待输出内容写入文件中？
 with open('xx.txt', 'rt') as f:
     print('Hello World!', file = f)  # 加上file关键字即可
 
-
+# %%
 ''' --------------------------------------------------------------------------
 Q: 如何把相对路径转化为绝对路径？又如何把绝对路径转化为相对路径
 关键理解1：
@@ -148,48 +148,8 @@ img3 = cv2.imread(path3)
 plt.imshow(img3[...,[2,1,0]])
 
 
-''' --------------------------------------------------------------------------
-Q: 如何获得某个路径下所有文件名称的列表？
-'''
-import os
-root = '/Users/suliang/PythonCodingSkill/'
-names = os.listdir(root)  # 文件名称列表
-pynames = [name for name in names if name.endswith('.py')]
-print(pynames)
 
-root = '/Users/suliang/PythonCodingSkill/abc.py'
-base = os.path.basename(root)   # 获得文件名
-dir = os.path.dirname(root)    # 获得文件路径
-os.path.join(dir, base)        # 拼接文件名: 
-# 生成每个文件的绝对地址
-name_addr = [os.path.join(root, name) for name in names]  # 拼接地址
-print(name_addr)
-"""注意 os.path.join(addr1, addr2, addr3)的用法:
-(1)只认最后一个以/开始的根目录以及之后的拼接目录，该根目录以左的所有目录都会被忽略
-其中根目录是指以/开始的目录
-(2)拼接时结尾的/可有可无，命令会自动调整成正确形式
-"""
-dir1 = os.path.join('/aa/bb/c','/d/e/','f/g/h')
-dir2 = os.path.join('/aa/bb/c','/d/e', 'f/g/h')
-print(dir1)  # 只会从第二个/d/e/开始算起
-print(dir2)
-
-
-'''-------------------------------------------------------------------------
-Q. 如何通过相对路径，绝对路径导入模块或者包，有什么区别，为什么经常失败？
-'''
-from
-
-
-''' --------------------------------------------------------------------------
-Q: 如何读取csv数据，并进行数据汇总和统计？
-'''
-# python自己建议任何跟数据汇总统计相关的，都用pandas来实现
-import pandas as pd
-df = pd.read_csv('Train_big_mart_III.csv', skip_footer =1)
-df['name'].unique()
-
-
+# %%
 ''' --------------------------------------------------------------------------
 Q: 如何设置文件的包(package)和模块(module)，并进行模块导入
 假定如下文件结构：
@@ -226,16 +186,63 @@ from ..packB.bar import BBB # 方式2：导入BBB类
 import packB                # 在packB下面init文件中添加from .bar import BBB
 
 
-''' --------------------------------------------------------------------------
-Q: 如何读取其他文件夹的包？
+'''-------------------------------------------------------------------------
+Q. 为什么经常导入失败？？？如何通过相对路径，绝对路径导入其他文件夹的模块或者包，有什么区别？
+今天在导入data/coco时的错误可能很能说明问题：直接访问'data/coco'报错，改为'../data/coco'就好了。
+核心：想要导入一个包或者文件，要到达这个包或者文件，入口永远只有2个，第一个入口是__main__函数文件，
+通过这个入口，能够到达main函数的文件树的平级以及下一级的文件并访问，但不可能跳到其他文件树上去。
+第二个入口是sys.path中存储的文件夹，通过这个入口同样能够访问该入口文件树的平级以及下级文件，但因为
+该入口比较靠根部，这颗文件树比较大所以能够访问的文件也就比较多。
+    (1) 作为open之类的data/coco斜杠写法，就需要上面的两入口理论。
+    (2) 作为import似乎又不太一样，能成功？
+
 '''
-from KidsCoding.kc.tool import PAPER,DRAW,ANT
-# 只要在KidsCoding包，kc包都存在时，从tool文件中导入类就是合法的
 
-paper = PAPER(size=[6,8])
-ant = ANT(paper)
 
-ant.move(2)
+
+
+
+''' --------------------------------------------------------------------------
+Q: 如何获得某个路径下所有文件名称的列表？
+'''
+import os
+root = '/Users/suliang/PythonCodingSkill/'
+names = os.listdir(root)  # 文件名称列表
+pynames = [name for name in names if name.endswith('.py')]
+print(pynames)
+
+root = '/Users/suliang/PythonCodingSkill/abc.py'
+base = os.path.basename(root)   # 获得文件名
+dir = os.path.dirname(root)    # 获得文件路径
+os.path.join(dir, base)        # 拼接文件名: 
+# 生成每个文件的绝对地址
+name_addr = [os.path.join(root, name) for name in names]  # 拼接地址
+print(name_addr)
+"""注意 os.path.join(addr1, addr2, addr3)的用法:
+(1)只认最后一个以/开始的根目录以及之后的拼接目录，该根目录以左的所有目录都会被忽略
+其中根目录是指以/开始的目录
+(2)拼接时结尾的/可有可无，命令会自动调整成正确形式
+"""
+dir1 = os.path.join('/aa/bb/c','/d/e/','f/g/h')
+dir2 = os.path.join('/aa/bb/c','/d/e', 'f/g/h')
+print(dir1)  # 只会从第二个/d/e/开始算起
+print(dir2)
+
+
+
+
+
+''' --------------------------------------------------------------------------
+Q: 如何读取csv数据，并进行数据汇总和统计？
+'''
+# python自己建议任何跟数据汇总统计相关的，都用pandas来实现
+import pandas as pd
+df = pd.read_csv('Train_big_mart_III.csv', skip_footer =1)
+df['name'].unique()
+
+
+
+
 
 
 
