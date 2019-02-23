@@ -725,7 +725,11 @@ def test_img(img, config_file, device = 'cuda:0', dataset='voc'):
     注意由于没有dataloader，所以送入model的数据需要手动合成img_meta
     1. 模型输入data的结构：需要手动配出来
     2. 模型输出result的结构：
-    
+    Args:
+        img(array): (h,w,c)-bgr
+        config_file(str): config文件路径
+        device(str): 'cpu'/'cuda:0'/'cuda:1'
+        dataset(str): voc/coco
     """
     # 1. 配置文件
     cfg = mmcv.Config.fromfile(config_file)
@@ -738,7 +742,6 @@ def test_img(img, config_file, device = 'cuda:0', dataset='voc'):
     # 3. 图形数据变换
     img_transform = ImageTransform(size_divisor = cfg.data.test.size_divisor,
                                    **cfg.img_norm_cfg)
-
     # 5. 数据包准备
     ori_shape = img.shape
     img, img_shape, pad_shape, scale_factor = img_transform(img, scale= cfg.data.test.img_scale)
@@ -792,16 +795,36 @@ def test_dataset(config_file, checkpoint_file, gpus, out_file, eval_method='prop
         out_file(str): 代表输出文件地址和文件名(.pkl)
         eval_method(str): 代表评估方式, proposal_fast则表示
     """
-    pass
+    from mmcv.runner import obj_from_dict
+    from mmdet import datasets
     
-    config_file
+    cfg = mmcv.Config.fromfile(config_file)
+    dataset = obj_from_dict(cfg.data.test, datasets, dict(test_mode=True))
+    
+    if args.gpus == 1:
+        model = build_detector(
+            cfg.model, train_cfg=None, test_cfg=cfg.test_cfg)
+        load_checkpoint(model, args.checkpoint)
+        model = MMDataParallel(model, device_ids=[0])
+
+        data_loader = build_dataloader(
+            dataset,
+            imgs_per_gpu=1,
+            workers_per_gpu=cfg.data.workers_per_gpu,
+            num_gpus=1,
+            dist=False,
+            shuffle=False)
+        outputs = single_test(model, data_loader, args.show)
+    else:
+        raise ValueError('currently only support one gpu for test dataset.')
+    
     checkpoint_file
     gpus
     out_file
 
 
 
-
+# %%
 
 
 
