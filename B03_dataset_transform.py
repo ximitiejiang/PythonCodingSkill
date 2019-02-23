@@ -13,8 +13,21 @@ Created on Wed Feb 20 23:26:11 2019
 """
 # 
 import matplotlib.pyplot as plt
+ 
+def color2value(color_str):
+    """定义一个把颜色字符串转换成opencv能识别的tuple"""
+    colors = dict(red = (0, 0, 255),
+                  green = (0, 255, 0),
+                  blue = (255, 0, 0),
+                  cyan = (255, 255, 0),
+                  yellow = (0, 255, 255),
+                  magenta = (255, 0, 255),
+                  white = (255, 255, 255),
+                  black = (0, 0, 0))
+    return colors[color_str]
+
 def imshow_bboxes(img, bboxes, 
-                  colors=(0,255,0),
+                  colors='green',
                   thickness=1):
     """用来显示img和bboxes
     注意颜色需要传入len=3的list/tuple，不能是字符str
@@ -27,7 +40,7 @@ def imshow_bboxes(img, bboxes,
         bboxes = np.array(bboxes)                   # ndarray to list
     if not isinstance(colors, list):
         colors = [colors for _ in range(len(bboxes))]
-    
+    colors = [color2value(color) for color in colors]  # 转换字符串成tuple
     for i, bbox in enumerate(bboxes):
         bbox = bbox.astype(np.int32)
         lt = (bbox[0], bbox[1])
@@ -36,10 +49,10 @@ def imshow_bboxes(img, bboxes,
     plt.imshow(img[...,[2,1,0]])    
     
 
-def imshow_bboxes_labels(img, bboxes, labels, score_thr=0,
+def imshow_bboxes_labels(img, bboxes, labels, score_thr=0.3,
                          class_names=None,
-                         bbox_colors=(0,255,0),
-                         text_colors=(0,255,0),
+                         bbox_colors='green',
+                         text_colors='green',
                          thickness=1,
                          font_scale=0.5):
     """用来显示img和bboxes和labels
@@ -61,7 +74,8 @@ def imshow_bboxes_labels(img, bboxes, labels, score_thr=0,
         bbox_colors = [bbox_colors for _ in range(len(bboxes))]
     if not isinstance(text_colors, list):
         text_colors = [text_colors for _ in range(len(bboxes))]
-    
+    bbox_colors = [color2value(color) for color in bbox_colors]  # 转换字符串成tuple
+    text_colors = [color2value(color) for color in text_colors]  # 转换字符串成tuple
     if score_thr > 0: # 只显示置信度大于阀值的
         scores = bboxes[:,-1]
         score_id = scores > score_thr
@@ -275,10 +289,11 @@ img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/']
 
 voc07 = VOCDataset(ann_file[0], img_prefix[0])
 voc12 = VOCDataset(ann_file[0], img_prefix[0])
-
 dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
-img_data = dataset[0]               # len = 10022
-imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels)
+classes = voc07.CLASSES
+img_data = dataset[29]               # len = 10022
+imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
+                     class_names = classes)
 
 
 
@@ -381,7 +396,7 @@ class CocoDataset(Dataset):
         # 获得图片名称：先安装coco api (json文件处理)
         self.coco = COCO(ann_file)            # 总共80个大类(但注意编号是从1-90且不连续，中间有数字缺),不是指超类(超类更少)
         self.cat_ids = self.coco.getCatIds()  # 获得分类对应的值
-        self.cat2label = {id: i+1 for i,id in enumerate(self.cat_ids)}
+        self.cat2label = {id: i for i,id in enumerate(self.cat_ids)} # 此处做了修改把id:i+1改成了id:i否则标签错位
         
         self.img_ids = self.coco.getImgIds()  # 获得所有图片ids: 总计118287张图(大约是voc的20倍): 用img_id -> img_info和ann_id
         self.img_infos = []
@@ -436,15 +451,17 @@ class CocoDataset(Dataset):
     def __len__(self):
         pass
     
-data_root = 'data/coco/'    
+data_root = 'data/coco/'    # 需要预先把主目录加进sys.path
 ann_file=[data_root + 'annotations/instances_train2017.json',
           data_root + 'annotations/instances_val2017.json']
 img_prefix=[data_root + 'train2017/', data_root + 'val2017/']
 
 dataset = CocoDataset(ann_file[0], img_prefix[0])
-img_data = dataset[0]
+classes = dataset.CLASSES
+img_data = dataset[8]
     
-imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels)
+imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
+                     class_names = classes)
 
 # %%
 """Q.如果只做车辆和行人检测，如何从coco数据集分离出车辆和行人数据用来进行训练？

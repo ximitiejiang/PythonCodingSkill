@@ -4,6 +4,9 @@
 Created on Mon Jan 21 18:24:32 2019
 
 @author: ubuntu
+
+本部分所有模块统一在最下面进行验证
+
 """
 
 # %%
@@ -23,6 +26,7 @@ Created on Mon Jan 21 18:24:32 2019
 
 
 # 普通VGG16： blocks = [2,2,3,3,3]每个block包含conv3x3+bn+relu，算上最后3层linear总共带参层就是16层，也就是vgg16名字由来
+import torch.nn as nn
 class VGG16(nn.Module):
     def __init__():
         super().__init__()
@@ -90,20 +94,7 @@ class FPN_neck(nn.Module):
             for i in range(self.outs_layers - len(outs)):
                 outs.append(F.max_pool2d(outs[-1], 1, stride=2)) # 用maxpool做进一步特征图下采样尺寸缩减h=(19-1+0)/2 +1=10
         return outs
-    
-channels = [256,512,1024,2048]
-sizes = [(152,256),(76,128),(38,64),(19,32)]
-feats = []
-for i in range(4):  # 构造假数据
-    feats.append(torch.randn(2, channels[i], sizes[i][0], sizes[i][1]))
-
-fpn = FPN_neck()
-outs = fpn(feats)  # 输出5组特征图(size为阶梯状分辨率，152x256, 76x128, 38x64, 19x32, 10x16)
-                   # 该输出特征size跟输入图片尺寸相关，此处256-128-64-32-16是边界
-    
-# ssd detection中，ssd head获得的多尺度特征图直接来自VGG16(但VGG16需要做微调)
-channels = [512, 1024, 512, 256, 256, 256]
-sizes = [(38,38),(19,19),(10,10),(5,5),(3,3),(1,1)]                   
+  
 
 # %% 
 """如何把特征图转化成提供给loss函数进行评估的固定大小的尺寸？
@@ -651,10 +642,10 @@ def loss_single(cls_score, bbox_pred, labels, labels_weights,
 """Q. 对已经训练完成的模型进行测试，第一步模型加载如何做？"""
 # model_zoo
 import os
+import OrderedDict
 def load_url(url, model_dir=None, map_location=None, progress=True):
-    """pytorch用来在线下载模型以及从torch home调用模型的代码
-    1. model_dir可以设置，如果None，则用torch_home
-    2. 
+    """pytorch用来在线下载模型以及从torch home打开checkpoint
+    如下代码做了删减，只保留了从本地torch home调用已下载好的模型，但模型地址可以写http，也可以写目录
     """
     if model_dir is None:
         torch_home = os.path.expanduser(os.getenv('TORCH_HOME', '~/.torch'))
@@ -664,26 +655,23 @@ def load_url(url, model_dir=None, map_location=None, progress=True):
     parts = urlparse(url)
     filename = os.path.basename(parts.path)
     cached_file = os.path.join(model_dir, filename)
-    if not os.path.exists(cached_file):
-        sys.stderr.write('Downloading: "{}" to {}\n'.format(url, cached_file))
-        hash_prefix = HASH_REGEX.search(filename).group(1)
-        _download_url_to_file(url, cached_file, hash_prefix, progress=progress)
+    
     return torch.load(cached_file, map_location=map_location)
 # 测试一下，如下是我已经从mmdetection下载好放在.torch的torch home的一个模型
 url = 'https://s3.ap-northeast-2.amazonaws.com/open-mmlab/mmdetection/models/rpn_r50_fpn_1x_20181010-4a9c0712.pth'
 
 # checkpoint
-def load_checkpoint(model, filename, map_location=None, strict=False, logger=None):
-    """mmdetection用来加载模型参数的代码
+def load_checkpoint_mine(model, filename, map_location=None, strict=False, logger=None):
+    """mmdetection用来加载模型参数的代码, 也做了修改，去掉了
     """
     if filename.startswith('modelzoo://'):
         from torchvision.models.resnet import model_urls
         model_name = filename[11:]
-        checkpoint = model_zoo.load_url(model_urls[model_name])
+        checkpoint = load_url(model_urls[model_name])
     elif filename.startswith(('http://', 'https://')):
-        checkpoint = model_zoo.load_url(filename)
+        checkpoint = load_url(filename)
     else:
-        if not osp.isfile(filename):
+        if not os.path.isfile(filename):
             raise IOError('{} is not a checkpoint file'.format(filename))
         checkpoint = torch.load(filename, map_location=map_location)
     # get state_dict from checkpoint
@@ -704,23 +692,34 @@ def load_checkpoint(model, filename, map_location=None, strict=False, logger=Non
         load_state_dict(model, state_dict, strict, logger)
     return checkpoint
 
+# %% 
+"""Q. 在测试模式下，模型如何计算？
+"""
+
+
+
 
 
 # %%
 """Q. 如何对model效果进行test和评估？
+注意1：由于所有mmdetection所提供的模型都是基于coco进行训练的，所以测试所搭建的模型需要
+采用针对coco数据集的模型和cfg文件
 0. 可以test一张或几张图片，也可以test整个数据集的test数据
     几张张图片的测试调用api中的：result = inference_detector() -> _inference_single()/_inference_generator()
                           show_result(img, result)
     数据集的测试调用：
 """
+import torch
 import cv2
 import mmcv
 from mmdet.models import build_detector
+from mmcv.runner import load_checkpoint
 from mmdet.datasets.transforms import ImageTransform
 from mmdet.core import get_classes
 import numpy as np
+from B03_dataset_transform import imshow_bboxes_labels 
 
-def test_img(img, config_file, device = 'cuda:0', dataset='voc'):
+def test_img(img_path, config_file, device = 'cuda:0', dataset='coco'):
     """测试单张图片：相当于恢复模型和参数后进行单次前向计算得到结果
     注意由于没有dataloader，所以送入model的数据需要手动合成img_meta
     1. 模型输入data的结构：需要手动配出来
@@ -735,11 +734,12 @@ def test_img(img, config_file, device = 'cuda:0', dataset='voc'):
     cfg = mmcv.Config.fromfile(config_file)
     cfg.model.pretrained = None
     # 2. 模型
-    path = 'https://s3.ap-northeast-2.amazonaws.com/open-mmlab/mmdetection/models/rpn_r50_fpn_1x_20181010-4a9c0712.pth'
+    path = 'https://s3.ap-northeast-2.amazonaws.com/open-mmlab/mmdetection/models/faster_rcnn_r50_fpn_1x_20181010-3d1b3351.pth'
     model = build_detector(cfg.model, test_cfg = cfg.test_cfg)
     _ = load_checkpoint(model, path)
     model = model.to(device)
-    # 3. 图形数据变换
+    # 3. 图形/数据变换
+    img = cv2.imread(img_path)
     img_transform = ImageTransform(size_divisor = cfg.data.test.size_divisor,
                                    **cfg.img_norm_cfg)
     # 5. 数据包准备
@@ -763,18 +763,28 @@ def test_img(img, config_file, device = 'cuda:0', dataset='voc'):
         for i, bbox in enumerate(result)]
     labels = np.concatenate(labels)
     bboxes = np.vstack(result)
-    img = mmcv.imread(img)
+    img = cv2.imread(img_path)
+    
+#    imshow_bboxes_labels(img.copy(), bboxes, labels, 
+#                         score_thr=0.7,
+#                         class_names=class_names,
+#                         bbox_colors=(0,255,0),
+#                         text_colors=(0,255,0),
+#                         thickness=1,
+#                         font_scale=0.5)
+    
     mmcv.imshow_det_bboxes(
         img.copy(),
         bboxes,
         labels,
+        bbox_color='blue',
+        text_color='blue',
         class_names=class_names,
         score_thr=0.5)
     
-    
-img = cv2.imread('test/test_data/test.jpg')
-config_file = 'test/test_data/faster_rcnn_r50_fpn_1x_voc0712.py'
-test_img(img, config_file)
+img_path = 'test/test_data/001000.jpg'    
+config_file = 'test/test_data/cfg_fasterrcnn_r50_fpn_coco.py'
+test_img(img_path, config_file)
 
 
 # %%
@@ -823,13 +833,46 @@ def test_dataset(config_file, checkpoint_file, gpus, out_file, eval_method='prop
     out_file
 
 
+# %%
+"""Q. 其他对检测性能帮助较大的方法？
+参考：亚马逊的李沐的文章《bag of freebies for training object detection neural networks》-2019-2-11
+主要观点包括：
+1. visually coherent image mixup for object detection:
+    就是对不同图像进行mixup，比如0.9*img1 + 0.1*img2，混合比例对map影响较大，需要调参
+2. classification head label smoothing:
+    就是对head的label进行smooth化，这个是否在mmdetection有体现需要看一下
+3. data pre-processing:
+    就是数据增广，比如随机几何变换(随机裁剪，随机水平翻转，随机缩放)，随机颜色抖动(亮度，色调，饱和度，对比度)
+4. traning scheduler revamping:
+    就是学习率的优化，包括warm up lr, step schedule..
+5. synchronized batch normalization:
+    SBN
+6. random shapes traning for single stage object detection networks:
+    由于single stage模型使用固定形状，如果采用对图像h,w进行随机变换，可以提高最多5个点
+以上代码都已开源在gluon，有必要学习下。
+"""
+
 
 # %%
-
-
-
-
-
-
+"""总体验证"""
+def main(step=1):
+#--------验证FPN的输出------------
+    if step == 1:
+        channels = [256,512,1024,2048]
+        sizes = [(152,256),(76,128),(38,64),(19,32)]
+        # 构造假数据
+        feats = []
+        for i in range(4):  
+            feats.append(torch.randn(2, channels[i], sizes[i][0], sizes[i][1]))
+        # 计算输出
+        fpn = FPN_neck()
+        outs = fpn(feats)  # 输出5组特征图(size为阶梯状分辨率，152x256, 76x128, 38x64, 19x32, 10x16)
+                           # 该输出特征size跟输入图片尺寸相关，此处256-128-64-32-16是边界
+#--------验证FPN的输出------------
+    if step == 2:
+        pass
+    
+if __name__ == '__main__':
+    main()
 
 
