@@ -460,6 +460,8 @@ sample_result = random_sampler(assign_result, bboxes)
 为了跟实际gt bbox进行比较，只需要提取正样本的bbox坐标组，以及该正样本所对应的gt bbox的坐标组
 两者进行bbox回归，g = f(p)，p为proposal anchors，g为gt bbox，然后求出f函数的参数dx,dy,dw,dh
 每一组anchor对应了一组(dx,dy,dw,dh)
+1. 回归函数f的定义：
+   gx = px
 """
 def bbox2delta(proposals, gt, means=[0,0,0,0], stds =[1,1,1,1]):
     """对proposal bbox进行回归
@@ -639,7 +641,14 @@ def distribute_to_level(all_data, num_level_anchors):
 """Q. 得到的anchor targets到底怎么理解，怎么做loss损失计算？
 得到的anchor targets后，损失分成两部分计算：
 1. 第一部分是cls损失，基于rpn_cls预测结果(b,3,h,w)，label，weight进行计算
+    >rpn_cls结果先展平，从(b,3,h,w)->(b*3*h*w,1)，同时label为前景=1的标签，
+     把问题看成二分类问题(区分前景/背景)，
+    >二分类问题采用二值交叉熵损失函数，并送入权重，避免无关样本的loss计入总的loss
+     二值交叉熵计算核心：pred(经sigmoid处理过的概率值)和label(二值0，1)，然后做交叉熵运算ylog(y^)+(1-y)log(1-y^)
+     每一个label得到一个loss，最后平均loss输出
 2. 第二部分是reg损失，基于rpn_reg预测结果(b,12,h,w)，bbox target，weight进行计算
+    >rpn_reg结果先展平，从(b,3*4,h,w)->(b*12*h*w,1)，把问题看成4变量回归问题(回归dx,dy,dw,dh)
+     把预测的dx,dy,dw,dh与反推出来的dx,dy,dw,dh进行loss计算(反推的dx,dy,dw,dh代表每轮batch的gt bbox与proposal的映射函数)
 """
 def weighted_binary_cross_entropy(pred, label, weight, avg_factor=None):
     """带权重二值交叉熵损失函数，用于二分类损失计算：基于head_cls转换输出的(b, out_channle*3, h,w)
