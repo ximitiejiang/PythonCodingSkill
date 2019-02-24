@@ -64,13 +64,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 # FPN的实现方式: 实现一个简单的FPN结构
 class FPN_neck(nn.Module):
-    def __init__(self):
+    def __init__(self, num_outs = 5):
         super().__init__()
-        self.outs_layers = 5                  # 定义需要FPN输出的特征层数
+        self.outs_layers = num_outs                  # 定义需要FPN输出的特征层数
         self.lateral_conv = nn.ModuleList()   # 横向卷积1x1，用于调整层数为统一的256
         self.fpn_conv = nn.ModuleList()       # FPN卷积3x3，用于抑制中间上采样之后的两层混叠产生的混叠效应
-        in_channels = [256,512,1024,2048]
-        out_channels = 256
+        in_channels = [256,512,1024,2048]     # 配置每层输入输出
+        out_channels = 256                    # FPN输出特点：层数相同
         for i in range(4):
             lc = nn.Sequential(nn.Conv2d(in_channels[i],out_channels, 1, 1, 0),  # 1x1保证尺寸不变，层数统一到256
                                nn.BatchNorm2d(out_channels),                                 # stride=1, padding=0
@@ -94,16 +94,32 @@ class FPN_neck(nn.Module):
             for i in range(self.outs_layers - len(outs)):
                 outs.append(F.max_pool2d(outs[-1], 1, stride=2)) # 用maxpool做进一步特征图下采样尺寸缩减h=(19-1+0)/2 +1=10
         return outs
-  
+
+
+"""验证说明：输入4个特征图尺寸[[2,256,152,256],[2,512,76,128],[2,1024,38,64],[2,2048,19,32]]
+经过FPN后变为5个输出特征图尺寸[[2,256,152,256],[2,256,76,128],[2,256,38,64],[2,256,19,32],[2,256,10,16]]
+"""
+channels = [256,512,1024,2048]                 # 构造4层特征图 - 层数 
+sizes = [(152,256),(76,128),(38,64),(19,32)]   # 构造4层特征图 - 尺寸
+feats = []
+for i in range(4):                             # 构造4层特征图 - 数据
+    feats.append(torch.randn(2, channels[i], sizes[i][0], sizes[i][1]))
+fpn = FPN_neck(num_outs=5)
+fpn_outs = fpn(feats)    # 输出
+
 
 # %% 
 """如何把特征图转化成提供给loss函数进行评估的固定大小的尺寸？
-这部分工作一般是在head完成：为了确保输出的特征满足loss函数要求，需要根据分类回归的预测参数个数进行特征尺寸/通道调整
-1. head的输入：
-    >带FPN的head，输入特征图的通道数会被FPN统一成相同的(FPN做过上采样和叠加要求通道数一样)，比如RPN/FasterRCNN
-    >不带FPN的head，输入通道数是变化的，比如ssd
+这部分工作可以在fpn head完成：为了确保输出的特征满足loss函数要求，需要根据分类回归的预测参数个数进行特征尺寸/通道调整
+1. fpn head的输入：
+    >是已经被FPN统一成相同层数的多层特征图(5,)，例如(t1,t2,t3,t4,t5)
+2. fpn head的输出：本质就是调整层数，基于每个cell的anchor个数n_a
+   所以分解成2组(2,5)，例如[[cls1,cls2,cls3,cls4,cls5],[reg1,reg2,reg3,reg4,reg5]]
+   (以下调整层数的公式，na代表每个cell的anchors个数，out代表实际输出通道个数)
+    >cls: (b, c, h, w) -> (b, out*na, h, w), 其中out*na代表输出二分类问题输出通道应该为2(即2*na), 但如果是用sigmoid()则取out=1，用softmax则取out=2
+    >reg: (b, c, h, w) -> (b, 4*na, h, w), 其中4*na代表了4倍anchor个数，每层代表一个anchor回归参数(dx,dy,dw,dh)
 
-2. head的输出：输出通道数就是预测参数个数，每一个通道(即一层)就用于预测一个参数
+3. 对比不同head
 A.方式1：把分类和回归任务分开，分别预测，比如ssd/rpn/faster rcnn
     >分类支线，需要用卷积层预测bbox属于哪个类，所以需要的通道数n1 = 20
     >回归支线，需要用卷积层预测bbox坐标x/y/w/h，所以需要的通道数n2 = x,y,w,h = 4
@@ -113,7 +129,6 @@ B.方式2：把分类和回归任务一起做，一起预测，比如yolo
     
 """
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
 # 创建一个RPN head: 用于rpn/faster rcnn，
 # 输入的特征来自FPN，通道数相同，所以分类回归只需要3个卷积层
@@ -136,35 +151,15 @@ class RPN_head(nn.Module):
         return tuple(map(list, zip(*map_results)))  # map解包，然后zip组合成元组，然后转成list，然后放入tuple
                                                     # ([(2,18,h,w),(..),(..),(..),(..)], 
                                                     #  [(2,36,h,w),(..),(..),(..),(..)])
-channels = 256
-sizes = [(152,256), (76,128), (38,64), (19,32), (10,16)]
-fpn_outs = []
-for i in range(5):
-    fpn_outs.append(torch.randn(2,channels,sizes[i][0],sizes[i][1]))
-rpn = RPN_head(9)        # 每个数据网格点有9个anchors
+"""验证说明：首先需要运行上个cell得到fpn_outs [[2,256,152,256],[2,256,76,128],[2,256,38,64],[2,256,19,32],[2,256,10,16]]
+1. RPN的输入是多层特征图, 通过map会每层特征图分别做cls和reg，做cls,reg本质上就是"调整层数"
+   cls调整层数的逻辑：(b,c,h,w) -> (b,x,h,w) 
+   reg调整层数的逻辑：(b,c,h,w) -> (b,x,h,w)
+"""
+rpn = RPN_head(3)        # 每个数据网格点有9个anchors
 results = rpn(fpn_outs)  # ([ft_cls0, ft_cls1, ft_cls2, ft_cls3, ft_cls4],
                          #  [ft_reg0, ft_reg1, ft_reg2, ft_reg3, ft_reg4])
     
-# 创建一个SSD head: 用于ssd
-# 输入的特征直接来自VGG，通道数不同，所以分类回归需要对应个数，比rpn/faster rcnn的卷积层要多一些
-class SSD_head(nn.Module):
-    def __init__(self):
-        self.ssd_cls = []
-        self.ssd_reg = []
-        for i in range(6):
-            self.ssd_cls.append(nn.Conv2d())
-            
-    def forward(self,feats):
-        ft1 = self.rpn_conv(feats)
-        ft2 = self.rpn_cls(F.relu(ft1))
-        ft3 = self.rpn_reg(F.relu(ft1))
-channels = [512,1024,512,256,256,256]
-sizes = [(38,38),(19,19),(10,10),(5,5),(3,3),(1,1)]
-        
-# 创建一个YOLO head: 用于yolo
-#
-
-
 
 # %%    anchor的三部曲：(base anchor) -> (anchor list) -> (anchor target)
 """Q.如何产生base anchors?
@@ -466,13 +461,69 @@ sample_result = random_sampler(assign_result, bboxes)
 两者进行bbox回归，g = f(p)，p为proposal anchors，g为gt bbox，然后求出f函数的参数dx,dy,dw,dh
 每一组anchor对应了一组(dx,dy,dw,dh)
 """
-def bbox2delta():
-    """"""
-    pass
+def bbox2delta(proposals, gt, means=[0,0,0,0], stds =[1,1,1,1]):
+    """对proposal bbox进行回归
+    """
+    proposals = proposals.float()
+    gt = gt.float()
+    px = (proposals[..., 0] + proposals[..., 2]) * 0.5
+    py = (proposals[..., 1] + proposals[..., 3]) * 0.5
+    pw = proposals[..., 2] - proposals[..., 0] + 1.0
+    ph = proposals[..., 3] - proposals[..., 1] + 1.0
 
-def delta2bbox():
-    """"""
-    pass
+    gx = (gt[..., 0] + gt[..., 2]) * 0.5
+    gy = (gt[..., 1] + gt[..., 3]) * 0.5
+    gw = gt[..., 2] - gt[..., 0] + 1.0
+    gh = gt[..., 3] - gt[..., 1] + 1.0
+
+    dx = (gx - px) / pw
+    dy = (gy - py) / ph
+    dw = torch.log(gw / pw)
+    dh = torch.log(gh / ph)
+    deltas = torch.stack([dx, dy, dw, dh], dim=-1)
+
+    means = deltas.new_tensor(means).unsqueeze(0)
+    stds = deltas.new_tensor(stds).unsqueeze(0)
+    deltas = deltas.sub_(means).div_(stds)
+
+    return deltas
+
+def delta2bbox(rois,
+               deltas,
+               means=[0, 0, 0, 0],
+               stds=[1, 1, 1, 1],
+               max_shape=None,
+               wh_ratio_clip=16 / 1000):
+    """在得到deltas的回归结果后，反过来转换成实际bbox坐标"""
+    means = deltas.new_tensor(means).repeat(1, deltas.size(1) // 4)
+    stds = deltas.new_tensor(stds).repeat(1, deltas.size(1) // 4)
+    denorm_deltas = deltas * stds + means
+    dx = denorm_deltas[:, 0::4]
+    dy = denorm_deltas[:, 1::4]
+    dw = denorm_deltas[:, 2::4]
+    dh = denorm_deltas[:, 3::4]
+    max_ratio = np.abs(np.log(wh_ratio_clip))
+    dw = dw.clamp(min=-max_ratio, max=max_ratio)
+    dh = dh.clamp(min=-max_ratio, max=max_ratio)
+    px = ((rois[:, 0] + rois[:, 2]) * 0.5).unsqueeze(1).expand_as(dx)
+    py = ((rois[:, 1] + rois[:, 3]) * 0.5).unsqueeze(1).expand_as(dy)
+    pw = (rois[:, 2] - rois[:, 0] + 1.0).unsqueeze(1).expand_as(dw)
+    ph = (rois[:, 3] - rois[:, 1] + 1.0).unsqueeze(1).expand_as(dh)
+    gw = pw * dw.exp()
+    gh = ph * dh.exp()
+    gx = torch.addcmul(px, 1, pw, dx)  # gx = px + pw * dx
+    gy = torch.addcmul(py, 1, ph, dy)  # gy = py + ph * dy
+    x1 = gx - gw * 0.5 + 0.5
+    y1 = gy - gh * 0.5 + 0.5
+    x2 = gx + gw * 0.5 - 0.5
+    y2 = gy + gh * 0.5 - 0.5
+    if max_shape is not None:
+        x1 = x1.clamp(min=0, max=max_shape[1] - 1)
+        y1 = y1.clamp(min=0, max=max_shape[0] - 1)
+        x2 = x2.clamp(min=0, max=max_shape[1] - 1)
+        y2 = y2.clamp(min=0, max=max_shape[0] - 1)
+    bboxes = torch.stack([x1, y1, x2, y2], dim=-1).view_as(deltas)
+    return bboxes
     
 
 # %%
@@ -586,7 +637,74 @@ def distribute_to_level(all_data, num_level_anchors):
 
 # %%
 """Q. 得到的anchor targets到底怎么理解，怎么做loss损失计算？
+得到的anchor targets后，损失分成两部分计算：
+1. 第一部分是cls损失，基于rpn_cls预测结果(b,3,h,w)，label，weight进行计算
+2. 第二部分是reg损失，基于rpn_reg预测结果(b,12,h,w)，bbox target，weight进行计算
 """
+def weighted_binary_cross_entropy(pred, label, weight, avg_factor=None):
+    """带权重二值交叉熵损失函数，用于二分类损失计算：基于head_cls转换输出的(b, out_channle*3, h,w)
+    然后进行
+    Args:
+        pred(tensor): (m,1)代表把特征图经rpn_cls转换后得到的(2,out_channel*3,h,w)的数据拉平到(b*c*h*w,1)
+        label(tensor): (m,1)代表是前景则label=1，是背景则label=0，是有代码自己生成的标签
+        weight(tensor): (m,1)代表是样本(正样本+负样本)则权值=1, 非样本则权值=0
+        avg_factor(int): 代表loss最后平均化缩减的除数，取的是所有样本的个数(多张图就要乘以张数)，比如rpn就是avg_factor=256×2=512
+    Return:
+        loss(): 代表一个平均损失值
+    """
+    if avg_factor is None:
+        avg_factor = max(torch.sum(weight > 0).float().item(), 1.)
+    return F.binary_cross_entropy_with_logits(
+        pred, label.float(), weight.float(),
+        reduction='sum')[None] / avg_factor 
+# 实例
+pred = torch.randn(196992,1)
+label = torch.randint(0,1,size=(196992,1))
+weight = torch.randint(0,1,size=(196992,1))
+avg_factor = 256*2  # 2张图
+loss = weighted_binary_cross_entropy(pred,label,weight,avg_factor)
+
+
+def smooth_l1_loss(pred, target, beta=1.0, reduction='elementwise_mean'):
+    """平滑l1损失函数：
+    Args:
+        pred(tensor): (m,4)代表把特征图经rpn_reg转换后得到的(2,n_anchor*4,h,w)的数据拉平到(b*h*w*c,1)
+        target(tensor): (m,4)代表bbox_target, 即预测bbox与gt bbox回归预测的回归参数(dx,dy,dw,dh)
+        avg_factor(int): 代表loss最后平均化缩减的除数，取的是所有样本的个数(多张图就要乘以张数)，比如rpn就是avg_factor=256×2=512
+    Return:
+        loss(): 代表一个平均损失值
+    """
+    assert beta > 0
+    assert pred.size() == target.size() and target.numel() > 0
+    diff = torch.abs(pred - target)
+    loss = torch.where(diff < beta, 0.5 * diff * diff / beta,
+                       diff - 0.5 * beta)
+    reduction = F._Reduction.get_enum(reduction)
+    # none: 0, elementwise_mean:1, sum: 2
+    if reduction == 0:
+        return loss
+    elif reduction == 1:
+        return loss.sum() / pred.numel()
+    elif reduction == 2:
+        return loss.sum()
+# 实例
+bbox_targets = torch.randint(196992,4)
+
+def weighted_smoothl1(pred, target, weight, beta=1.0, avg_factor=None):
+    """带权重平滑l1损失函数：
+    Args:
+        pred(tensor): (m,4)代表把特征图经rpn_reg转换后得到的(2,n_anchor*4,h,w)的数据拉平到(b*h*w*c,1)
+        target(tensor): (m,4)代表bbox_target, 即预测bbox与gt bbox回归预测的回归参数(dx,dy,dw,dh)
+        weight(tensor): (m,4)代表bbox的权重，正样本权重=1，其他权重=0
+        avg_factor(int): 代表loss最后平均化缩减的除数，取的是所有样本的个数(多张图就要乘以张数)，比如rpn就是avg_factor=256×2=512
+    Return:
+        loss(tensor): 代表一个平均损失值
+    """
+    if avg_factor is None:
+        avg_factor = torch.sum(weight > 0).float().item() / 4 + 1e-6
+    loss = smooth_l1_loss(pred, target, beta, reduction='none')
+    return torch.sum(loss * weight)[None] / avg_factor
+
 def loss_single(cls_score, bbox_pred, labels, labels_weights, 
                 bbox_targets, bbox_weights, num_total_samples):
     """基于卷积网络的输出和anchor target的输出，进行单张图片的损失计算
@@ -598,7 +716,7 @@ def loss_single(cls_score, bbox_pred, labels, labels_weights,
         labels_weights(tensor): (n_max, ) 代表的是正样本+负样本所在位置的权重，默认取1，其他无关样本取0
         bbox_targets(tensor): (n_max,4) 代表的是正样本所对应的回归函数参数(dx,dy,dw,dh), 非正样本为0
         bbox_weights(tensor): (n_max,4) 代表对应正样本所对应参数坐标的权重(1,1,1,1), 非正样本为0
-        num_total_samples(int): 代表？？
+        num_total_samples(int): 代表正样本+负样本的总和(多张图则要乘以张数)
     Return:
         loss_cls(tensor): (1,)  分类损失
         loss_reg(tensor): (1,)  回归损失
@@ -606,7 +724,8 @@ def loss_single(cls_score, bbox_pred, labels, labels_weights,
     # 分类损失计算    
     labels = labels.reshape(-1,1)
     labels_weights = labels_weights.reshape(-1,1)
-    cls_score = cls_score.permute(0,2,3,1).reshape(-1,1) # (b,c,h,w)->(b,h,w,c)->(x,)
+    cls_score = cls_score.permute(0,2,3,1).reshape(-1,1)  # (b,c,h,w) -> (b,h,w,c) -> (b*h*w*c,)
+                                                          # 例如对某层特征图(2,3,216,152)->(2,216,152,3)->(x,)
     cls_criterion = weighted_binary_cross_entropy
     loss_cls = cls_criterion(cls_score, labels, labels_weights, 
                              avg_factor=num_total_samples)
@@ -616,7 +735,6 @@ def loss_single(cls_score, bbox_pred, labels, labels_weights,
     loss_reg = weighted_smoothl1(bbox_pred, bbox_targets, bbox_weights,
                                  beta = 1./9., avg_factor=num_total_samples)
     return loss_cls, loss_reg
-
 
 
 

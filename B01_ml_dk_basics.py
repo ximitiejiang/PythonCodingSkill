@@ -676,7 +676,7 @@ img3 = torch.log(img1)          # 取对数(e为底), 取对数目的是方便�
 img4 = F.softmax(img,dim=1)    # softmax的操作=exp非负+归一化
 img5 = torch.log(img1)
 
-"""nn.NLLLoss/F.Nll_loss 是指negative log likelihood loss
+"""nn.NLLLoss/F.nll_loss 是指negative log likelihood loss
    用于取负的对数似然值作为损失loss(x, label) = -x_label 
    输入x必须是取对数后的概率，输入label是对应的类的index(这里无需变成one-hot-code)
    loss的缩减操作采用默认的'mean'进行"""
@@ -685,7 +685,7 @@ input = torch.tensor([[ 1.2507,  0.2646,  0.6669, -0.6809, -1.0655],
                      [ 1.5755,  1.1860, -1.9127,  0.4454, -1.0415]], requires_grad=True)
 target = torch.tensor([1, 0, 4])   
 output = F.log_softmax(input, dim=1)
-loss = F.nll_loss(output, target)  # ((-1.7628)+(-3.2193)+(-3.3608))/3
+loss = F.nll_loss(output, target)  # ((-1.7628)+(-3.2193)+(-3.3608))/3 = 2.7810
 # nll的手动实现
 output = F.log_softmax(input, dim=1) # 先获得log概率输出
 losses = torch.tensor(()).new_empty((3,))
@@ -698,7 +698,6 @@ output = F.log_softmax(input, dim=1)
 target = target.view(-1,1)                            # scatter_()函数的输入必须是2D的size
 y_one_hot = torch.zeros(3, 5).scatter_(1, target, 1)  # 用scatter_()函数生成独热编码
 loss_out = torch.sum(torch.mul(output, y_one_hot), dim=1).mean()
-
 
 """nn.CrossEntropyLoss/F.cross_entropy 交叉熵误差 
    等价于组合logsoftmax层的计算与nllloss损失，也就是: logsoftmax(exp非负/转概率/log化), nllloss(取负值/标签独热编码/获得标签所对应概率/loss缩减)
@@ -714,7 +713,7 @@ imgs = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574],
                      [ 1.5962,  2.2646, -0.2490,  0.1534, -0.5345],
                      [-0.2562, -0.4440, -0.1629,  0.8097,  0.6865]], requires_grad=True)
 labels = torch.tensor([2, 0, 4], dtype=torch.int64)  # pytorch的交叉熵函数要求label格式为int64/也就是LongTensor
-loss1 = F.cross_entropy(imgs, labels)   # 
+loss1 = F.cross_entropy(imgs, labels)   # loss = 2.1105
 # 纯手动实现交叉熵
 n_img, n_class = imgs.shape
 imgs_exp = torch.exp(imgs)                 # exp非负化  
@@ -725,17 +724,29 @@ imgs_log = torch.log(imgs_exp)             # log化
 imgs_log = - imgs_log                      # nll的取负值
 losses = torch.tensor(()).new_empty((3,))
 for i in range(n_img):
-    loss_idx = labels[i]                   # 这里用简化方式处理nll, 实际pytorch采用one-hot编码这种更快方式
+    loss_idx = labels[i]                   # 这里用简化方式处理nll, 实际pytorch采用one-hot编码这种更快方式来获得对应loss(loss*one_hot_code即可得到对应loss)
     losses[i] = imgs_log[i][loss_idx]      # nll的获得label对应loss
-loss_out = torch.mean(losses)              # nll的缩减操作
+loss_out = torch.mean(losses)              # nll的缩减操作 (3.9039+1.2425+1.1852)/3=2.1105
+# 手动算一个多分类交叉熵：相当于单样本，1个样本5个类别-----------------
+input_1 = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574]])
+t1 = F.softmax(input_1)               # 计算得到[[0.0764, 0.5624, 0.0202, 0.2112, 0.1299]]
+t2 = F.log_softmax(input_1, dim=1)    # 计算得到[[-2.5722, -0.5756, -3.9039, -1.5548, -2.0413]]
+label = torch.tensor([0,0,1,0,0])  # 手动独热编码化
+0*(-2.5722) + 0*(-0.5756) + 1*(-3.9039)+0+0  # loss = log(softmax(y^))*y, 其中y为label的独热编码，*代表按位乘法
+torch.sum(t2*label.float())  # 这是独热编码的好处，计算很简单。
 
 """nn.BCELoss/F.binary_cross_entropy 为二分类交叉熵损失函数：
    相当于二分类交叉熵计算 l(x,y) = yn*logxn + (1-yn)*log(1-xn)
    F.binary_cross_entropy(d1,d2,reduction='mean')
-   其中d1为输入概率，必须是(0-1)之间的值，所以该损失函数之前需要增加sigmoid函数把特征转换为2分类概率"""
+   其中d1为输入概率，必须是(0-1)之间的值，所以该损失函数之前需要增加sigmoid函数把特征转换为2分类概率
+   d2为二分类标签，必须是0,1两种值"""
 img = torch.tensor([ 0.5913, -0.9281,  0.7846], requires_grad=True)
 label = torch.tensor([1., 0., 1.])
-loss = F.binary_cross_entropy(F.sigmoid(img),label)   
+loss = F.binary_cross_entropy(F.sigmoid(img),label)   # 计算得到loss = 0.3832
+# 手动计算过程如下: 相当于多样本，3个样本-----------------------
+from math import log, e
+img_sigmoid = F.sigmoid(img)  # 得到[0.6437, 0.2833, 0.6867]
+-(1*log(0.6437) + (1-0)*log(1-0.2833) + 1*log(0.6867))/3  # 手算二值交叉熵得到loss=0.383159
 
 """nn.BCEWithLogitsLoss/F.binary_cross_entropy_with_logits
    相当于把sigmoid()和BCELoss进行了组合，所以输入可以是任意数值
@@ -745,7 +756,11 @@ img = torch.tensor([ 0.5913, -0.9281,  0.7846], requires_grad=True)
 label = torch.tensor([1., 0., 1.])
 loss = F.binary_cross_entropy_with_logits(img,label)   
 
-"""sigmoid()和softmax()的关系和区别"""
+
+"""sigmoid()和softmax()的关系和区别
+1. sigmoid是把输入的每一个样本值对应一个label，该样本单独计算概率和损失
+2. softmax是把输入的每一行样本值对应一个label(该行样本分别代表n class的概率，所以该行概率之和为1)，该行样本数据单独算概率和损失。
+"""
 d1 = torch.tensor([-1.9287,  0.6137,  0.7114])
 d2 = torch.exp(d1)
 F.sigmoid(d2)  # 生成概率(取值0-1)，但不保证相加的和为1，相当于只是针对某一个元素的操作
@@ -831,6 +846,14 @@ def smooth_l1_loss(pred, target, beta=1.0, reduction='elementwise_mean'):
     elif reduction == 2:
         return loss.sum()
     
+
+# %%
+"""Q. 为什么交叉熵损失函数优于均方差函数？
+参考：https://www.cnblogs.com/hutao722/p/9761387.html
+1. 在sigmoid函数输出条件下，交叉熵占优
+2. 在softmax函数输出条件下，交叉熵也占优
+"""
+
 
 # %%        损失函数
 """带权重的几个损失函数在物体检测领域是如何应用的？
