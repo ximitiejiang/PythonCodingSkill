@@ -156,7 +156,7 @@ class RPN_head(nn.Module):
    cls调整层数的逻辑：(b,c,h,w) -> (b,x,h,w) 
    reg调整层数的逻辑：(b,c,h,w) -> (b,x,h,w)
 """
-rpn = RPN_head(3)        # 每个数据网格点有9个anchors
+rpn = RPN_head(3)        # 每个数据网格点有3个anchors
 results = rpn(fpn_outs)  # ([ft_cls0, ft_cls1, ft_cls2, ft_cls3, ft_cls4],
                          #  [ft_reg0, ft_reg1, ft_reg2, ft_reg3, ft_reg4])
     
@@ -455,13 +455,16 @@ sample_result = random_sampler(assign_result, bboxes)
 
 
 # %%
-"""Q. 从assigner/sampler得到正样本的anchors后，如何跟gt bbox进行修正，让proposal更接近gt？
-从assigner/sampler得到正负样本的ind，转换后就能得到正负样本anchor的坐标，称为proposals(j,4)
-为了跟实际gt bbox进行比较，只需要提取正样本的bbox坐标组，以及该正样本所对应的gt bbox的坐标组
-两者进行bbox回归，g = f(p)，p为proposal anchors，g为gt bbox，然后求出f函数的参数dx,dy,dw,dh
-每一组anchor对应了一组(dx,dy,dw,dh)
-1. 回归函数f的定义：
-   gx = px
+"""Q. 从assigner/sampler得到正样本的anchors后，为什么要做bbox回归？
+目的：得到的proposal跟实际gt有偏差，所以希望神经网络能够学到一组参数，帮助proposal更接近gt.
+    >为了proposal能够变换到尽可能靠近gt，需要通过两次转换，一次是proposal平移，一次是proposal缩放
+    >proposal平移过程公式如下，之所以采用x/y/w/h而不是xmin/ymin/xmax/ymax，是因为可以把变化量减少到两个(x/y)，便于写平移公式
+        x' = x + dx*w
+        y' = y + dy*h
+    >proposal缩放过程公式如下：之所以要加exp是因为一方面非负化，另一方面比较小的dw就能有比较大的对w的缩放效果，利于快速收敛
+        w' = w*exp(dw)
+        h' = h*exp(dh)
+只要定义一个关于(dx,dy,dw,dh)的合适的损失函数，神经网络就能通过学习得到每个proposal所对应的dex/dy/dw/dh，从而变换到更接近gt的形状
 """
 def bbox2delta(proposals, gt, means=[0,0,0,0], stds =[1,1,1,1]):
     """对proposal bbox进行回归
@@ -745,6 +748,93 @@ def loss_single(cls_score, bbox_pred, labels, labels_weights,
                                  beta = 1./9., avg_factor=num_total_samples)
     return loss_cls, loss_reg
 
+
+# %%
+"""Q.如何对从cls/reg出来的特征进行精细筛选
+step1: get_bboxes_single整个过程针对一张图(对应5张特征图)，用于过滤出一定数量的bboxes
+注意：此时的过滤输出是相对原图的bbox(xmin/ymin/xmax/ymax)，并且
+    >每张特征图先进行nms_pre提取score，输出缩减到2000个(1张特征图)
+    >每张特征图进行nms非极大值抑制输出，输出从2000缩减到约1000以内
+    >每张特征图再进行nms_post提取(该参数一般取跟nms_pre相同，似乎没什么用)
+    >组合5张特征图的nms输出，此时输出会超过2000，比如(3253,5)
+    >再进行max_num提取，输出再次缩减到2000个(5张特征图)
+    此时就能输出proposals了
+    
+step2: 对proposals进行第二轮assigner指定和sampler采样，输出512个正负样本
+
+step3: 
+    
+"""
+def get_bboxes_single():
+    pass
+
+
+
+# %%
+"""非极大值抑制的功能？
+"""    
+import numpy as np
+def nms(proposals, iou_thr, device_id=None):
+    """实施非极大值抑制: 对输入的一组bboxes进行iou评价，在保留最大置信度基础上去除重叠比较多的框
+    这是一个简版的在cpu端运行的nms，由于不断计算iou，速度较慢。
+    Args:
+        proposal(array): (m,5)代表bbox坐标和置信度，(xmin,ymin,xmax,ymax,score)
+        iou_thr(float): 代表iou重叠的阀值，超过该阀值，就认为两个bbox是重叠多余，去掉一个
+    Returns:
+        keep(list): 代表proposal中被保留bbox的index
+    代码来自rbg神人的github: https://github.com/rbgirshick/py-faster-rcnn/blob/master/lib/nms/py_cpu_nms.py
+    整个程序过程如下：先找到最大置信度的bbox，跟剩余bbox做iou计算，把iou大于阀值的bbox认为是重复比较大的，丢掉，并保留该最大置信度的bbox
+    然后从剩余bbox中再找到最大置信度的bbox，再跟剩余bbox做iou计算，把iou大于阀值的bbox认为是重复比较打的，丢掉，并保留该最大置信度的bbox
+    通常这个认为是重叠框的iou阀值取0.7
+    所以，本质上就是不断寻找最大置信度的bbox，并丢弃跟该bbox的iou非常高的重叠bbox
+    """
+    x1 = proposals[:,0]
+    y1 = proposals[:,1]
+    x2 = proposals[:,2]
+    y2 = proposals[:,3]
+    areas = (y2-y1+1) * (x2-x1+1)
+    scores = proposals[:,4]
+    keep = []
+    index = scores.argsort()[::-1]  #因为-1反排，所以是从大到小的index
+    while index.size >0:
+        i = index[0]       # every time the first is the biggst, and add it directly
+        keep.append(i)        
+        x11 = np.maximum(x1[i], x1[index[1:]])    # calculate the points of overlap 
+        y11 = np.maximum(y1[i], y1[index[1:]])
+        x22 = np.minimum(x2[i], x2[index[1:]])
+        y22 = np.minimum(y2[i], y2[index[1:]])        
+        w = np.maximum(0, x22-x11+1)    # the weights of overlap
+        h = np.maximum(0, y22-y11+1)    # the height of overlap       
+        overlaps = w*h        
+        ious = overlaps / (areas[i]+areas[index[1:]] - overlaps)        
+        idx = np.where(ious<=iou_thr)[0]        
+        index = index[idx+1]   # because index start from 1       
+    return keep
+    
+bboxes=np.array([[100,100,210,210,0.72],
+                [250,250,420,420,0.8],
+                [220,220,320,330,0.92],
+                [100,100,210,210,0.72],
+                [230,240,325,330,0.81],
+                [220,230,315,340,0.9]]) 
+keep = nms(bboxes, 0.7)
+# 绘图：
+import matplotlib.pyplot as plt
+def plot_bbox(dets, c='k', title=None):
+    x1 = dets[:,0]
+    y1 = dets[:,1]
+    x2 = dets[:,2]
+    y2 = dets[:,3]    
+    plt.plot([x1,x2], [y1,y1], c)
+    plt.plot([x1,x1], [y1,y2], c)
+    plt.plot([x1,x2], [y2,y2], c)
+    plt.plot([x2,x2], [y1,y2], c)
+    plt.title(title)
+plt.subplot(121)
+plot_bbox(bboxes,'gray','before nms')   # before nms
+plt.subplot(122)
+plot_bbox(bboxes,'gray')   # before nms
+plot_bbox(bboxes[keep], 'red','after nms')# after nms
 
 
 # %%
