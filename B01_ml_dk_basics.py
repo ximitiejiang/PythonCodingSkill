@@ -326,6 +326,7 @@ nn.Conv2d(256,512,1)
 1. 下采样：是指缩小图像，也叫降采样(downsample/subsample)，主要目的是使图像尺寸缩小
     目的是仿照人类视觉系统对图像进行降维和抽象操作。    
     > 下采样之前一般用nn.MaxPool2d(k_size, s=None, p=0, d=1, ceil_mode=False)来定义s=2来实现, ceil模式是指计算输出形状的取整方式是上取整ceil还是下取整floor,默认是floor
+      这个取整方式会影响一些小物体精度，所以最好跟padding配合，确保整除
                  下采样池化的Hout = (Hin - k_size + 2p)/s + 1，公式对卷积与池化层是一样的
                  下采样池化没有可学习参数，只有一些超参数，一般只设置k_size以及s=2, p=0来保证降采样，其他沿用(比如VGG)
                  或者设置k_size以及s=2,p=1来保证降采样，其他沿用(比如Resnet)

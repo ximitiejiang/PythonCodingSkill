@@ -16,15 +16,31 @@ Created on Mon Jan 21 18:24:32 2019
 3. 语义分割/Semantic segmentation：需要识别气球，还要把气球从背景中整体分离出来，比如：这张图片有7个气球，分成气球和背景两部分
 4. 实例分割/Instance Segmentation：需要识别气球，还要吧每个气球都单独分离并给出每个气球像素，比如：这张图片有7个气球，分成7组独立气球和1组背景
 可以认为从1到4难度逐渐加大。
+参考：shalock的物体检测综述(对这4块有明确的定位)
 参考：https://blog.csdn.net/qq_15969343/article/details/80167215
 """
+
+# %%
+"""Q. 如何区分对象检测的one stage和two stage?
+1. two stage:
+    > 两个阶段是指两个head，分别对feat进行两轮loss计算
+    > 阶段1的RPN head重点在anchor，通过把anchors跟
+    > 阶段2的Bbox head重点在bbox proposals
+
+
+"""
+
             
 # %%
-'''Q. backbones有哪些，跟常规network有什么区别？
+'''Q. Resnet作为物体检测的backbones跟常规有什么区别，如何提取多尺度特征图？
 '''    
 # resnet作为backbone的修改
 
 
+
+
+# %%
+"""Q. VGG16作为物体检测的backbones跟常规有什么区别，如何提取多尺度特征图？"""
 # 普通VGG16： blocks = [2,2,3,3,3]每个block包含conv3x3+bn+relu，算上最后3层linear总共带参层就是16层，也就是vgg16名字由来
 import torch.nn as nn
 class VGG16(nn.Module):
@@ -110,10 +126,10 @@ fpn_outs = fpn(feats)    # 输出
 
 # %% 
 """如何把特征图转化成提供给loss函数进行评估的固定大小的尺寸？
-这部分工作可以在fpn head完成：为了确保输出的特征满足loss函数要求，需要根据分类回归的预测参数个数进行特征尺寸/通道调整
-1. fpn head的输入：
+这部分工作可以在rpn head完成：为了确保输出的特征满足loss函数要求，需要根据分类回归的预测参数个数进行特征尺寸/通道调整
+1. rpn head的输入：
     >是已经被FPN统一成相同层数的多层特征图(5,)，例如(t1,t2,t3,t4,t5)
-2. fpn head的输出：本质就是调整层数，基于每个cell的anchor个数n_a
+2. rpn head的输出：本质就是调整层数，基于每个cell的anchor个数n_a
    所以分解成2组(2,5)，例如[[cls1,cls2,cls3,cls4,cls5],[reg1,reg2,reg3,reg4,reg5]]
    (以下调整层数的公式，na代表每个cell的anchors个数，out代表实际输出通道个数)
     >cls: (b, c, h, w) -> (b, out*na, h, w), 其中out*na代表输出二分类问题输出通道应该为2(即2*na), 但如果是用sigmoid()则取out=1，用softmax则取out=2
@@ -309,6 +325,7 @@ all_anchors2 = grid_anchors_mine(featmap_size, stride, base_anchor)
 # %%
 """Q. 如何对all anchors进行筛选，一个核心方法是IOU，那如何进行IOU计算？
 """
+import torch
 def bbox_overlap_mine(bb1, bb2, mode='iou'):
     """bbox的重叠iou计算：iou = Intersection-over-Union交并比(假定bb1为gt_bboxes)
        还有一个iof = intersection over foreground就是交集跟gt_bbox的比
@@ -351,6 +368,34 @@ def bbox_overlap_mine(bb1, bb2, mode='iou'):
 bb1 = torch.tensor([[-20.,-20.,20.,20.],[-30.,-30.,30.,30.]])
 bb2 = torch.tensor([[-25.,-25.,25.,25.],[-15.,-15.,15.,15.],[-25,-25,50,50]])
 ious2 = bbox_overlap_mine(bb1, bb2)
+
+import numpy as np
+def bbox_overlap_new(bb1,bb2):
+    """另一个在numpy下的iou计算，逻辑简化了一下：
+    采用一个循环控制其中一个bbox，再借用广播机制和按元素操作来计算另一个bbox组的所有最小值/最大值以及ious
+    Args:
+        bb1(ndarray), (m,4) [xmin,ymin,xmax,ymax]
+        bb2(ndarray), (n,4) [xmin,ymin,xmax,ymax]
+    Returns:
+        ious(ndarray),(m,n)
+    """
+    ious = np.zeros((bb1.shape[0], bb2.shape[0]))  # (m,n) 
+    
+    for i in range(len(bb1)):
+        xmax = np.minimum(bb1[i,2],bb2[:,2])
+        ymax = np.minimum(bb1[i,3],bb2[:,3])
+        xmin = np.maximum(bb1[i,0],bb2[:,0])
+        ymin = np.maximum(bb1[i,1],bb2[:,1])
+        overlap = ((xmax - xmin)*(ymax - ymin))   # (n,)
+        area1 = (bb1[i,2] - bb1[i,0])*(bb1[i,3] - bb1[i,1])  # float
+        area2 = (bb2[:,2] - bb2[:,0])*(bb2[:,3] - bb2[:,1])  # (n,)
+        
+        ious[i] = overlap / (area1 + area2 - overlap)  # 广播机制 (n,)/(float + (n,) - (n,)) = (n,)/(n,) = (n,) 
+    return ious
+
+bb1 = np.array([[-20.,-20.,20.,20.],[-30.,-30.,30.,30.]])
+bb2 = np.array([[-25.,-25.,25.,25.],[-15.,-15.,15.,15.],[-25,-25,50,50]])
+ious_new = bbox_overlap_new(bb1,bb2)
 
 
 # %%    anchor的三部曲：(base anchor) -> (anchor list) -> (anchor target)
@@ -750,7 +795,7 @@ def loss_single(cls_score, bbox_pred, labels, labels_weights,
 
 
 # %%
-"""Q.如何对从cls/reg出来的特征进行精细筛选
+"""Q.如何从训练网络中得到一定数量的bboxes作为proposals
 step1: get_bboxes_single整个过程针对一张图(对应5张特征图)，用于过滤出一定数量的bboxes
 注意：此时的过滤输出是相对原图的bbox(xmin/ymin/xmax/ymax)，并且
     >每张特征图先进行nms_pre提取score，输出缩减到2000个(1张特征图)
@@ -770,6 +815,8 @@ def get_bboxes_single():
 
 
 
+
+
 # %%
 """非极大值抑制的功能？
 """    
@@ -786,7 +833,8 @@ def nms(proposals, iou_thr, device_id=None):
     整个程序过程如下：先找到最大置信度的bbox，跟剩余bbox做iou计算，把iou大于阀值的bbox认为是重复比较大的，丢掉，并保留该最大置信度的bbox
     然后从剩余bbox中再找到最大置信度的bbox，再跟剩余bbox做iou计算，把iou大于阀值的bbox认为是重复比较打的，丢掉，并保留该最大置信度的bbox
     通常这个认为是重叠框的iou阀值取0.7
-    所以，本质上就是不断寻找最大置信度的bbox，并丢弃跟该bbox的iou非常高的重叠bbox
+    
+    *所以，本质上就是不断寻找最大置信度的bbox，并丢弃index中跟该bbox的iou非常高的重叠bbox直到index长度=0
     """
     x1 = proposals[:,0]
     y1 = proposals[:,1]
@@ -810,7 +858,8 @@ def nms(proposals, iou_thr, device_id=None):
         idx = np.where(ious<=iou_thr)[0]        
         index = index[idx+1]   # because index start from 1       
     return keep
-    
+
+# 验证：    
 bboxes=np.array([[100,100,210,210,0.72],
                 [250,250,420,420,0.8],
                 [220,220,320,330,0.92],
@@ -835,6 +884,58 @@ plot_bbox(bboxes,'gray','before nms')   # before nms
 plt.subplot(122)
 plot_bbox(bboxes,'gray')   # before nms
 plot_bbox(bboxes[keep], 'red','after nms')# after nms
+
+
+# %%
+"""如何得到rois?
+把前面获得bbox proposal放在一起考虑，就是如何从特征图里获得对应bbox作为rois
+rois的得到过程：
+    >通过all_anchors从cls_score/bbox_pred中提取置信度高的bboxes作为proposal(3000+, 5)
+    >通过nms非极大值抑制去除重叠率高的bbox后得到更新的proposal(2000,5)
+    >通过指定和采样得到更新的proposal(512,4)
+    >通过bbox2roi把得到proposal转换成roi的格式(增加第一列置信度=0)
+"""
+# 提取置信度高的bboxes，就是get_bboxes_single()
+# 非极大值抑制就是nms()
+# 制定和采样就是assigner()和sampler()
+# bbox2roi()
+# 联合调试：
+
+
+# %%
+"""Q. 如何基于rois提取bbox_feats? 也就是如何设计RoIAlign？
+设计RoIAlign的目的：从backbone出来的feats对应到不同bbox中有不同的尺寸，通过RoIAlign可以把每个bbox包含的feats
+尺寸都调整成一个尺寸(7,7)，层数也不改变，这样做的好处是
+需要利用roi extractor实现，里边核心的部分就是RoIAlign模块：
+    >数据准备：把rois先map到每一层特征图上：也就是rois(512,4) -> [(4,5),(12,5),(77,5),(931,5)]
+    >数据对应：把4组rois和4组feats送入RoIAlign，相当于基于每个rois从特征图中抠图，并统一成7x7尺寸，层数不变
+     所以每一个roi对应出一个抠图(256,7,7), 512个rois对应抠图就是(512，256,7,7)，如果是2张图就是(1024,256,7,7)这就是roi_feats
+     
+"""
+def roi_extractor():
+    roi_feats = []
+    return roi_feats
+
+
+# %%
+"""Q. RoIPooling与RoIAlign的区别的联系？
+1. 两者的功能：都是基于rois和feats
+2. RoIPooling
+    >过程：
+    >缺陷：在区域划分时采取的取整测策略会丢失部分像素，所然能直接做max pool操作，但对小物体识别的精度有影响
+3. RoIAlign
+    >过程：
+    >优点：在区域划分时采取的保留小数，然后配合双线性插值法获得每个点位的像素，再做max pool操作
+
+"""
+
+
+# %%
+"""Q.如何定义bbox head对roi_feats进行
+由于roi_feats(也称为bbox_feats的维度是(1024,256,7,7))
+"""
+
+
 
 
 # %%

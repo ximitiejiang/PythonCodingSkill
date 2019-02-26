@@ -1040,6 +1040,76 @@ for name, param in model.named_parameters():    # named_parameters()每一个输
 
 
 # %%
+"""pytorch中除了Moduel基础类之外还有一种基础类叫Function, 跟module类区别是什么，应用场景差异？
+参考：https://zhuanlan.zhihu.com/p/27783097
+https://blog.csdn.net/u012436149/article/details/78829329
+1. Module类：
+    >前向计算：module类需要自定义forward()方法，作为__call__()的调用
+    >反向传播：module类不需要自定义，而是采用autograd机制，通过调用各个子Funtion的backward()来实现(比如tensor/层/激活函数都有自己的backward)
+    >参数存储：module自带cache能够存储参数w用于更新，适合于定义标准层或网络层
+2. Function类
+    >前向计算：Function类需要自定义forward()方法
+    >反向传播：Function类需要自定义backward()方法
+    >参数存储：Funtion类不能存储参数，只能作为单次运算操作，适合于激活函数/pooling层等不带训练参数的结构
+"""
+# 自定义一个new relu
+import torch
+class NewReLU(torch.autograd.Function):
+    
+    def forward(self, x):
+        self.save_for_backward(x)
+        output = x.clamp(min=0)
+        return output
+    
+    def backward(self, grad_out):
+        x, = self.saved_tensors
+        grad_input = gard_out.clone()   # 基于relu的特性：输出的梯度反过来得到输入
+        grad_input[x < 0] = 0           # 基于relu的特征：如果x<0，则梯度取0 
+        return grad_input
+
+# 验证新定义的ReLU
+x = torch.linspace(-3,3,steps=5)
+relu = NewReLU()
+out = relu(x)
+
+print(relu)
+print(out)
+
+# 自定义一个global_max_pool
+"""待调试和消化，当前代码会导致kernel die"""
+from torch.autograd import gradcheck
+class GlobalMaxPool(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, inputs):
+        b,c,h,w = inputs.size()
+        flatten_hw = inputs.view(b,c,-1)
+        max_val, indices = torch.max(flatten_hw, dim=-1, keepdim=True)
+        max_val = max_val.view(b,c,1,1)
+        ctx.save_for_backward(inputs, indices)
+        return max_val, indices
+    
+    @staticmethod
+    def backward(ctx, grad_max_val, grad_indices):
+        inputs, indices = ctx.saved_variables
+        
+        b,c,h,w = inputs.size()
+        grad_inputs = inputs.data.new().resize_as_(inputs.data).zero_().view(b, c, -1) 
+        grad_inputs.scatter_(-1, indices.data, torch.squeeze(grad_max_val.data).contiguous().view(b, c, 1)) 
+        grad_inputs = grad_inputs.view_as(inputs.data)
+        
+        return grad_inputs
+
+def global_max_pool(input):
+    return GlobalMaxPool.apply(input)
+
+in_ = torch.randn(2, 1, 3, 3, requires_grad=True).double() 
+res, _ = global_max_pool(in_) # print(res) 
+res.sum().backward() 
+res = gradcheck(GlobalMaxPool.apply, (in_,)) 
+print(res)
+
+
+# %%
 """
 Q.在pytorch中几个基础模型的创建方式
 1. vgg
