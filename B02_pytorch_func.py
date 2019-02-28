@@ -75,14 +75,15 @@ print(data, t1,t2)
 
 '''-----------------------------------------------------------------------
 Q. pytorch如何产生随机数？
-1. 生成随机数: torch.rand(), torch.randn(), torch.randint()
+1. 生成随机数: torch.rand(m,n), torch.randn(m,n), 其中randn用的比较多 
+              torch.randint(low, high, size=(m,n))
 
 2. 随机乱序: torch.randperm(int)
 
 3. 随机抽样：torch没有这种函数，只能用torch.randperm(int)结合index来实现
 '''
 # 选分布，定义size: 取值范围只在(0,1) (对应np.random.rand(), np.random.randn())
-torch.rand(2,3)                  # 实数，指定均匀分布(0,1)，定义尺寸
+torch.rand(2,3)                  # 实数，指定均匀分布u(0,1)，定义尺寸
 torch.randn(2,3)                 # 实数，指定标准正态分布N(0,1)，定义尺寸
 
 # 选取值范围，定义size：分布只为均匀分布 (对应np.random.randint(), np.random.uniform())
@@ -90,14 +91,15 @@ torch.randint(1,10, size=(2,3))  # 整数，指定均匀分布(low, high)，定�
                                  # 似乎缺少一个numpy的uniform: 实数版
 b4 = np.random.uniform(1,10,size=(2,3))
 
-# 随机抽取(对应numpy的np.random.choic(lst))： pytorch没有，可间接用torch.randperm实现
-
 # 随机乱序(对应numpy的np.random.permutation(), np.random.shuffle())
 # torch中做随机抽样的函数只有torch.randperm()结合index来做
-# torch.randperm(int) 可以在int处输入index的len，即可对index进行打乱，然后抽样即可
+# torch.randperm(int): 注意该函数只能输入一个数值，用法跟random.permutation不同，只用来对index进行随机排序
+# 灵活用法：输入数组的len，乱序后提取前n个就是随机抽样任意个的效果
 t = torch.tensor([30,10,55,73,42,21,93,81,32])
 rand_ind_3 = torch.randperm(len(t))[:3]        # 先把index随机，并提取出需要的随机个数
 t1 = t[rand_ind_3]                             # 切片得到随机值
+
+# 随机抽取(对应numpy的np.random.choic(lst))： pytorch没有，可间接用torch.randperm实现
 
 '''-----------------------------------------------------------------------
 Q. tensor的核心计算函数？

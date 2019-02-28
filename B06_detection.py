@@ -12,7 +12,7 @@ Created on Mon Jan 21 18:24:32 2019
 # %%
 """视觉检测这块如何分方向：
 1. 分类/classification: 只需要对整个图形类别分类，比如：这张图像有气球
-2. 对象检测/object detectin：需要识别具体物体的类型和位置，比如：这张图形有7个气球，每个气球的位置框
+2. 物体检测/object detectin：需要识别具体物体的类型和位置，比如：这张图形有7个气球，每个气球的位置框
 3. 语义分割/Semantic segmentation：需要识别气球，还要把气球从背景中整体分离出来，比如：这张图片有7个气球，分成气球和背景两部分
 4. 实例分割/Instance Segmentation：需要识别气球，还要吧每个气球都单独分离并给出每个气球像素，比如：这张图片有7个气球，分成7组独立气球和1组背景
 可以认为从1到4难度逐渐加大。
@@ -24,9 +24,19 @@ Created on Mon Jan 21 18:24:32 2019
 """Q. 如何区分对象检测的one stage和two stage?
 1. two stage:
     > 两个阶段是指两个head，分别对feat进行两轮loss计算
-    > 阶段1的RPN head重点在anchor，通过把anchors跟
-    > 阶段2的Bbox head重点在bbox proposals
+    > (2014)RCNN是第一个提出region的概念，(2015)后续fast rcnn/faster rcnn都是如何更快找到region
+    > (2016)R-FCN在faster rcnn基础上又有了较大提高(代继峰)
+    > (2017)FPN提出了多尺度特征金字塔网络，而mask rcnn则在faster rcnn基础上增加mask branch(head)用来做实例分割
+      且由于多任务学习，他对物体框的性能也有很大提高
+    > (2018)Cascade rcnn把cascade结构用在faster rcnn，结合在不同stage对iou阈值的调整，性能获得很大提高
+    > 阶段1的RPN head重点在anchor，目的是获得proposals，虽然也有使用分类和回归的数据，但主要是为了产生合适的proposal并不是真的做结果的分类和回归。
+    > 阶段2的Bbox head重点在bbox，目的是进行最终结果的分类和回归
 
+2. One stage:
+    > (2014)最早有multibox的概念
+    > (2016)产生SSD和Yolo
+    > (2017)产生RetinaNet和yolo v2
+    > (2018)产生CornerNet
 
 """
 
@@ -269,7 +279,7 @@ anchor list产生目的就是要让feature map上每一个网格所对应的原�
 def grid_anchors_mine(featmap_size, stride, base_anchors):
     """基于base anchors把特征图每个网格所对应的原图感受野都放置base anchors
     Args:
-        featmap_size(list(float)): (a,b)
+        featmap_size(list(float)): (h,wn)
         stride(float): 代表该特征图相对于原图的下采样比例，也就代表每个网格的感受野
                       是多少尺寸的原图网格，比如1个就相当与stride x stride大小的一片原图
         device(str)
@@ -323,7 +333,41 @@ all_anchors2 = grid_anchors_mine(featmap_size, stride, base_anchor)
 
 
 # %%
-"""Q. 如何对all anchors进行筛选，一个核心方法是IOU，那如何进行IOU计算？
+"""Q. one stage的SSD在anchor list的生成跟常规two stage有什么不同？
+"""
+def ssd_get_anchors(anchor_bases, ratios, scales, scale_major=True,
+                    featmap_sizes, stride):
+    """组合gen_base_anchors()和grid_anchors()来生成all anchors
+    ssd的base anchor生成逻辑不太一样，参考：https://www.jianshu.com/p/e13792628bac
+    
+    
+    Args:
+        
+    Return:
+        
+    """
+    # 1. 生成每张featmaps的base anchors
+    base_anchors = []
+    for anchor_base in anchor_bases:
+        base_anchor = gen_base_anchors_mine(anchor_base, ratios, scales)
+        base_anchors.append(base_anchor)
+    # 2. 网格化anchors
+    all_anchors = []
+    for i in range(len(featmap_sizes)):
+        all_anchor = grid_anchors_mine(featmap_sizes[i], stride[i], base_anchors[i])
+        all_anchors.append(all_anchor)
+    # 3. 生成valid flag
+    
+    
+
+# %%
+"""Q.one stage的anchor target的生成跟常规two stage有什么不同?
+"""
+def ssd_anchor_target():
+    
+
+# %%
+"""Q. 对anchor进行身份指定之前需要对gt bboxes和all anchors进行IOU计算作为评估依据，那如何进行IOU计算？
 """
 import torch
 def bbox_overlap_mine(bb1, bb2, mode='iou'):
@@ -371,7 +415,7 @@ ious2 = bbox_overlap_mine(bb1, bb2)
 
 import numpy as np
 def bbox_overlap_new(bb1,bb2):
-    """另一个在numpy下的iou计算，逻辑简化了一下：
+    """另一个在numpy下的iou计算，逻辑简化了一下更清晰：
     采用一个循环控制其中一个bbox，再借用广播机制和按元素操作来计算另一个bbox组的所有最小值/最大值以及ious
     Args:
         bb1(ndarray), (m,4) [xmin,ymin,xmax,ymax]
@@ -628,7 +672,7 @@ def anchor_target_mine(gt_bboxes, inside_anchors, inside_f, assigned,
         labels[pos_inds] = 1            # 默认gt_labels=None，所以labels对应target的位置设置为1
         labels_weights[pos_inds] = 1.0  # cfg中pos_weight可自定义，如果定义-1说明用默认值则设为1
     if len(neg_inds) > 0:
-        labels_weights[neg_inds] = 1.0
+        labels_weights[neg_inds] = 1.0  # labels=1只标记了正样本，label_weights=1则同时指定了正负样本，是为了
 
     # unmap: 采用默认的unmap_outputs =True
     # unmap的目的是把inside_anchors所对应的输出映射回原来all_anchors
@@ -826,15 +870,22 @@ def nms(proposals, iou_thr, device_id=None):
     这是一个简版的在cpu端运行的nms，由于不断计算iou，速度较慢。
     Args:
         proposal(array): (m,5)代表bbox坐标和置信度，(xmin,ymin,xmax,ymax,score)
-        iou_thr(float): 代表iou重叠的阀值，超过该阀值，就认为两个bbox是重叠多余，去掉一个
+        iou_thr(float): 代表iou重叠的阀值，超过该阀值，就认为两个bbox是重叠多余，保留其中置信度高的
     Returns:
         keep(list): 代表proposal中被保留bbox的index
     代码来自rbg神人的github: https://github.com/rbgirshick/py-faster-rcnn/blob/master/lib/nms/py_cpu_nms.py
-    整个程序过程如下：先找到最大置信度的bbox，跟剩余bbox做iou计算，把iou大于阀值的bbox认为是重复比较大的，丢掉，并保留该最大置信度的bbox
+    介绍参考：gloomfish的《对象检测网络中的NMS算法详解》
+    1.整个程序过程如下：(基于2大参数，一个不可调参数score阈值，一个可调参数ious阈值)先找到最大置信度的bbox，跟剩余bbox做iou计算，把iou大于阀值的bbox认为是重复比较大的，丢掉，并保留该最大置信度的bbox
     然后从剩余bbox中再找到最大置信度的bbox，再跟剩余bbox做iou计算，把iou大于阀值的bbox认为是重复比较打的，丢掉，并保留该最大置信度的bbox
     通常这个认为是重叠框的iou阀值取0.7
-    
     *所以，本质上就是不断寻找最大置信度的bbox，并丢弃index中跟该bbox的iou非常高的重叠bbox直到index长度=0
+     (或者认为是把iou高于阀值iou的这些bbox的置信度都设为0,也就设为没被检测出来)
+    *可调参数ious阈值的影响：如果过大会导致去除的少，从而导致大量FP(false positive)，从而导致检测精度下降(因为FP会超过TP，从而正负样本不平衡)
+    而如果过小会导致去除的多，从而导致recall大幅下降
+    2. 两种nms算法：一种是贪心算法Greedy，一种是最优解算法
+    3. 无论one stage还是two stage算法都需要进行nms，只不过two stage是针对proposal进行nms得到rois
+    而one stage是针对???
+
     """
     x1 = proposals[:,0]
     y1 = proposals[:,1]
@@ -843,10 +894,10 @@ def nms(proposals, iou_thr, device_id=None):
     areas = (y2-y1+1) * (x2-x1+1)
     scores = proposals[:,4]
     keep = []
-    index = scores.argsort()[::-1]  #因为-1反排，所以是从大到小的index
+    index = scores.argsort()[::-1]  # 先从大到小排序，返回index
     while index.size >0:
-        i = index[0]       # every time the first is the biggst, and add it directly
-        keep.append(i)        
+        i = index[0]        
+        keep.append(i)     # 每轮循环提取第一个作为对象，并保存   
         x11 = np.maximum(x1[i], x1[index[1:]])    # calculate the points of overlap 
         y11 = np.maximum(y1[i], y1[index[1:]])
         x22 = np.minimum(x2[i], x2[index[1:]])
@@ -855,7 +906,7 @@ def nms(proposals, iou_thr, device_id=None):
         h = np.maximum(0, y22-y11+1)    # the height of overlap       
         overlaps = w*h        
         ious = overlaps / (areas[i]+areas[index[1:]] - overlaps)        
-        idx = np.where(ious<=iou_thr)[0]        
+        idx = np.where(ious<=iou_thr)[0]   # 查找所有ious小于阀值的index保留下来，其他大于阀值的index就相当于丢掉了        
         index = index[idx+1]   # because index start from 1       
     return keep
 
@@ -884,6 +935,85 @@ plot_bbox(bboxes,'gray','before nms')   # before nms
 plt.subplot(122)
 plot_bbox(bboxes,'gray')   # before nms
 plot_bbox(bboxes[keep], 'red','after nms')# after nms
+
+
+# %%
+"""改进nms为soft_nms的方法？
+1. 常规nms的缺陷，以及改进方法：
+    >常规nms对于有相互遮挡的物体也会判定为重叠从而被去除，导致对重叠物体的检测失败
+    >通过soft_nms算法可以改进对重叠物体的检测：常规nms是基于si置信度得分进行函数评估，
+     并且把所有iou小于阀值iou的bbox置信度都定义成0，而soft_nms则是对该函数进行smooth平滑化，
+     也就是加权函数。一种线性加权，一种高斯加权。
+     线性加权：对于大于阀值iou的bbox不是直接设置置信度为0，而是更新置信度si=si*(1-iou)
+     高斯加权：对于大于阀值iou的bbox不是直接设置置信度为0，而是更新置信度si=si*(exp(-iou^2/sigma))
+     加权以后的好处是：对于重叠度非常高的，置信度得分会变得很低，而对于部分重叠的两物体，则置信度不会被调的很低
+     从而保证重叠度非常高的框会被去除，而部分重叠的则保留。
+     同时voc数据集遮挡不多所以softnms影响不大, 但coco遮挡较多所以影响会相对大一些。
+    >当前soft_nms能够带来平均1%的AP提升，但soft_nms依然受自定义iou_thr影响较大，需要手工调整iou_thr的值，还有改进的空间
+     如果能够变成可学习的就好了
+"""
+import numpy as np
+# 对soft_nms的验证
+def soft_nms(box_scores, score_threshold, sigma=0.5, top_k=-1):
+    """Soft NMS implementation.
+    代码来源：https://blog.csdn.net/jacke121/article/details/82795272
+    References:
+        https://arxiv.org/abs/1704.04503
+        https://github.com/facebookresearch/Detectron/blob/master/detectron/utils/cython_nms.pyx
+    Args:
+        box_scores: (N, 5) boxes in corner-form and probabilities.
+        score_threshold: boxes with scores less than value are not considered.
+        sigma: 高斯加权置信度重计算参数，scores[i] = scores[i] * exp(-(iou_i)^2 / simga)
+        top_k: 保留前k个结果，如果k<=0则保留所有结果.
+    Returns:
+         picked_box_scores (K, 5): results of NMS.
+    """
+    picked_box_scores = []
+    while box_scores.size(0) > 0:
+        max_score_index = torch.argmax(box_scores[:, 4])   # 获得置信度排序的index
+        cur_box_prob = torch.tensor(box_scores[max_score_index, :])
+        picked_box_scores.append(cur_box_prob)
+        if len(picked_box_scores) == top_k > 0 or box_scores.size(0) == 1:
+            break
+        cur_box = cur_box_prob[:-1]
+        box_scores[max_score_index, :] = box_scores[-1, :]
+        box_scores = box_scores[:-1, :]
+        
+        ious = iou_of(cur_box.unsqueeze(0), box_scores[:, :-1])  # 该句需要改为iou检测
+        
+        box_scores[:, -1] = box_scores[:, -1] * torch.exp(-(ious * ious) / sigma)
+        box_scores = box_scores[box_scores[:, -1] > score_threshold, :]
+    if len(picked_box_scores) > 0:
+        return torch.stack(picked_box_scores)
+    else:
+        return torch.tensor([])
+
+# 验证：    
+bboxes=np.array([[100,100,210,210,0.72],
+                [250,250,420,420,0.8],
+                [220,220,320,330,0.92],
+                [100,100,210,210,0.72],
+                [230,240,325,330,0.81],
+                [220,230,315,340,0.9]]) 
+keep = soft_nms(bboxes, 0.7)
+# 绘图：
+import matplotlib.pyplot as plt
+def plot_bbox(dets, c='k', title=None):
+    x1 = dets[:,0]
+    y1 = dets[:,1]
+    x2 = dets[:,2]
+    y2 = dets[:,3]    
+    plt.plot([x1,x2], [y1,y1], c)
+    plt.plot([x1,x1], [y1,y2], c)
+    plt.plot([x1,x2], [y2,y2], c)
+    plt.plot([x2,x2], [y1,y2], c)
+    plt.title(title)
+plt.subplot(121)
+plot_bbox(bboxes,'gray','before nms')   # before nms
+plt.subplot(122)
+plot_bbox(bboxes,'gray')   # before nms
+plot_bbox(bboxes[keep], 'red','after nms')# after nms
+
 
 
 # %%
@@ -932,22 +1062,26 @@ def roi_extractor():
 
 # %%
 """Q.如何定义bbox head对roi_feats进行
-由于roi_feats(也称为bbox_feats的维度是(1024,256,7,7))
+由于roi_feats(也称为bbox_feats的维度是(1024,256,7,7))，其中1024就是rois的个数，每个rois对应了从特征图抠取的一块特征数据
 """
 
 
 
 
 # %%
-"""Q. 如何对物体检测卷积网络的输出进行损失评估，跟常规分类网络的评估有什么区别？
-1. 分类损失
-2. 回归损失
+"""one stage的SSD head有什么特点？
+1. 分类回归全部用卷积来做，没有全连接，所以参数数量和计算量都少了很多
+2.
 """
+import torch.nn as nn
+class SSDHead(nn.Module):
+    """做一个完整的SSD Head，调用前面已经实现的SSD get_anchors()/anchor target()
+    """
+    def __init__(self,  in_channels, out_channels):
 
+        
+out_channels = [()]
 
-# %% 
-"""常说的One stage和two stage detection的主要区别在哪里？
-"""
 
 
 # %% 
@@ -1149,6 +1283,21 @@ def test_dataset(config_file, checkpoint_file, gpus, out_file, eval_method='prop
     checkpoint_file
     gpus
     out_file
+
+
+# %%
+"""Q. 如何计算训练的均值平均精度mAP和召回率recall
+1. mAP用来评估
+   recall用来评估
+2. TP/FP/FN的概念：
+    >TP(true positive)真阳性，是指真实标注框被检测出来
+    >FP(false postive)假阳性，是指假标注框被检测出来
+    >FN(false negative)假阴性，是指真实标注框没有被检测到
+3. mAP = TP/(TP+FP)也就是真阳性在所有检测出来的阳性中的占比
+   recall = TP/(TP+FN)也就是
+"""
+
+
 
 
 # %%

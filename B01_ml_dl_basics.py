@@ -1191,6 +1191,22 @@ n. 可以采用带权重的损失函数，比如pytorch的F.cross_entropy()是�
 
 
 
+# %%
+"""可运行在移动端的小尺寸神经网络有哪些？如何做到小尺寸？
+参考：gloomfish的《两种移动端可以实时运行的网络模型》
+1. SqueezeNet降低网络参数的方法：
+    >用1x1替换3x3，节省90%的浮点参数
+    >建立fire module来减少3x3卷积参数
+    >延时下采样，获得更多激活特征map，提高分类精度
+2. MobileNet降低网络参数的方法：
+    >深度可分离卷积(depth-wise separable convolution)
+    >就是把标准卷积操作转换成深度分离卷积操作+1x1卷积操作。
+"""
+# SqueezeNet
+
+
+# MobileNet
+
 
 
 
