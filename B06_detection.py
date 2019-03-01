@@ -208,7 +208,7 @@ base anchors是指特征图上每个网格上的anchor集合，通常一个网�
     >原则是越大的特征图，则使用越小的anchors: 因为越大特征图就是越浅层特征图，
      因此特征趋向于低语义/小尺寸物体，适合小尺寸anchors
 """
-def gen_base_anchors_mine(anchor_base, ratios, scales, scale_major=True):
+def gen_base_anchors_mine(anchor_base, ratios, scales, ctr=None, scale_major=True):
     """生成n个base anchors/[xmin,ymin,xmax,ymax],生成的base anchors的个数取决于输入
     的scales/ratios的个数，早期一般输入3个scale和3个ratio,则每个网格包含9个base anchors
     现在一些算法为了减少计算量往往只输入一个scale=8, 而ratios输入3个[0.5, 1.0, 2.0]，
@@ -240,19 +240,24 @@ def gen_base_anchors_mine(anchor_base, ratios, scales, scale_major=True):
     scales = torch.tensor(scales)
     w = anchor_base
     h = anchor_base
-    x_ctr = 0.5 * w
-    y_ctr = 0.5 * h
+    if ctr is not None:
+        x_ctr = ctr[0]
+        y_ctr = ctr[1]
+    else:
+        x_ctr = 0.5 * w
+        y_ctr = 0.5 * h
     
     base_anchors = torch.zeros(len(ratios)*len(scales),4)   # (n, 4)
-    for i in range(len(ratios)):
-        for j in range(len(scales)):
-            h = anchor_base * scales[j] * torch.sqrt(ratios[i])
-            w = anchor_base * scales[j] * torch.sqrt(1. / ratios[i])
-            index = i*len(scales) + j
-            base_anchors[index, 0] = x_ctr - 0.5 * w  # 
-            base_anchors[index, 1] = y_ctr - 0.5 * h
-            base_anchors[index, 2] = x_ctr + 0.5 * w
-            base_anchors[index, 3] = y_ctr + 0.5 * h
+    if scale_major: # 以scale为主，先乘以scale再乘以ratios
+        for i in range(len(scales)):
+            for j in range(len(ratios)):
+                h = (anchor_base * scales[i]).float() * torch.sqrt(ratios[j])
+                w = (anchor_base * scales[i]).float() * torch.sqrt(1. / ratios[j])
+                index = i*len(ratios) + j
+                base_anchors[index, 0] = x_ctr - 0.5 * w  # 
+                base_anchors[index, 1] = y_ctr - 0.5 * h
+                base_anchors[index, 2] = x_ctr + 0.5 * w
+                base_anchors[index, 3] = y_ctr + 0.5 * h
     
     return base_anchors.round()
     
@@ -365,7 +370,7 @@ def ssd_get_anchors(anchor_bases, ratios, scales, scale_major=True,
 """Q.one stage的anchor target的生成跟常规two stage有什么不同?
 """
 def ssd_anchor_target():
-    
+    pass
 
 # %%
 """Q. 对anchor进行身份指定之前需要对gt bboxes和all anchors进行IOU计算作为评估依据，那如何进行IOU计算？
@@ -623,8 +628,43 @@ def delta2bbox(rois,
 
 # %%
 """Q. 从assigner/sampler得到正样本的anchors后，最终如何生成anchor targets?
+1. 先得到all_anchors和all_valids
 
 """
+def valid_flags(featmap_size, valid_size, num_base_anchors, device='cuda'):
+    """创建合法标签，用来确定哪些位置点是合法的
+    由于输入图片pad以后的尺寸作为初始尺寸h/w，变换到特征图尺寸fh,fw过程中，pytorch默认用下取整，也可设置ceil_mode=True选择上取整
+    带来的问题是比如pad后图片为300, 8倍下采样，则上取整ceil(300/8)=38, 就说明feat至少要38，放大后才能涵盖原图。
+    >如果实际feat_h=37，那合法的feat就是37(可能会有部分原图丢失) 
+    >如果实际feat_h=39,则合法feat就是38(多余的feat是没有用的)
+    此时定义一个valid_flag，就是把合法feat尺寸上每个点标注成1,额外非法feat上的点标注为0
+    (在ssd中没有pad,所以valid size = img size，且设置了ceil_mode=True，所以所有点都合法
+    而在faster rcnn中，图片处理事先设置了size divisor，确保能够整除，所以也能让所有点合法)
+    
+    Args:
+        featmap_size(list): 代表一组特征图的尺寸列表比如[(38,38), (19,19), (10,10), (5,5), (3,3), (1,1)]
+        valid_size(list): 代表合法尺寸，从(ceil(pad_img_h/stride), feat_h)中间取小值，代表跟原图相关的特征点，而不是超出图片边界的特征点。
+        num_base_anchors(int): 代表该层featmap的每一个cell放置多少个base_anchors (比如ssd是4-6个，fasterrcnn是3个)
+    Return:
+        valid(tensor): (k,) 其中k代表该特征层每一个anchor的合法标志，k=feat_h*feat_w*num_base_anchors
+    """
+    feat_h, feat_w = featmap_size
+    valid_h, valid_w = valid_size
+    valid_x = torch.zeros(feat_w, dtype=torch.uint8, device=device)
+    valid_y = torch.zeros(feat_h, dtype=torch.uint8, device=device)
+    valid_x[:valid_w] = 1
+    valid_y[:valid_h] = 1
+    valid_xx = valid_x[None,:].repeat(feat_h, 1).flatten()
+    valid_yy = valid_y[:,None].repeat(1, feat_w).flatten()
+
+    valid = valid_xx & valid_yy
+    valid = valid[:, None].expand(
+        valid.size(0), num_base_anchors).contiguous().view(-1)
+    # 跟用repeat效果一样
+    # valid = valid[:, None].repeat(1, num_base_anchors).contiguous().view(-1)
+    return valid
+
+
 def anchor_target_mine(gt_bboxes, inside_anchors, inside_f, assigned, 
                        pos_inds, neg_inds, num_all_anchors, num_level_anchors, gt_labels):
     """anchor目标：首先对anchor的合法性进行过滤，取出合法anchors(没有超边界)，

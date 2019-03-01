@@ -12,8 +12,8 @@ Q. tensor的创建
 1. pytorch中数据类型：其中最常用的torch.float/torch.long
     dtype=torch.float32/torch.float, 代表float32 (常用，是pytorch要求的输入类型)
     dtype=torch.float64/torch.double, 代表float64
-    dtype=torch.uint8, 代表uint8
-    dtype=torch.int8, 代表int8,
+    dtype=torch.uint8,                代表uint8
+    dtype=torch.int8,                 代表int8,
     dtype=torch.int16/torch.short, 代表int16,
     dtype=torch.int32/torch.int, 代表int32,
     dtype=torch.int64/torch.long, 代表int64 (常用，是)
@@ -258,7 +258,11 @@ import numpy as np
 
 t1 = torch.tensor([5])
 # 修改数据格式
-t1 = t1.float()         # 注意.float()操作不是in place操作，且默认是float32
+t1.float()         # 注意.float()操作不是in place操作，且默认是float32
+t1.double()
+t1.int()
+t1.short()
+t1.long()
 # 修改requires_grad
 t1.requires_grad=True  # 注意requires_grad的前提是数据为float格式
 
@@ -442,7 +446,9 @@ t3 = torch.stack((t1,t2),0)  # stack在行方向上堆叠
 t1.repeat(3,2)
 
 # 另一种同一数据的堆叠方法是用t.expand(),该方法跟t.repeat()类似,但只适合二维
-# 并且expand的行列计数方式跟repeat不同，他采用的是定义生成的结果数组的行数和列数
+# 并且expand的行列计数方式跟repeat不同，他采用的是定义生成的结果数组的行数和列数,
+# 并且expand要求源数组为2维数组，且往哪个方向扩展则该方向尺寸需要跟目标尺寸相同
+# 比如[1,4]则只能expand(n,4),而(4,1)则只能expand(4,n)
 # 而repeat是定义把源数组看成一个元素堆叠成几行几列。
 t1 = torch.tensor([1,2,3,4,5])
 t1.expand(2,5)          # 堆叠成2行5列元素
@@ -454,6 +460,14 @@ t1[:,None].repeat(1,3)   # 等效写法，原数组整体堆叠成1行3列
 
 t2 = torch.tensor([[1,2,3],[4,5,6]])
 t2.expand(2,6)
+
+# 对比一下expand和repeat: 实现效果是一模一样的，只是在逻辑上稍有不同
+t1 = torch.ones(1444)
+t2 = t1[:,None].expand(1444, 4)
+
+t3 = torch.tensor([1,1,1,1,1,1,0])
+t3[:,None].expand(7,4).contiguous().view(-1)
+t3[:,None].repeat(1,4).contiguous().view(-1)
 
 # 跟numpy的区别：torch的repeat跟np.repeat不太一样，反而类似于np.tile()
 d1 = np.array([1,2,3,4,5])

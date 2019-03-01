@@ -404,18 +404,19 @@ class VOCDataset(Dataset): # 继承Dataset的好处是可以使用他的__add__�
     def __len__(self):
         return len(self.img_ids)
 
-data_root = 'data/VOCdevkit/'
-ann_file=[data_root + 'VOC2007/ImageSets/Main/trainval.txt',
-          data_root + 'VOC2012/ImageSets/Main/trainval.txt']
-img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/']
-
-voc07 = VOCDataset(ann_file[0], img_prefix[0])
-voc12 = VOCDataset(ann_file[0], img_prefix[0])
-dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
-classes = voc07.CLASSES
-img_data = dataset[29]               # len = 10022
-imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
-                     class_names = classes)
+if __name__ =='__main__':
+    data_root = 'data/VOCdevkit/'
+    ann_file=[data_root + 'VOC2007/ImageSets/Main/trainval.txt',
+              data_root + 'VOC2012/ImageSets/Main/trainval.txt']
+    img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/']
+    
+    voc07 = VOCDataset(ann_file[0], img_prefix[0])
+    voc12 = VOCDataset(ann_file[0], img_prefix[0])
+    dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
+    classes = voc07.CLASSES
+    img_data = dataset[29]               # len = 10022
+    imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
+                         class_names = classes)
 
 
 
@@ -572,18 +573,19 @@ class CocoDataset(Dataset):
 
     def __len__(self):
         pass
-    
-data_root = 'data/coco/'    # 需要预先把主目录加进sys.path
-ann_file=[data_root + 'annotations/instances_train2017.json',
-          data_root + 'annotations/instances_val2017.json']
-img_prefix=[data_root + 'train2017/', data_root + 'val2017/']
 
-dataset = CocoDataset(ann_file[0], img_prefix[0])
-classes = dataset.CLASSES
-img_data = dataset[8]
+if __name__=="__main__":    
+    data_root = 'data/coco/'    # 需要预先把主目录加进sys.path
+    ann_file=[data_root + 'annotations/instances_train2017.json',
+              data_root + 'annotations/instances_val2017.json']
+    img_prefix=[data_root + 'train2017/', data_root + 'val2017/']
     
-imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
-                     class_names = classes)
+    dataset = CocoDataset(ann_file[0], img_prefix[0])
+    classes = dataset.CLASSES
+    img_data = dataset[8]
+        
+    imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
+                         class_names = classes)
 
 # %%
 """Q.如果只做车辆和行人检测，如何从coco数据集分离出车辆和行人数据用来进行训练？

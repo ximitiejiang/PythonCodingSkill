@@ -333,6 +333,9 @@ nn.Conv2d(256,512,1)
     > 下采样现在一般用nn.Conv2d(in_c, out_c, k_size, s=1, p=0, d=1, bias=True)定义s=2来实现
                  下采样卷积的Hout = (Hin - k_size + 2p)/s + 1 (该公式等卷积公式一样，都是基于dilation=1等效出来的)
                  用卷积层做下采样有可学习参数，同时超参数设置k_size=1以及s=2, p=0/1都有，bias=False
+    >在SSD中还有一种下采样不需要s=2，只是在w/h数值比较小时，借用s,p的定义就能实现
+                 nn.Conv2d(128,256,kernel_size=3,stride=1), 原来w/h=5, w'/h' = (5-3+0)/1 +1 = 3，达到下采样缩减尺寸的目的
+                 
     > 用MaxPool2d/AvgPool2d做下采样的好处是：
         参考：https://www.zhihu.com/question/36686900/answer/130890492
         >能保留特征，即特征不变性(用最大值/平均值来代表特征，而不是具体位置的数据，一定程度使学习有一定的空间自由度)，
