@@ -102,7 +102,7 @@ def imshow_bboxes_labels(img, bboxes, labels, score_thr=0.3,
 
 
 def vis_bbox(img, bbox, label=None, score=None, label_names=None,
-             instance_colors=None, alpha=1., linewidth=3., ax=None):
+             instance_colors=None, alpha=1., linewidth=2., ax=None):
     """另外一个图片+bbox显示的代码，感觉效果比cv2的好上几条街，调通试一下(来自chainercv)
     Visualize bounding boxes inside image.
 
@@ -165,7 +165,10 @@ def vis_bbox(img, bbox, label=None, score=None, label_names=None,
     Returns:
         ~matploblib.axes.Axes:
         Returns the Axes object with the plot for further tweaking.
-
+    
+    原来的格式要求：
+    img()
+    bbox
     """
     from matplotlib import pyplot as plt
 
@@ -173,18 +176,12 @@ def vis_bbox(img, bbox, label=None, score=None, label_names=None,
         raise ValueError('The length of label must be same as that of bbox')
     if score is not None and not len(bbox) == len(score):
         raise ValueError('The length of score must be same as that of bbox')
-
-    # Returns newly instantiated matplotlib.axes.Axes object if ax is None
-#    ax = vis_image(img, ax=ax)
-
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
     if img is not None:
-        # CHW -> HWC
-        img = img.transpose((1, 2, 0))
+        img = img[...,[2,1,0]]         # hwc/bgr to rgb
         ax.imshow(img.astype(np.uint8))
-
     # If there is no bounding box to display, visualize the image and exit.
     if len(bbox) == 0:
         return ax
@@ -195,31 +192,28 @@ def vis_bbox(img, bbox, label=None, score=None, label_names=None,
         instance_colors[:, 0] = 255
     instance_colors = np.array(instance_colors)
 
-    for i, bb in enumerate(bbox):
-        xy = (bb[1], bb[0])
-        height = bb[2] - bb[0]
-        width = bb[3] - bb[1]
+    for i, bb in enumerate(bbox):        
+        xy = (bb[0], bb[1])
+        height = bb[3] - bb[1]
+        width = bb[2] - bb[0]
+                
         color = instance_colors[i % len(instance_colors)] / 255
         ax.add_patch(plt.Rectangle(
             xy, width, height, fill=False,
             edgecolor=color, linewidth=linewidth, alpha=alpha))
 
         caption = []
-
         if label is not None and label_names is not None:
             lb = label[i]
-            if not (0 <= lb < len(label_names)):
-                raise ValueError('No corresponding name is given')
             caption.append(label_names[lb])
         if score is not None:
             sc = score[i]
             caption.append('{:.2f}'.format(sc))
-
         if len(caption) > 0:
-            ax.text(bb[1], bb[0],
+            ax.text(bb[0], bb[1],
                     ': '.join(caption),
                     style='italic',
-                    bbox={'facecolor': 'white', 'alpha': 0.7, 'pad': 10})
+                    bbox={'facecolor': 'white', 'alpha': 0.2, 'pad': 1}) #文字底色：白色，透明度0.2，边空1
     return ax
 
 
@@ -352,7 +346,7 @@ class VOCDataset(Dataset): # 继承Dataset的好处是可以使用他的__add__�
         img_path = self.img_prefix + 'JPEGImages/' + '{}.jpg'.format(img_id)
         xml_path = self.img_prefix + 'Annotations/' + '{}.xml'.format(img_id)
         # 读取指定img图片 (jpg文件的处理)
-        img = cv2.imread(img_path)        # (h,w,c)
+        img = cv2.imread(img_path)        # (h,w,c)/bgr
         # 读取指定img相关数据 (xml文件的处理)
         tree = ET.parse(xml_path)
         root = tree.getroot()
@@ -405,19 +399,24 @@ class VOCDataset(Dataset): # 继承Dataset的好处是可以使用他的__add__�
         return len(self.img_ids)
 
 if __name__ =='__main__':
-    data_root = 'data/VOCdevkit/'
-    ann_file=[data_root + 'VOC2007/ImageSets/Main/trainval.txt',
-              data_root + 'VOC2012/ImageSets/Main/trainval.txt']
-    img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/']
-    
-    voc07 = VOCDataset(ann_file[0], img_prefix[0])
-    voc12 = VOCDataset(ann_file[0], img_prefix[0])
-    dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
-    classes = voc07.CLASSES
-    img_data = dataset[29]               # len = 10022
-    imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
-                         class_names = classes)
-
+    run_voc=True
+    if run_voc:
+        data_root = 'data/VOCdevkit_mac/'  # 如果是mac则增加_mac后缀
+        ann_file=[data_root + 'VOC2007/ImageSets/Main/trainval.txt',
+                  data_root + 'VOC2012/ImageSets/Main/trainval.txt']
+        img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/']
+        
+        voc07 = VOCDataset(ann_file[0], img_prefix[0])
+        voc12 = VOCDataset(ann_file[0], img_prefix[0])
+        dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
+        classes = voc07.CLASSES
+        img_data = dataset[3171]               # len = 10022
+#        imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
+#                             class_names = classes)
+        """img(ndarray/chw/rgb), bbox()"""
+        vis_bbox(img_data.img, img_data.bboxes, label=img_data.labels, score=None, label_names=classes,
+                 instance_colors=None, alpha=1., linewidth=1., ax=None)
+        plt.show()
 
 
 # %%
@@ -575,17 +574,19 @@ class CocoDataset(Dataset):
         pass
 
 if __name__=="__main__":    
-    data_root = 'data/coco/'    # 需要预先把主目录加进sys.path
-    ann_file=[data_root + 'annotations/instances_train2017.json',
-              data_root + 'annotations/instances_val2017.json']
-    img_prefix=[data_root + 'train2017/', data_root + 'val2017/']
-    
-    dataset = CocoDataset(ann_file[0], img_prefix[0])
-    classes = dataset.CLASSES
-    img_data = dataset[8]
+    run_coco = False
+    if run_coco:
+        data_root = 'data/coco/'    # 需要预先把主目录加进sys.path
+        ann_file=[data_root + 'annotations/instances_train2017.json',
+                  data_root + 'annotations/instances_val2017.json']
+        img_prefix=[data_root + 'train2017/', data_root + 'val2017/']
         
-    imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
-                         class_names = classes)
+        dataset = CocoDataset(ann_file[0], img_prefix[0])
+        classes = dataset.CLASSES
+        img_data = dataset[8]
+            
+        imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
+                             class_names = classes)
 
 # %%
 """Q.如果只做车辆和行人检测，如何从coco数据集分离出车辆和行人数据用来进行训练？
