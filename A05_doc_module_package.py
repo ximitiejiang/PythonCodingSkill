@@ -288,22 +288,24 @@ bb1 = pickle.load(open('bboxes.txt','rb'))
 
 
 ''' --------------------------------------------------------------------------
-Q: 如何读取xml文件
+Q: 如何读取xml文件？
 通过ElementTree模块解析xml文件成一棵树：tree = ET.parse(path)
 obj.findall('tagname'): 返回list, 是所有tag匹配的element对象的合集
 obj.find('tagname'): 返回对象，是第一个tag匹配的element对象
 obj.text: 如果obj已经是最后一级tag，则可以用.text命令取出内部数据。
-常用操作过程：
-    1. 获得树: tree = ET.parse(path)
-    2. 获得根: root = tree.getroot()
-    3. 查找具体对象
-        obj =root.find()
-        objs = root.findall()
-        for i in objs:
+
+常用操作过程可以简化为如下3步，也就是3种命令，非常简单：
+    1. 获得树和根: tree = ET.parse(path)
+       获得根: root = tree.getroot()
+       由于后续所有操作都是基于根root，所以tree其实可以不用显式获得，以上两句结合成一句即可如下:
+       root = ET.parse(path).getroot()
+    2. 基于root查找具体对象：
+       obj =root.find()         # 查找第一个
+       objs = root.findall()    # 查找所有objs并循环调取
+       for i in objs:
             ...
     4. 如果已经到最里边一层对象了，则获得字符串
         obj.text
-
 '''
 import sys, os
 #sys.path.insert(0, os.path.dirname(__file__))
@@ -311,10 +313,9 @@ import xml.etree.ElementTree as ET
 xml_path = './repo/000001.xml'
 tree = ET.parse(xml_path)  # 读取并解析xml文件为一棵树(tree)，为ElementTree对象
 root = tree.getroot()      # 找到树根,也是一个Element对象
-#访问
-obj = root.find('object') #返回地一个匹配tag的对象
+#访问：均基于root
+obj = root.find('object') #返回第一个匹配tag的对象
 len(obj)  # 显示有几个tags
-
 objs = root.findall('object')  # 返回所有匹配tag的对象
 len(objs)  # 显示有几个obj
 
@@ -336,3 +337,60 @@ print(int(objs[0].find('bndbox').find('xmin').text) +
 
 bboxes = np.array(bboxes, ndmin=2) - 1
             labels = np.array(labels)
+            
+
+
+"""-------------------------------------------------------------------------
+Q. 如何读写json文件？
+json本质上其实是把所有数据转成了str存放，并且转成str过程中对部分数据还做了调整(比如True变成true)
+针对json的核心指令主要就是4条：json.load(), json.dump(), json.dumps()
+1. json.dumps(data, sort_keys=False, indent=4)是对数据进行编码，形成json格式的数据
+    字典转化为json就是一个'dict'，形式上其实一样。可以对key排序，输出显示缩进字符数
+2. json.loads(obj, encoding='unicode')是对json数据进行解码，形成python格式的数据
+    数据格式对应关系是：
+    python(dict/list/str/int/bool/None)分别对应字符串('dict'/'list'/'"str"'/'int'/'true/false'/'null')
+3. json.dump(data, f, indent=4)是对数据编码成json格式后存入文件，其中f为打开的文件句柄
+
+4. json.load(f)是从文件中读入json数据并解码为python数据
+
+以下是相关子程序(来自mmdetection的JsonHandler)
+    def load_from_fileobj(self, file):
+        return json.load(file)
+
+    def dump_to_fileobj(self, obj, file, **kwargs):
+        json.dump(obj, file, **kwargs)
+
+    def dump_to_str(self, obj, **kwargs):
+        return json.dumps(obj, **kwargs)
+"""
+import json
+data = dict(a=1,b=2,c=3,d=4,e=5)
+obj = json.dumps(data)
+type(obj)
+
+data = [1,2,3]
+json.dumps(data)
+
+data = [[1,2],[3,4]]
+json.dumps(data)
+
+data = True
+json.dumps(data)  # bool经json转化为str：小写的true/false
+
+data = 2.3
+json.dumps(data) # 
+
+data = 'Hallo'
+json.dumps(data)
+
+data = None
+json.dumps(data)
+
+data = dict(a=1,b=2,c=3,d=4,e=5)
+#with open('test/test_data/test.json','w') as f:  # 打开文件，如果该文件不存在则先创建
+#    json.dump(data, f)
+json.dump()
+
+
+
+

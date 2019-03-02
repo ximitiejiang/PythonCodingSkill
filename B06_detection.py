@@ -1195,12 +1195,9 @@ def load_checkpoint_mine(model, filename, map_location=None, strict=False, logge
 
 # %%
 """Q. 如何对model效果进行test和评估？
-注意1：由于所有mmdetection所提供的模型都是基于coco进行训练的，所以测试所搭建的模型需要
-采用针对coco数据集的模型和cfg文件
-0. 可以test一张或几张图片，也可以test整个数据集的test数据
-    几张张图片的测试调用api中的：result = inference_detector() -> _inference_single()/_inference_generator()
-                          show_result(img, result)
-    数据集的测试调用：
+注意1：测试时cfg/model/weight三者需要匹配，由于大部分mmdetection所提供的weights都是基于coco进行训练的，
+所以测试所搭建的模型需要采用针对coco数据集的模型和cfg文件(只有少部分SSD/FasterRcnn提供了voc版本的weight)
+下载weights的网址：https://github.com/open-mmlab/mmdetection/blob/master/MODEL_ZOO.md
 """
 import torch
 import cv2
@@ -1210,9 +1207,9 @@ from mmcv.runner import load_checkpoint
 from mmdet.datasets.transforms import ImageTransform
 from mmdet.core import get_classes
 import numpy as np
-from B03_dataset_transform import imshow_bboxes_labels 
+from B03_dataset_transform import imshow_bboxes_labels, vis_bbox
 
-def test_img(img_path, config_file, device = 'cuda:0', dataset='coco'):
+def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
     """测试单张图片：相当于恢复模型和参数后进行单次前向计算得到结果
     注意由于没有dataloader，所以送入model的数据需要手动合成img_meta
     1. 模型输入data的结构：需要手动配出来
@@ -1221,7 +1218,7 @@ def test_img(img_path, config_file, device = 'cuda:0', dataset='coco'):
         img(array): (h,w,c)-bgr
         config_file(str): config文件路径
         device(str): 'cpu'/'cuda:0'/'cuda:1'
-        dataset(str): voc/coco
+        class_name(str): 'voc' or 'coco'
     """
     # 1. 配置文件
     cfg = mmcv.Config.fromfile(config_file)
@@ -1251,63 +1248,120 @@ def test_img(img_path, config_file, device = 'cuda:0', dataset='coco'):
     with torch.no_grad():
         result = model(return_loss=False, rescale=True, **data)
     # 7. 结果显示
-    class_names = get_classes(dataset)
+    class_names = get_classes(class_name)
     labels = [np.full(bbox.shape[0], i, dtype=np.int32) 
         for i, bbox in enumerate(result)]
     labels = np.concatenate(labels)
     bboxes = np.vstack(result)
+    scores = bboxes[:,-1]
     img = cv2.imread(img_path)
     
-#    imshow_bboxes_labels(img.copy(), bboxes, labels, 
-#                         score_thr=0.7,
-#                         class_names=class_names,
-#                         bbox_colors=(0,255,0),
-#                         text_colors=(0,255,0),
-#                         thickness=1,
-#                         font_scale=0.5)
+
+    vis_bbox(img.copy(), bboxes, label=labels, score=scores, score_thr=0.5, 
+             label_names=class_names,
+             instance_colors=None, alpha=1., linewidth=1.5, ax=None)
     
-    mmcv.imshow_det_bboxes(
-        img.copy(),
-        bboxes,
-        labels,
-        bbox_color='blue',
-        text_color='blue',
-        class_names=class_names,
-        score_thr=0.5)
-    
-img_path = 'test/test_data/001000.jpg'    
-config_file = 'test/test_data/cfg_fasterrcnn_r50_fpn_coco.py'
-test_img(img_path, config_file)
+
+if __name__ == "__main__":     
+    test_this_img = True
+    if test_this_img:
+        img_path = 'test/test_data/test11.jpg'    
+        config_file = 'test/test_data/cfg_fasterrcnn_r50_fpn_coco.py'
+        class_name = 'coco'
+        test_img(img_path, config_file, class_name=class_name)
 
 
 # %%
 """Q. 如何对整个数据集进行测试评估？
 
 """
-def test_dataset(config_file, checkpoint_file, gpus, out_file, eval_method='proposal_fast'):
-    """测试一个数据集
-    参考mmdetection/tools/test.py
-    命令行用法：python tools/test.py <CONFIG_FILE> <CHECKPOINT_FILE> --gpus <GPU_NUM> --out <OUT_FILE>
-    执行过程：
-    1. 调用
-    2. 调用
-    Args:
-        config_file(str): 代表测试配置文件的路径(.py)，通常跟训练配置文件集成在一起的cfg
-        checkpoint_file(str): 代表模型文件的路径(.pth)
-        gpus(int): 代表gpus的个数(1~n)
-        out_file(str): 代表输出文件地址和文件名(.pkl)
-        eval_method(str): 代表评估方式, proposal_fast则表示
+import argparse
+
+import torch
+import mmcv
+from mmcv.runner import load_checkpoint, parallel_test, obj_from_dict
+from mmcv.parallel import scatter, collate, MMDataParallel
+
+from mmdet import datasets
+from mmdet.core import results2json, coco_eval
+from mmdet.datasets import build_dataloader
+from mmdet.models import build_detector, detectors
+
+
+def single_test(model, data_loader, show=False):
+    model.eval()
+    results = []
+    dataset = data_loader.dataset
+    prog_bar = mmcv.ProgressBar(len(dataset))
+    for i, data in enumerate(data_loader):
+        with torch.no_grad():
+            result = model(return_loss=False, rescale=not show, **data)
+        results.append(result)
+
+        if show:
+            model.module.show_result(data, result, dataset.img_norm_cfg,
+                                     dataset=dataset.CLASSES)
+
+        batch_size = data['img'][0].size(0)
+        for _ in range(batch_size):
+            prog_bar.update()
+    return results
+
+
+def _data_func(data, device_id):
+    data = scatter(collate([data], samples_per_gpu=1), [device_id])[0]
+    return dict(return_loss=False, rescale=True, **data)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='MMDet test detector')
+    parser.add_argument('config', help='test config file path')
+    parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument(
+        '--gpus', default=1, type=int, help='GPU number used for testing')
+    parser.add_argument(
+        '--proc_per_gpu',
+        default=1,
+        type=int,
+        help='Number of processes per GPU')
+    parser.add_argument('--out', help='output result file')  # 字符串，结果文件路径
+    parser.add_argument(
+        '--eval',
+        type=str,
+        nargs='+',
+        choices=['proposal', 'proposal_fast', 'bbox', 'segm', 'keypoints'],
+        help='eval types')
+    parser.add_argument('--show', action='store_true', help='show results')  # bool变量，指明是否调用模型的show_result()显示结果
+    args = parser.parse_args()
+    return args
+
+
+def main():
+    """针对faster rcnn在voc的评估做微调
+    1. args parse用直接输入替代
+    2. 
     """
-    from mmcv.runner import obj_from_dict
-    from mmdet import datasets
+#    args = parse_args()
+
+#    if args.out is not None and not args.out.endswith(('.pkl', '.pickle')):
+#        raise ValueError('The output file must be a pkl file.')
+    config_path = './cfg_fasterrcnn_r50_fpn_coco.py'
+    checkpoint_path = 'https://s3.ap-northeast-2.amazonaws.com/open-mmlab/mmdetection/models/faster_rcnn_r50_fpn_1x_20181010-3d1b3351.pth'
+    cfg = mmcv.Config.fromfile(config_path)
+    out_file = 'dataset_eval_result/results'  # 是否输出结果文件, 后边会添加.json后缀
+    eval_type = 'proposal_fast'
     
-    cfg = mmcv.Config.fromfile(config_file)
+    # set cudnn_benchmark
+    if cfg.get('cudnn_benchmark', False):
+        torch.backends.cudnn.benchmark = True
+    cfg.model.pretrained = None
+    cfg.data.test.test_mode = True
+
     dataset = obj_from_dict(cfg.data.test, datasets, dict(test_mode=True))
-    
-    if args.gpus == 1:
+    if cfg.gpus == 1:
         model = build_detector(
             cfg.model, train_cfg=None, test_cfg=cfg.test_cfg)
-        load_checkpoint(model, args.checkpoint)
+        load_checkpoint(model, checkpoint_path)
         model = MMDataParallel(model, device_ids=[0])
 
         data_loader = build_dataloader(
@@ -1317,14 +1371,44 @@ def test_dataset(config_file, checkpoint_file, gpus, out_file, eval_method='prop
             num_gpus=1,
             dist=False,
             shuffle=False)
-        outputs = single_test(model, data_loader, args.show)
+        outputs = single_test(model, data_loader, show=False)
     else:
-        raise ValueError('currently only support one gpu for test dataset.')
-    
-    checkpoint_file
-    gpus
-    out_file
+        model_args = cfg.model.copy()
+        model_args.update(train_cfg=None, test_cfg=cfg.test_cfg)
+        model_type = getattr(detectors, model_args.pop('type'))
+        outputs = parallel_test(
+            model_type,
+            model_args,
+            checkpoint_path,
+            dataset,
+            _data_func,
+            range(cfg.gpus),
+            workers_per_gpu=cfg.proc_per_gpu)
 
+    if out_file:
+        print('writing results to {}'.format(out_file))  
+        mmcv.dump(outputs, out_file)  # 先把模型的测试结果输出到文件中
+        eval_types = eval_type
+        if eval_types:
+            print('Starting evaluate {}'.format(' and '.join(eval_types)))
+            if eval_types == ['proposal_fast']:
+                result_file = out_file
+                coco_eval(result_file, eval_types, dataset.coco)
+            else:
+                if not isinstance(outputs[0], dict):
+                    result_file = out_file + '.json'
+                    results2json(dataset, outputs, result_file)
+                    coco_eval(result_file, eval_types, dataset.coco)
+                else:
+                    for name in outputs[0]:
+                        print('\nEvaluating {}'.format(name))
+                        outputs_ = [out[name] for out in outputs]
+                        result_file = out_file + '.{}.json'.format(name)
+                        results2json(dataset, outputs_, result_file)
+                        coco_eval(result_file, eval_types, dataset.coco)
+
+if __name__ == '__main__':
+    main()
 
 # %%
 """Q. 如何计算训练的均值平均精度mAP和召回率recall
