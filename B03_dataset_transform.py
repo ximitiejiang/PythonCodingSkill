@@ -101,53 +101,25 @@ def imshow_bboxes_labels(img, bboxes, labels, score_thr=0.3,
     plt.imshow(img[...,[2,1,0]])
 
 
-def vis_bbox(img, bbox, label=None, score=None, label_names=None,
-             instance_colors=None, alpha=1., linewidth=2., ax=None):
-    """另外一个图片+bbox显示的代码，感觉效果比cv2的好上几条街，调通试一下(来自chainercv)
-    Visualize bounding boxes inside image.
-
-    Example:
-
-        >>> from chainercv.datasets import VOCBboxDataset
-        >>> from chainercv.datasets import voc_bbox_label_names
-        >>> from chainercv.visualizations import vis_bbox
-        >>> import matplotlib.pyplot as plt
-        >>> dataset = VOCBboxDataset()
-        >>> img, bbox, label = dataset[60]
-        >>> vis_bbox(img, bbox, label,
-        ...          label_names=voc_bbox_label_names)
-        >>> plt.show()
-
-        This example visualizes by displaying the same colors for bounding
-        boxes assigned to the same labels.
-
-        >>> from chainercv.datasets import VOCBboxDataset
-        >>> from chainercv.datasets import voc_bbox_label_names
-        >>> from chainercv.visualizations import vis_bbox
-        >>> from chainercv.visualizations.colormap import voc_colormap
-        >>> import matplotlib.pyplot as plt
-        >>> dataset = VOCBboxDataset()
-        >>> img, bbox, label = dataset[61]
-        >>> colors = voc_colormap(label + 1)
-        >>> vis_bbox(img, bbox, label,
-        ...          label_names=voc_bbox_label_names,
-        ...          instance_colors=colors)
-        >>> plt.show()
-
+def vis_bbox(img, bbox, label=None, score=None, score_thr=0, label_names=None,
+             instance_colors=None, alpha=1., linewidth=1.5, ax=None):
+    """另外一个图片+bbox显示的代码，感觉效果比cv2的好上几条街(来自chainercv)
+    对应数据格式和注释已修改为匹配现有voc/coco数据集。
     Args:
-        img (~numpy.ndarray): An array of shape :math:`(3, height, width)`.
-            This is in RGB format and the range of its value is
+        img (ndarray): (h,w,c), BGR and the range of its value is
             :math:`[0, 255]`. If this is :obj:`None`, no image is displayed.
-        bbox (~numpy.ndarray): An array of shape :math:`(R, 4)`, where
+        bbox (ndarray): An array of shape :math:`(R, 4)`, where
             :math:`R` is the number of bounding boxes in the image.
             Each element is organized
-            by :math:`(y_{min}, x_{min}, y_{max}, x_{max})` in the second axis.
-        label (~numpy.ndarray): An integer array of shape :math:`(R,)`.
+            by :math:`(x_{min}, y_{min}, x_{max}, y_{max})` in the second axis.
+        label (ndarray): An integer array of shape :math:`(R,)`.
             The values correspond to id for label names stored in
             :obj:`label_names`. This is optional.
         score (~numpy.ndarray): A float array of shape :math:`(R,)`.
              Each value indicates how confident the prediction is.
              This is optional.
+        score_thr(float): A float in (0, 1), bboxes scores with lower than
+            score_thr will be skipped. if 0 means all bboxes will be shown.
         label_names (iterable of strings): Name of labels ordered according
             to label ids. If this is :obj:`None`, labels will be skipped.
         instance_colors (iterable of tuples): List of colors.
@@ -165,17 +137,21 @@ def vis_bbox(img, bbox, label=None, score=None, label_names=None,
     Returns:
         ~matploblib.axes.Axes:
         Returns the Axes object with the plot for further tweaking.
-    
-    原来的格式要求：
-    img()
-    bbox
-    """
-    from matplotlib import pyplot as plt
 
+    """
+    from matplotlib import pyplot as plt        
     if label is not None and not len(bbox) == len(label):
         raise ValueError('The length of label must be same as that of bbox')
     if score is not None and not len(bbox) == len(score):
         raise ValueError('The length of score must be same as that of bbox')
+    
+    if score_thr > 0:                      # 只显示置信度大于阀值的bbox
+        score_id = score > score_thr
+        # 获得scores, bboxes
+        score = score[score_id]
+        bbox = bbox[score_id]
+        label = label[score_id]
+        
     if ax is None:
         fig = plt.figure()
         ax = fig.add_subplot(1, 1, 1)
@@ -213,7 +189,8 @@ def vis_bbox(img, bbox, label=None, score=None, label_names=None,
             ax.text(bb[0], bb[1],
                     ': '.join(caption),
                     style='italic',
-                    bbox={'facecolor': 'white', 'alpha': 0.2, 'pad': 1}) #文字底色：白色，透明度0.2，边空1
+                    bbox={'facecolor': 'white', 'alpha': 0.2, 'pad': 1}) 
+                    #文字底色：白色，透明度0.2，边空1
     return ax
 
 
@@ -410,12 +387,12 @@ if __name__ =='__main__':
         voc12 = VOCDataset(ann_file[0], img_prefix[0])
         dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
         classes = voc07.CLASSES
-        img_data = dataset[3171]               # len = 10022
+        img_data = dataset[9178]               # len = 10022
 #        imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
 #                             class_names = classes)
         """img(ndarray/chw/rgb), bbox()"""
         vis_bbox(img_data.img, img_data.bboxes, label=img_data.labels, score=None, label_names=classes,
-                 instance_colors=None, alpha=1., linewidth=1., ax=None)
+                 instance_colors=None, alpha=1., linewidth=1.5, ax=None)
         plt.show()
 
 
