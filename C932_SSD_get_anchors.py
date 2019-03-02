@@ -156,7 +156,7 @@ def ssd_get_anchors(img_size,
     再要定义scales，统一定义为2个scale，一个scale=1即小方框边长用min_size, 另一个scale=sqrt(max_size/min_size)也就是大方框边长sqrt(min_size*max_size)
     也就是2个scales[1, sqrt(max_size/min_size)]
     所以理论上生成的anchor个数是ratio数*scales数，为[6,10,10,10,6,6]，但实际上源码只从中取了一部分，
-    其中保留了小框和相应的ratios以及唯一一个大框，而大框对应的缩放全都丢弃。
+    其中保留了小框和相应的ratios以及唯一一个大框，而大框对应的ratios全都丢弃。
     所以各特征图最终生成的anchor个数是[4,6,6,6,4,4]， 其中4为小框3种ratio加一个大框，6为小框5种ratio加一个大框
     
     grid的过程跟其他是一样的, 6个特征图分别进行grid anchor，生成的all_anchors数量
@@ -190,7 +190,7 @@ def ssd_get_anchors(img_size,
         ratio = ratios[i]
         ctr = [strides[i]/2, strides[i]/2]
         anchors = gen_base_anchors_mine(anchor_base, ratio, scale, ctr)  # 先足量生成anchors
-        anchors = anchors[:(len(ratio)+1)]                               # 然后按照源码提取其中的小框+小框变种+大框(也就是ratio个数+1)
+        anchors = anchors[:(len(ratio)+1)]                               # 然后按照源码提取其中的小框+小框变种+大框(也就是前ratio个数+1)
         base_anchors.append(anchors)
          
     # 2. 网格化anchors
@@ -229,8 +229,7 @@ if __name__ == "__main__":
     strides = [8, 16, 32, 64, 100, 300]  # 表示下采样比例，SSD_VGG模型决定
     # grid anchors 数据准备
     featmap_sizes = [(38,38), (19,19), (10,10), (5,5), (3,3), (1,1)]
-    
-    
+    # get_anchors 汇总调用
     all_anchors, all_valids = ssd_get_anchors(img_size, valid_size, 
                                                featmap_sizes, 
                                                base_scale=(0.2,0.9),

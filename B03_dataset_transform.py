@@ -387,7 +387,7 @@ if __name__ =='__main__':
         voc12 = VOCDataset(ann_file[0], img_prefix[0])
         dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
         classes = voc07.CLASSES
-        img_data = dataset[9178]               # len = 10022
+        img_data = dataset[9078]               # len = 10022
 #        imshow_bboxes_labels(img_data.img, img_data.bboxes, img_data.labels,
 #                             class_names = classes)
         """img(ndarray/chw/rgb), bbox()"""
