@@ -563,25 +563,32 @@ sample_result = random_sampler(assign_result, bboxes)
 """
 def bbox2delta(proposals, gt, means=[0,0,0,0], stds =[1,1,1,1]):
     """对proposal bbox进行回归
+    
+    Args:
+        proposals(tensor): (m,4) 代表(xmin,ymin,xmax,ymax)
+        gt(tensor): (m,4) 代表(xmin,ymin,xmax,ymax)
+    Return:
+        deltas(tensor): (m,4) 代表(dx,dy,dw,dh)
     """
     proposals = proposals.float()
     gt = gt.float()
+    # proposal xyxy to xywh
     px = (proposals[..., 0] + proposals[..., 2]) * 0.5
     py = (proposals[..., 1] + proposals[..., 3]) * 0.5
     pw = proposals[..., 2] - proposals[..., 0] + 1.0
     ph = proposals[..., 3] - proposals[..., 1] + 1.0
-
+    # gt xyxy to xywh
     gx = (gt[..., 0] + gt[..., 2]) * 0.5
     gy = (gt[..., 1] + gt[..., 3]) * 0.5
     gw = gt[..., 2] - gt[..., 0] + 1.0
     gh = gt[..., 3] - gt[..., 1] + 1.0
-
+    # get dxdydwdh
     dx = (gx - px) / pw
     dy = (gy - py) / ph
     dw = torch.log(gw / pw)
     dh = torch.log(gh / ph)
     deltas = torch.stack([dx, dy, dw, dh], dim=-1)
-
+    # normalize
     means = deltas.new_tensor(means).unsqueeze(0)
     stds = deltas.new_tensor(stds).unsqueeze(0)
     deltas = deltas.sub_(means).div_(stds)
@@ -594,10 +601,18 @@ def delta2bbox(rois,
                stds=[1, 1, 1, 1],
                max_shape=None,
                wh_ratio_clip=16 / 1000):
-    """在得到deltas的回归结果后，反过来转换成实际bbox坐标"""
+    """在得到deltas的回归结果后，反过来转换成实际bbox坐标
+    Args:
+        rois(tensor): (m,4)代表proposals，在faster rcnn中m等于2000即会产生2000个proposal
+        deltas(tensor): (m, 4*n_classes)代表模型预测的deltas，每个类预测会有4个坐标预测值，所以总列数是4*n_classes(coco为81类，voc为21类，包括背景算其中1类)
+    Returns:
+        bboxes(tensor): (m, 4*n_classes)
+    """
+    # denormalize
     means = deltas.new_tensor(means).repeat(1, deltas.size(1) // 4)
     stds = deltas.new_tensor(stds).repeat(1, deltas.size(1) // 4)
     denorm_deltas = deltas * stds + means
+    # 
     dx = denorm_deltas[:, 0::4]
     dy = denorm_deltas[:, 1::4]
     dw = denorm_deltas[:, 2::4]
@@ -605,14 +620,17 @@ def delta2bbox(rois,
     max_ratio = np.abs(np.log(wh_ratio_clip))
     dw = dw.clamp(min=-max_ratio, max=max_ratio)
     dh = dh.clamp(min=-max_ratio, max=max_ratio)
+    
     px = ((rois[:, 0] + rois[:, 2]) * 0.5).unsqueeze(1).expand_as(dx)
     py = ((rois[:, 1] + rois[:, 3]) * 0.5).unsqueeze(1).expand_as(dy)
     pw = (rois[:, 2] - rois[:, 0] + 1.0).unsqueeze(1).expand_as(dw)
     ph = (rois[:, 3] - rois[:, 1] + 1.0).unsqueeze(1).expand_as(dh)
+    
     gw = pw * dw.exp()
     gh = ph * dh.exp()
     gx = torch.addcmul(px, 1, pw, dx)  # gx = px + pw * dx
     gy = torch.addcmul(py, 1, ph, dy)  # gy = py + ph * dy
+    
     x1 = gx - gw * 0.5 + 0.5
     y1 = gy - gh * 0.5 + 0.5
     x2 = gx + gw * 0.5 - 0.5
@@ -624,7 +642,11 @@ def delta2bbox(rois,
         y2 = y2.clamp(min=0, max=max_shape[0] - 1)
     bboxes = torch.stack([x1, y1, x2, y2], dim=-1).view_as(deltas)
     return bboxes
-    
+
+if __name__ == '__main__':
+    test_bb2dt = True
+    if test_bb2dt:
+        delta2bbox()
 
 # %%
 """Q. 从assigner/sampler得到正样本的anchors后，最终如何生成anchor targets?
@@ -951,31 +973,34 @@ def nms(proposals, iou_thr, device_id=None):
         index = index[idx+1]   # because index start from 1       
     return keep
 
-# 验证：    
-bboxes=np.array([[100,100,210,210,0.72],
-                [250,250,420,420,0.8],
-                [220,220,320,330,0.92],
-                [100,100,210,210,0.72],
-                [230,240,325,330,0.81],
-                [220,230,315,340,0.9]]) 
-keep = nms(bboxes, 0.7)
-# 绘图：
-import matplotlib.pyplot as plt
-def plot_bbox(dets, c='k', title=None):
-    x1 = dets[:,0]
-    y1 = dets[:,1]
-    x2 = dets[:,2]
-    y2 = dets[:,3]    
-    plt.plot([x1,x2], [y1,y1], c)
-    plt.plot([x1,x1], [y1,y2], c)
-    plt.plot([x1,x2], [y2,y2], c)
-    plt.plot([x2,x2], [y1,y2], c)
-    plt.title(title)
-plt.subplot(121)
-plot_bbox(bboxes,'gray','before nms')   # before nms
-plt.subplot(122)
-plot_bbox(bboxes,'gray')   # before nms
-plot_bbox(bboxes[keep], 'red','after nms')# after nms
+if __name__=='__main__':
+    test_nms = False
+    if test_nms:
+        # 验证：    
+        bboxes=np.array([[100,100,210,210,0.72],
+                        [250,250,420,420,0.8],
+                        [220,220,320,330,0.92],
+                        [100,100,210,210,0.72],
+                        [230,240,325,330,0.81],
+                        [220,230,315,340,0.9]]) 
+        keep = nms(bboxes, 0.7)
+        # 绘图：
+        import matplotlib.pyplot as plt
+        def plot_bbox(dets, c='k', title=None):
+            x1 = dets[:,0]
+            y1 = dets[:,1]
+            x2 = dets[:,2]
+            y2 = dets[:,3]    
+            plt.plot([x1,x2], [y1,y1], c)
+            plt.plot([x1,x1], [y1,y2], c)
+            plt.plot([x1,x2], [y2,y2], c)
+            plt.plot([x2,x2], [y1,y2], c)
+            plt.title(title)
+        plt.subplot(121)
+        plot_bbox(bboxes,'gray','before nms')   # before nms
+        plt.subplot(122)
+        plot_bbox(bboxes,'gray')   # before nms
+        plot_bbox(bboxes[keep], 'red','after nms')# after nms
 
 
 # %%
@@ -1029,31 +1054,34 @@ def soft_nms(box_scores, score_threshold, sigma=0.5, top_k=-1):
     else:
         return torch.tensor([])
 
-# 验证：    
-bboxes=np.array([[100,100,210,210,0.72],
-                [250,250,420,420,0.8],
-                [220,220,320,330,0.92],
-                [100,100,210,210,0.72],
-                [230,240,325,330,0.81],
-                [220,230,315,340,0.9]]) 
-keep = soft_nms(bboxes, 0.7)
-# 绘图：
-import matplotlib.pyplot as plt
-def plot_bbox(dets, c='k', title=None):
-    x1 = dets[:,0]
-    y1 = dets[:,1]
-    x2 = dets[:,2]
-    y2 = dets[:,3]    
-    plt.plot([x1,x2], [y1,y1], c)
-    plt.plot([x1,x1], [y1,y2], c)
-    plt.plot([x1,x2], [y2,y2], c)
-    plt.plot([x2,x2], [y1,y2], c)
-    plt.title(title)
-plt.subplot(121)
-plot_bbox(bboxes,'gray','before nms')   # before nms
-plt.subplot(122)
-plot_bbox(bboxes,'gray')   # before nms
-plot_bbox(bboxes[keep], 'red','after nms')# after nms
+if __name__=='__main__':
+    test_soft_nms = False
+    if test_soft_nms:
+        # 验证：    
+        bboxes=np.array([[100,100,210,210,0.72],
+                        [250,250,420,420,0.8],
+                        [220,220,320,330,0.92],
+                        [100,100,210,210,0.72],
+                        [230,240,325,330,0.81],
+                        [220,230,315,340,0.9]]) 
+        keep = soft_nms(bboxes, 0.7)
+        # 绘图：
+        import matplotlib.pyplot as plt
+        def plot_bbox(dets, c='k', title=None):
+            x1 = dets[:,0]
+            y1 = dets[:,1]
+            x2 = dets[:,2]
+            y2 = dets[:,3]    
+            plt.plot([x1,x2], [y1,y1], c)
+            plt.plot([x1,x1], [y1,y2], c)
+            plt.plot([x1,x2], [y2,y2], c)
+            plt.plot([x2,x2], [y1,y2], c)
+            plt.title(title)
+        plt.subplot(121)
+        plot_bbox(bboxes,'gray','before nms')   # before nms
+        plt.subplot(122)
+        plot_bbox(bboxes,'gray')   # before nms
+        plot_bbox(bboxes[keep], 'red','after nms')# after nms
 
 
 
@@ -1187,9 +1215,23 @@ def load_checkpoint_mine(model, filename, map_location=None, strict=False, logge
 
 # %% 
 """Q. 在测试模式下，模型如何计算？
+整个流程跟forward很像，但forward得到cls_score/bbox_pred后就进行loss计算了，
+而test计算是在得到cls_score/bbox_pred之后进行进一步转换：
+1. 分类：cls_score(2000,81)，先对每行进行求和归一化然后送入softmax转换成概率scores(2000,81)
+2. 回归：bbox_pred(2000,4*81), 把bbox_pred作为delta转换为x/y
 """
-
-
+def get_test_result():
+    """测试模拟在获得cls_score/bbox_pred之后的处理过程
+    """
+    # 分类处理
+    
+    # 回归处理
+    
+    # nms
+    
+    # result获得
+    result = []
+    return result
 
 
 
@@ -1207,7 +1249,7 @@ from mmcv.runner import load_checkpoint
 from mmdet.datasets.transforms import ImageTransform
 from mmdet.core import get_classes
 import numpy as np
-from B03_dataset_transform import imshow_bboxes_labels, vis_bbox
+from B03_dataset_transform import vis_bbox
 
 def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
     """测试单张图片：相当于恢复模型和参数后进行单次前向计算得到结果
@@ -1228,6 +1270,7 @@ def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
     model = build_detector(cfg.model, test_cfg = cfg.test_cfg)
     _ = load_checkpoint(model, path)
     model = model.to(device)
+    model.eval()             # 千万别忘了这句，否则虽能出结果但少了很多
     # 3. 图形/数据变换
     img = cv2.imread(img_path)
     img_transform = ImageTransform(size_divisor = cfg.data.test.size_divisor,
@@ -1235,7 +1278,7 @@ def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
     # 5. 数据包准备
     ori_shape = img.shape
     img, img_shape, pad_shape, scale_factor = img_transform(img, scale= cfg.data.test.img_scale)
-    img = torch.tensor(img).to(device).unsqueeze(0)
+    img = torch.tensor(img).to(device).unsqueeze(0) # 应该从(3,800,1216) to tensor(1,3,800,1216)
     
     img_meta = [dict(ori_shape=ori_shape,
                      img_shape=img_shape,
@@ -1244,7 +1287,10 @@ def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
                      flip=False)]
 
     data = dict(img=[img], img_meta=[img_meta])
-    # 6. 结果计算
+    # 6. 结果计算: result(a list with )
+    # 进入detector模型的forward_test(),从中再调用simple_test(),从中再调用RPNTestMixin类的simple_test_rpn()方法
+    # 测试过程：先前向计算得到rpn head的输出，然后在rpn head中基于该输出计算proposal_list(一张图(2000,5))
+    
     with torch.no_grad():
         result = model(return_loss=False, rescale=True, **data)
     # 7. 结果显示
@@ -1254,10 +1300,10 @@ def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
     labels = np.concatenate(labels)
     bboxes = np.vstack(result)
     scores = bboxes[:,-1]
-    img = cv2.imread(img_path)
+    img = cv2.imread(img_path, 1)
     
 
-    vis_bbox(img.copy(), bboxes, label=labels, score=scores, score_thr=0.5, 
+    vis_bbox(img.copy(), bboxes, label=labels, score=scores, score_thr=0.7, 
              label_names=class_names,
              instance_colors=None, alpha=1., linewidth=1.5, ax=None)
     
@@ -1265,7 +1311,7 @@ def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
 if __name__ == "__main__":     
     test_this_img = True
     if test_this_img:
-        img_path = 'test/test_data/test11.jpg'    
+        img_path = 'test/test_data/test13.jpg'    
         config_file = 'test/test_data/cfg_fasterrcnn_r50_fpn_coco.py'
         class_name = 'coco'
         test_img(img_path, config_file, class_name=class_name)
@@ -1415,15 +1461,38 @@ if __name__ == '__main__':
 
 # %%
 """Q. 如何计算训练的均值平均精度mAP和召回率recall
-1. mAP用来评估
-   recall用来评估
-2. TP/FP/FN的概念：
-    >TP(true positive)真阳性，是指真实标注框被检测出来
-    >FP(false postive)假阳性，是指假标注框被检测出来
-    >FN(false negative)假阴性，是指真实标注框没有被检测到
-3. mAP = TP/(TP+FP)也就是真阳性在所有检测出来的阳性中的占比
-   recall = TP/(TP+FN)也就是
+参考：https://blog.csdn.net/wangzhiqing3/article/details/9058523
+1. TP/FP/FN的概念：
+    >TP(true positive)真阳性，是指模型检测为正，gt确实为正
+    >FP(false postive)假阳性，是指模型检测为正，gt但是为负
+    >TN(true negative)真阴性，是指模型检测为负，gt确实为负
+    >FN(false negative)假阴性，是指模型检测为负，gt但是为正
+
+2. 准确率Accuracy: 
+    Accuracy = (TP + TN) / (TP+FP+TN+FN)
+    
+3. 精确率Precision: 正样本预测正确率在预测出来的正样本中比率，侧重在自己追求成功率(所以也称查准率) 
+    Precision = TP / (TP + FP)
+   但如果对于detection这类样本天然不平衡的应用，准确率就失效了，只能用精确率。
+   比如背景样本本来就很多，分类器只需要预测所有样本都是背景，准确率就上去了，
+   此时只有用精确率来评估是合理的。
+
+4. 召回率Recall: 正样本预测正确率在所有正样本中比率，侧重在追求完成整个任务(所以也称查全率)
+    Recall = TP / (TP + FN)
+
+注意：以上Precise/Recall是两个相互影响的指标，一个高另一个就会变低。
+所以就有PR曲线来显示两者此消彼长的关系。
+在疾病检测要的是准确性，所以看中precision，而做搜索要得是全面获得，更看中召回率。
+
+5. 由于precision和recall都有单点值局限性，所以提出mAP来反映全局性能的指标。
+均值平均精度mAP：
+
 """
+
+
+
+
+
 
 # %%
 """Q. 如何实施视频物体检测？
@@ -1495,29 +1564,31 @@ def cv2_demo(net, transform):
         cv2.imshow('frame', frame)
         if key == 27:  # exit
             break
-
-import sys
-from os import path
-sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
-from data import BaseTransform, VOC_CLASSES as labelmap
-from ssd import build_ssd
-
-net = build_ssd('test', 300, 21)    # initialize SSD
-net.load_state_dict(torch.load(args.weights))
-transform = BaseTransform(net.size, (104/256.0, 117/256.0, 123/256.0))
-
-fps = FPS().start()
-cv2_demo(net.eval(), transform)
-# stop the timer and display FPS information
-fps.stop()
-
-print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
-print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
-
-# cleanup
-cv2.destroyAllWindows()
-stream.stop()
+if __name__ == "__main__":     
+    test_video_detect = True
+    if test_video_detect:
+        import sys
+        from os import path
+        sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+        
+        from data import BaseTransform, VOC_CLASSES as labelmap
+        from ssd import build_ssd
+        
+        net = build_ssd('test', 300, 21)    # initialize SSD
+        net.load_state_dict(torch.load(args.weights))
+        transform = BaseTransform(net.size, (104/256.0, 117/256.0, 123/256.0))
+        
+        fps = FPS().start()
+        cv2_demo(net.eval(), transform)
+        # stop the timer and display FPS information
+        fps.stop()
+        
+        print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+        print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
+        
+        # cleanup
+        cv2.destroyAllWindows()
+        stream.stop()
 
 
 # %%

@@ -353,6 +353,9 @@ json本质上其实是把所有数据转成了str存放，并且转成str过程�
 
 4. json.load(f)是从文件中读入json数据并解码为python数据
 
+重要概念： json文件支持的存入数据格式是python的格式，不支持numpy的ndarray，即使嵌套在list里边也不行。
+所以如果要存ndarray就需要先把ndarray转换成lsit: data.tolist()
+
 以下是相关子程序(来自mmdetection的JsonHandler)
     def load_from_fileobj(self, file):
         return json.load(file)
@@ -364,6 +367,7 @@ json本质上其实是把所有数据转成了str存放，并且转成str过程�
         return json.dumps(obj, **kwargs)
 """
 import json
+import numpy as np
 data = dict(a=1,b=2,c=3,d=4,e=5)
 obj = json.dumps(data)
 type(obj)
@@ -386,11 +390,51 @@ json.dumps(data)
 data = None
 json.dumps(data)
 
+data = np.array([[1,2],[3,4]])
+json.dumps(data)           # 报错
+json.dumps(data.tolist())  # ok
+
+
+
 data = dict(a=1,b=2,c=3,d=4,e=5)
-#with open('test/test_data/test.json','w') as f:  # 打开文件，如果该文件不存在则先创建
-#    json.dump(data, f)
-json.dump()
+with open('test/test_data/test111.json','w') as f:  # 打开文件，如果该文件不存在则先创建
+    json.dump(data, f)
 
 
+# %%
+"""----------------------------------------------------------------------
+Q. 如何读写pkl文件
+pkl文件是利用python的cPickle库支持的一种文件，导入方式是import cPickle as pickle
+(cPickle跟Pickle的区别：Pickle是用python写的，而cPickle是用c写的，速度比Pickle快很多倍)
+1. pickle.load(f)
+2. pickle.dump
+
+    def load_from_fileobj(self, file, **kwargs):
+        return pickle.load(file, **kwargs)
+
+    def load_from_path(self, filepath, **kwargs):
+        return super(PickleHandler, self).load_from_path(
+            filepath, mode='rb', **kwargs)
+
+    def dump_to_str(self, obj, **kwargs):
+        kwargs.setdefault('protocol', 2)
+        return pickle.dumps(obj, **kwargs)
+
+    def dump_to_fileobj(self, obj, file, **kwargs):
+        kwargs.setdefault('protocol', 2)
+        pickle.dump(obj, file, **kwargs)
+
+    def dump_to_path(self, obj, filepath, **kwargs):
+        super(PickleHandler, self).dump_to_path(
+            obj, filepath, mode='wb', **kwargs)
+
+"""
+#from six.moves import cPickle as pickle  # 这条是mmdetection导入cPickle的方法，区别？
+import cPickle as pickle
+
+pickle.dumps(data)
+
+with open()
+    pickle.dump(data, f)
 
 

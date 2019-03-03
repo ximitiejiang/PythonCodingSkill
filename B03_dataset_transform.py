@@ -189,7 +189,8 @@ def vis_bbox(img, bbox, label=None, score=None, score_thr=0, label_names=None,
             ax.text(bb[0], bb[1],
                     ': '.join(caption),
                     style='italic',
-                    bbox={'facecolor': 'white', 'alpha': 0.2, 'pad': 1}) 
+                    color = 'b',  # 默认是黑色，这里设为blue
+                    bbox={'facecolor': 'white', 'alpha': 0.3, 'pad': 1}) 
                     #文字底色：白色，透明度0.2，边空1
     return ax
 
@@ -464,12 +465,12 @@ class CocoDataset(Dataset):
         (1) 创建coco对象：
             coco = COCO(ann_file)
         (2) 获得：
-            coco.getCatIds(): 获得所有分类
-            coco.getImgIds(): 
-            coco.getAnnIds(): 
+            coco.getCatIds(): 获得所有分类Ids, 这个Ids跟80个分类字符串一一对应，从0开始但不是连续的
+            coco.getImgIds(): 获得所有图片Ids，每个图片id为一串6位数字
+            coco.getAnnIds(): 通过输入imgId获得对应AnnId
         (3) 加载：
-            coco.loadImgs(img_id)
-            coco.loadAnns(ann_id)
+            coco.loadImgs(img_id): 通过输入img_id获得img_info
+            coco.loadAnns(ann_id): 通过输入ann_id获得ann_info
     Args:
         ann_file(list): ['ann1', 'ann2'..] 代表图片名检索文件，可以包含1-n个数据源的不同检索文件
         img_prefix(list): 代表检索文件名的前缀，前缀+检索文件名 = 完整文件名    
