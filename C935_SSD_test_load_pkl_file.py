@@ -18,6 +18,8 @@ import mmcv
 
 def evaluation(result_file_path):
     """基于已经生成好的pkl模型预测文件，进行相关操作
+    1. 跟numpy version是否有关：mac为1.14.2（numpy.version.version）
+    2. 是否换一种文件格式，不用pkl格式
     """
     pass
 
