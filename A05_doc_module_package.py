@@ -17,7 +17,8 @@ with open() as f 是一个良好的打开文档的习惯，会自动关闭文档
     - f.readline() 读取1行
     - f.readlines() 读入所有行
 
-- 读取模式：r(read), w(write), a(apend), 配合b(binary), t(txt), +(read+write)
+- 读取模式：r(read), w(write), a(apend), 
+       配合b(binary), t(txt), +(read+write)
     r: 只能读，文件不存在就报错
     r+: 可读可写，文件不存在就报错，覆盖模式
     
@@ -343,7 +344,7 @@ bboxes = np.array(bboxes, ndmin=2) - 1
 """-------------------------------------------------------------------------
 Q. 如何读写json文件？
 json本质上其实是把所有数据转成了str存放，并且转成str过程中对部分数据还做了调整(比如True变成true)
-针对json的核心指令主要就是4条：json.load(), json.dump(), json.dumps()
+针对json的核心指令主要就是4条：json.load(), json.loads(), json.dump(), json.dumps()
 1. json.dumps(data, sort_keys=False, indent=4)是对数据进行编码，形成json格式的数据
     字典转化为json就是一个'dict'，形式上其实一样。可以对key排序，输出显示缩进字符数
 2. json.loads(obj, encoding='unicode')是对json数据进行解码，形成python格式的数据
@@ -404,10 +405,24 @@ with open('test/test_data/test111.json','w') as f:  # 打开文件，如果该�
 # %%
 """----------------------------------------------------------------------
 Q. 如何读写pkl文件
-pkl文件是利用python的cPickle库支持的一种文件，导入方式是import cPickle as pickle
-(cPickle跟Pickle的区别：Pickle是用python写的，而cPickle是用c写的，速度比Pickle快很多倍)
+pkl文件是利用python的cPickle库支持的一种文件，内容会变成序列化的乱码值。
+导入方式是import cPickle as pickle
+
+pickle对比json:
+    1. pickle功能更强，可以序列化数据，函数，类等等，但只在python中使用，不被别的认可。且只能以binary的模式读写
+    2. json只能序列化基本数据类型，但可以在别的数据之间通用转换。是以str的模式读写
+
+注意cPickle, Pickle, six.moves的区别：
+1. cPickle是c代码写成，Pickle是python写成，相比之下cPickle更快
+2. cPickle只在python2中存在，python3中换成_pickle了
+3. six这个包是用来兼容python2/python3的，这应该是six的由来(是2与3的公倍数)
+   six包里边集成了有冲突的一些包，所以可以从里边导入cPickle这个在python3已经取消的包
+
+基本命令：
 1. pickle.load(f)
-2. pickle.dump
+2. pickle.dump(f)
+3. result = pickle.dumps(data)
+4. ori = pickle.loads(result)
 
     def load_from_fileobj(self, file, **kwargs):
         return pickle.load(file, **kwargs)
@@ -429,12 +444,26 @@ pkl文件是利用python的cPickle库支持的一种文件，导入方式是impo
             obj, filepath, mode='wb', **kwargs)
 
 """
-#from six.moves import cPickle as pickle  # 这条是mmdetection导入cPickle的方法，区别？
-import cPickle as pickle
+from six.moves import cPickle as pickle
 
-pickle.dumps(data)
+# 转换pkl格式变量
+data = dict(a=1,b=2)
+result = pickle.dumps(data)   # python数据转pkl数据
+ori =  pickle.loads(result)   # pkl数据转python数据
 
-with open()
-    pickle.dump(data, f)
+# 读取写入pkl文件
+data = dict(a=1, b=2)
+with open('test_pkl.pkl', 'wb') as f:
+    pickle.dump(data, f)   # 必须要用带b的模式写入
+    
+with open('test_pkl.pkl', 'rb') as f:
+    data2 = pickle.load(f)   # 必须要用带b的模式读入
 
-
+with open('results.pkl', 'rb') as f:
+    data3 = pickle.load(f)   # 报错：ModuleNotFoundError: No module named 'numpy.core._multiarray_umath'
+                             # 应该是原始pkl文件保存的numpy版本比目标电脑的numpy版本高(mac的是1.14.1)
+                             
+                             
+                             
+                             
+                             

@@ -5,8 +5,10 @@ Created on Sun Mar  3 17:29:43 2019
 
 @author: ubuntu
 """
-#from six.moves import cPickle as pickle
-import _pickle as pickle
+from six.moves import cPickle as pickle
+import numpy as np
+import mmcv
+#import _pickle as pickle
 """注意cPickle, Pickle, six.moves的区别：
 1. cPickle是c代码写成，Pickle是python写成，相比之下cPickle更快
 2. cPickle只在python2中存在，python3中换成_pickle了
@@ -23,9 +25,15 @@ if __name__=='__main__':
     eval_with_pkl_file = True
     # 打开pkl获得数据
     if eval_with_pkl_file:
-        result_file_path = 'dataset_eval_result/results.pkl'
-        with open(result_file_path, 'r') as f:
+#        result_file_path = 'dataset_eval_result/results.pkl'
+#        result_file_path = 'data/VOCdevkit_mac/results.pkl'
+        
+        with open('data/VOCdevkit_mac/results.pkl', 'rb') as f:
             results = pickle.load(f)
+        
+#        if mmcv.is_str(result_file_path):
+#            assert result_file_path.endswith('.pkl')
+#            results = mmcv.load(result_file_path)
     # 调用coco_eval()即结束(内部再调用fast_eval_recall(result_file, coco, max_dets))
     # 内部再调用eval_recalls()
     # 
@@ -35,4 +43,5 @@ if __name__=='__main__':
         所以proposal[0][0]就是第0张图的第0个类的预测结果，每个类的预测结果为(n, 5)
     proposal_nums(ndarray) ：默认为[100,300,1000]
     """
+    
     
