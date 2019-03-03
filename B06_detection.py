@@ -1384,10 +1384,13 @@ def main():
             _data_func,
             range(cfg.gpus),
             workers_per_gpu=cfg.proc_per_gpu)
-
+    # debug
+    out_file = 'test1.json'
+    outputs = dict(a=1,b=2,c=3)
     if out_file:
         print('writing results to {}'.format(out_file))  
-        mmcv.dump(outputs, out_file)  # 先把模型的测试结果输出到文件中
+        mmcv.dump(outputs, out_file)  # 先把模型的测试结果输出到文件中: 如果文件不存在会创建
+        
         eval_types = eval_type
         if eval_types:
             print('Starting evaluate {}'.format(' and '.join(eval_types)))
