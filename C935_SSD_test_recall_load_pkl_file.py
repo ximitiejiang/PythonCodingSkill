@@ -10,8 +10,9 @@ Created on Sun Mar  3 17:29:43 2019
 1. coco数据集的评估从官网上看需要评估12个参数如下：
 参考：https://www.jianshu.com/p/d7a06a720a2b (非常详细介绍了两大数据集检测竞赛的评价方法包括源码)
 参考：https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/cocoeval.py (coco官网的eval代码)
-注意：coco并不区分AP和mAP，以及AR和mAR，一般都是指mAP(均值平均精度)即所有类别的平均精度
-并且AP是coco最核心的一个指标，AP高的取胜。
+注意：coco并不区分AP和mAP，以及AR和mAR，一般都是指mAP(均值平均精度)即所有类别的平均精度,并且AP是coco最核心的一个指标，AP高的取胜。
+所以coco最常用mAP@IoU=0.5:0.95
+
 (AP)Average Precision
     AP              # 在iou = [0.5,0.95,0.05]范围内的平均AP
     AP IoU=0.5      # 在iou = 0.5的平均AP(这也是voc的要求)
@@ -31,7 +32,9 @@ Created on Sun Mar  3 17:29:43 2019
     AR large        # 大目标的召回率
 
 2. voc的评价方法虽然也是box AP为主，但计算方法稍有不同：
-AP专指IoU=0.5时
+voc不像coco是把从0.5:0.95的10个阈值算出来的AP进行平均，高iou阈值的AP肯定导致精度下降，因此voc方式算出来mAP远比coco方式高
+所以voc最常用mAP@IoU=0.5
+
 """
 from six.moves import cPickle as pickle
 import numpy as np
