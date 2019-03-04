@@ -168,7 +168,7 @@ def vis_bbox(img, bbox, label=None, score=None, score_thr=0, label_names=None,
         instance_colors[:, 0] = 255
     instance_colors = np.array(instance_colors)
 
-    for i, bb in enumerate(bbox):        
+    for i, bb in enumerate(bbox):        # xyxy to xywh
         xy = (bb[0], bb[1])
         height = bb[3] - bb[1]
         width = bb[2] - bb[0]

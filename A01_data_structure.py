@@ -34,6 +34,33 @@ lst.extend([1,2])   # 在末尾添加n个元素
 lst.insert(-1,[1,2])  # 在index位置添加一个元素
 
 
+"""-----------------------------------------------------------------------
+Q. 如何进行简洁的numpy数组创建
+注意：只有如下2种情况参数是用tuple或者list传进去
+1. np.ones((m,n)),np.zeros((m,n))这一类：是把size放在tuple传进去
+    注意：np.random.rand()这类的size是直接传，而不是tuple，并且在pytorch中也把ones/zeros这层括号去掉了。
+    说明numpy的这部分函数有点反直觉反人性
+2. np.stack([a,b]), np.concatenate([a,b])这一类：是把多个array放在一个list传进去，所以是用[arr1,arr2..]
+"""
+import numpy as np
+# 要加括号的 
+a = np.array([[1,2],[3,4]])
+np.zeros((2,3))
+np.ones((2,3))
+np.empty((2,3))
+
+np.zeros_like(a)
+np.ones_like(a)
+np.empty_like(a)
+
+# 不要加括号的：其他大部分都不用加了，包括random和pytorch里边所有的
+np.random.rand(2,3)
+np.random.randn(2,3)
+
+# range的加强版：np.arange直接生成array
+np.arange(0,10,2)   # (0,10)之间，间隔2
+np.linspace(0,10,7) # (0,10)之间，取7个数
+
 '''
 Q. list/tuple的相加和相乘的效果？
 - __add__重载运算符

@@ -395,8 +395,7 @@ data = np.array([[1,2],[3,4]])
 json.dumps(data)           # 报错
 json.dumps(data.tolist())  # ok
 
-
-
+# 读取和保存到文件
 data = dict(a=1,b=2,c=3,d=4,e=5)
 with open('test/test_data/test111.json','w') as f:  # 打开文件，如果该文件不存在则先创建
     json.dump(data, f)
@@ -409,8 +408,9 @@ pkl文件是利用python的cPickle库支持的一种文件，内容会变成序�
 导入方式是import cPickle as pickle
 
 pickle对比json:
-    1. pickle功能更强，可以序列化数据，函数，类等等，但只在python中使用，不被别的认可。且只能以binary的模式读写
-    2. json只能序列化基本数据类型，但可以在别的数据之间通用转换。是以str的模式读写
+    1. pickle功能更强，可以序列化数据，函数，类等等，但只在python中使用，不被别的认可。且只能以binary(wb/rb)的模式读写
+    2. json只能序列化基本数据类型(连numpy都不支持)，但可以在别的数据之间通用转换。是以str的模式读写
+    所以多数情况下，用pickle更多也更方便(不用考虑数据格式)，很少用json，除非要跟别的程序做数据交换
 
 注意cPickle, Pickle, six.moves的区别：
 1. cPickle是c代码写成，Pickle是python写成，相比之下cPickle更快
@@ -462,7 +462,10 @@ with open('test_pkl.pkl', 'rb') as f:
 with open('results.pkl', 'rb') as f:
     data3 = pickle.load(f)   # 报错：ModuleNotFoundError: No module named 'numpy.core._multiarray_umath'
                              # 应该是原始pkl文件保存的numpy版本比目标电脑的numpy版本高(mac的是1.14.1)
-                             
+
+# 还有pickle的常用用法用来保存变量: 可在命令行直接输入
+f = open('test.pkl', 'wb')  # 注意必须用b的模式
+pickle.dump(data, f)                             
                              
                              
                              

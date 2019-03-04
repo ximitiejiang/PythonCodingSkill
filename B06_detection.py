@@ -1461,7 +1461,8 @@ if __name__ == '__main__':
 
 # %%
 """Q. 如何计算训练的均值平均精度mAP和召回率recall
-参考：https://blog.csdn.net/wangzhiqing3/article/details/9058523
+参考：https://blog.csdn.net/hysteric314/article/details/54093734 (浅显的计算实例recall/precision)
+参考：https://blog.csdn.net/l7H9JA4/article/details/80745028 (完整描述AP/mAP的由来)
 1. TP/FP/FN的概念：
     >TP(true positive)真阳性，是指模型检测为正，gt确实为正
     >FP(false postive)假阳性，是指模型检测为正，gt但是为负
@@ -1471,21 +1472,34 @@ if __name__ == '__main__':
 2. 准确率Accuracy: 
     Accuracy = (TP + TN) / (TP+FP+TN+FN)
     
-3. 精确率Precision: 正样本预测正确率在预测出来的正样本中比率，侧重在自己追求成功率(所以也称查准率) 
+3. 精确率Precision: (理解为一把抓到多少只真猫)正样本预测正确率在预测出来的正样本中比率，侧重在自己追求成功率(所以也称查准率)，
+   相当于"10只预测"找到3只真猫, 0.3的精度只用了10次预测 
     Precision = TP / (TP + FP)
-   但如果对于detection这类样本天然不平衡的应用，准确率就失效了，只能用精确率。
-   比如背景样本本来就很多，分类器只需要预测所有样本都是背景，准确率就上去了，
-   此时只有用精确率来评估是合理的。
+   又包含两个子概念：来源于pascal voc (http://homepages.inf.ed.ac.uk/ckiw/postscript/ijcv_voc09.pdf 第4.2章节)
+       >AP: 平均精度，可以总结PR曲线，是指
+       >mAP: 均值平均精度
 
-4. 召回率Recall: 正样本预测正确率在所有正样本中比率，侧重在追求完成整个任务(所以也称查全率)
+4. 召回率Recall: (理解为真猫召回recall多少只)正样本预测正确率在所有正样本中比率，侧重在追求完成整个任务(所以也称查全率)，
+   相当于"10只真猫"找到3只真猫， 0.3的recall有可能用了200次预测
     Recall = TP / (TP + FN)
 
-注意：以上Precise/Recall是两个相互影响的指标，一个高另一个就会变低。
+注意1： 准确率指标如果对于detection这类样本天然不平衡的应用，准确率就失效了，只能用精确率。
+比如背景样本本来就很多，分类器只需要预测所有样本都是背景，准确率就上去了，此时只有用精确率来评估是合理的。
+而recall/precision都能够针对单一正样本，所以都适合用在不平衡样本的任务上，也就有了P-R曲线。
+
+注意2：以上Precise/Recall是两个相互影响的指标，一个高另一个就会变低。
 所以就有PR曲线来显示两者此消彼长的关系。
 在疾病检测要的是准确性，所以看中precision，而做搜索要得是全面获得，更看中召回率。
 
 5. 由于precision和recall都有单点值局限性，所以提出mAP来反映全局性能的指标。
 均值平均精度mAP：
+
+常规计算过程
+1. 先计算iou，然后假定iou>iou_thr(比如0.5)为正样本TP(这里0.5是pascal voc的指标，而coco是建议对不同iou分别进行计算)
+从而也能得到FP(错误检测认为是正样本), 基于TP,FP,FN计算precision和recall
+2. pascal voc定义从[0,0.1,0.2,...1]共计11个置信度阈值，在每个置信度阈值之上计算precision, 然后取11个平均值就是mAP
+但上面是2007 voc的mAP方法，在2010后改为采用所有数据点而不是11个置信度阈值点计算AP, 然后所有类别平均值就是mAP
+3. 
 
 """
 
