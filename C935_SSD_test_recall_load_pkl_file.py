@@ -49,8 +49,7 @@ from B03_dataset_transform import vis_bbox
 
 def evaluation(result_file_path):
     """基于已经生成好的pkl模型预测文件，进行相关操作
-    1. 跟numpy version是否有关：mac为1.14.2（numpy.version.version)，而ubuntu的numpy是1.16.0
-    2. 是否换一种文件格式，不用pkl格式
+    1. 跟numpy version有关：mac为1.14.2（numpy.version.version)，而ubuntu的numpy是1.16.0
     """
     pass
 
@@ -101,35 +100,46 @@ def bbox_overlaps(bboxes1, bboxes2, mode='iou'):
         ious = ious.T
     return ious
 
+
 def _recalls(all_ious, proposal_nums, thrs):
-
+    """计算召回率recalls: 
+    计算过程：先计算所有图片中gt_bbox跟proposals的ious,
+    在1种topk(比如top100个proposal)情况下，找到10个iou阀值下所有类别recall的平均值
+    Args:
+        all_ious(array): (k,m,n) k张图，m个gt, n个proposals
+        proposal_nums(array): [100,300,1000]代表取前100/300/1000个proposals 
+        thrs(array): [0.50,0.55,0.60,...0.95]共10个iou阈值等级
+    Return:
+        recalls(): (3,10)
+    """
     img_num = all_ious.shape[0]
-    total_gt_num = sum([ious.shape[0] for ious in all_ious])
+    total_gt_num = sum([ious.shape[0] for ious in all_ious]) 
 
-    _ious = np.zeros((proposal_nums.size, total_gt_num), dtype=np.float32)
-    for k, proposal_num in enumerate(proposal_nums):
+    _ious = np.zeros((proposal_nums.size, total_gt_num), dtype=np.float32) # (3,10)
+    for k, proposal_num in enumerate(proposal_nums): # 外层：3种topk
         tmp_ious = np.zeros(0)
-        for i in range(img_num):
-            ious = all_ious[i][:, :proposal_num].copy()
+        for i in range(img_num): # 中层：n张图片
+            ious = all_ious[i][:, :proposal_num].copy() # 取出第i张图片的ious的前num个(但iou每行都是从大到小排序的吗？)
             gt_ious = np.zeros((ious.shape[0]))
             if ious.size == 0:
                 tmp_ious = np.hstack((tmp_ious, gt_ious))
                 continue
-            for j in range(ious.shape[0]):
-                gt_max_overlaps = ious.argmax(axis=1)
-                max_ious = ious[np.arange(0, ious.shape[0]), gt_max_overlaps]
+            for j in range(ious.shape[0]):  # 内层：每张图片的j个gt bboxes
+                gt_max_overlaps = ious.argmax(axis=1) # 每个gt在该行对应最大iou(第x列)
+                max_ious = ious[np.arange(0, ious.shape[0]), gt_max_overlaps]# 取出每行最大iou值
                 gt_idx = max_ious.argmax()
                 gt_ious[j] = max_ious[gt_idx]
                 box_idx = gt_max_overlaps[gt_idx]
+                
                 ious[gt_idx, :] = -1
                 ious[:, box_idx] = -1
             tmp_ious = np.hstack((tmp_ious, gt_ious))
         _ious[k, :] = tmp_ious
 
     _ious = np.fliplr(np.sort(_ious, axis=1))
-    recalls = np.zeros((proposal_nums.size, thrs.size))
+    recalls = np.zeros((proposal_nums.size, thrs.size)) # (3,10)
     for i, thr in enumerate(thrs):
-        recalls[:, i] = (_ious >= thr).sum(axis=1) / float(total_gt_num)
+        recalls[:, i] = (_ious >= thr).sum(axis=1) / float(total_gt_num) # recall计算
 
     return recalls
 
@@ -187,7 +197,7 @@ def eval_recalls(gts,
             for j in range(len(proposals[i])):
                 if proposals[i][j].size != 0:
                     new_prop.append(proposals[i][j])
-            if len(new_prop) !=0:
+            if len(new_prop) != 0:
                 img_proposal = np.concatenate(new_prop, axis=0)
             else:
                 img_proposal = np.zeros((0,4),dtype=np.float32)
@@ -207,7 +217,7 @@ def eval_recalls(gts,
                                                                       # 也就要求proposal[i]需要是一张图片所有class的总和
         all_ious.append(ious)
     all_ious = np.array(all_ious)
-    recalls = _recalls(all_ious, proposal_nums, iou_thrs)
+    recalls = _recalls(all_ious, proposal_nums, iou_thrs)  # (3,10)
     if print_summary:
         print_recall_summary(recalls, proposal_nums, iou_thrs)
     return recalls
