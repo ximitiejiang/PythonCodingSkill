@@ -4,6 +4,9 @@
 Created on Tue Mar  5 15:10:28 2019
 
 @author: ubuntu
+对config中参数的几个解释：
+1. 数据集归一化参数：对coco是mean=[123.675, 116.28, 103.53], std=[1, 1, 1]
+
 """
 
 # 已修改： 增加../data, 增加gpus=1

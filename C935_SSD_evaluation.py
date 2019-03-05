@@ -258,7 +258,7 @@ def print_recall_summary(recalls,
     print(table.table)
 
 def evaluation(result_file_path, coco_obj, eval_types = ['bbox']):
-    """基于已经生成好的pkl模型预测文件，进行相关操作:
+    """基于已经生成好的pkl或json模型预测结果文件，进行相关操作:
     Args:
         result_file_path(str): .pkl or .pkl.json file
         coco_obj(obj): coco object belong to COCO class
