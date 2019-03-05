@@ -27,7 +27,8 @@ class SSDVGG(VGG):
                  ceil_mode=True,
                  out_indices=(3, 4),
                  out_feature_indices=(22, 34),
-                 l2_norm_scale=20.):
+                 l2_norm_scale=20.,
+                 **kwargs):   # 添加一个**kwargs: 有一个type没地方放，又不想改cfg
         super(SSDVGG, self).__init__(
             depth,
             with_last_pool=with_last_pool,

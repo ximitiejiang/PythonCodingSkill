@@ -5,7 +5,6 @@ Created on Sun Mar  3 17:29:43 2019
 
 @author: ubuntu
 """
-# %%
 """检测器在整个coco数据集上的评估方法？
 1. coco数据集的评估从官网上看需要评估12个参数如下：
 参考：https://www.jianshu.com/p/d7a06a720a2b (非常详细介绍了两大数据集检测竞赛的评价方法包括源码)
@@ -14,22 +13,22 @@ Created on Sun Mar  3 17:29:43 2019
 所以coco最常用mAP@IoU=0.5:0.95
 
 (AP)Average Precision
-    AP              # 在iou = [0.5,0.95,0.05]范围内的平均AP
-    AP IoU=0.5      # 在iou = 0.5的平均AP(这也是voc的要求)
-    AP IoU=0.75     # 在iou = 0.75的平均AP(更严格的要求)
+    AP IoU=0.5:0.95             # 在iou = [0.5,0.95,0.05]范围内的平均AP
+    AP IoU=0.5                  # 在iou = 0.5的平均AP(这也是voc的要求)
+    AP IoU=0.75                 # 在iou = 0.75的平均AP(更严格的要求)
 (AP)Average Precision across scales:
-    AP small        # 小目标的检测AP(area< 32*32), 约41%
-    AP medium       # 中目标的检测AP(32*32<area<96*96), 约34%
-    AP large        # 大目标的检测AP(area> 96*96), 约24%
+    AP IoU=0.5:0.95 small       # 小目标的检测AP(area< 32*32), 约41%
+    AP IoU=0.5:0.95 medium      # 中目标的检测AP(32*32<area<96*96), 约34%
+    AP IoU=0.5:0.95 large       # 大目标的检测AP(area> 96*96), 约24%
     其中面积通过mask像素数量计算
 (AR)Average Recall
-    AR max=1        # 一张图片图片给出最多1个预测
-    AR max=10       # 一张图片图片给出最多10个预测
-    AR max=100      # 一张图片图片给出最多100个预测
+    AR IoU=0.5:0.95 max=1        # 一张图片图片给出最多1个预测
+    AR IoU=0.5:0.95 max=10       # 一张图片图片给出最多10个预测
+    AR IoU=0.5:0.95 max=100      # 一张图片图片给出最多100个预测
 (AR)Average Recall across scales:
-    AR small        # 小目标的召回率
-    AR medium       # 中目标的召回率
-    AR large        # 大目标的召回率
+    AR IoU=0.5:0.95 small        # 小目标的召回率
+    AR IoU=0.5:0.95 medium       # 中目标的召回率
+    AR IoU=0.5:0.95 large        # 大目标的召回率
 
 2. voc的评价方法虽然也是box AP为主，但计算方法稍有不同：
 voc不像coco是把从0.5:0.95的10个阈值算出来的AP进行平均，高iou阈值的AP肯定导致精度下降，因此voc方式算出来mAP远比coco方式高
@@ -37,10 +36,11 @@ voc不像coco是把从0.5:0.95的10个阈值算出来的AP进行平均，高iou�
 
 """
 from six.moves import cPickle as pickle
+import json
 import numpy as np
 from pycocotools.coco import COCO
+from pycocotools.cocoeval import COCOeval
 from terminaltables import AsciiTable
-from B03_dataset_transform import vis_bbox
 
 #import _pickle as pickle
 """注意cPickle, Pickle, six.moves的区别：
@@ -50,11 +50,7 @@ from B03_dataset_transform import vis_bbox
    six包里边集成了有冲突的一些包，所以可以从里边导入cPickle这个在python3已经取消的包
 """
 
-def evaluation(result_file_path):
-    """基于已经生成好的pkl模型预测文件，进行相关操作
-    1. 跟numpy version有关：mac为1.14.2（numpy.version.version)，而ubuntu的numpy是1.16.0
-    """
-    pass
+
 
 def bbox_overlaps(bboxes1, bboxes2, mode='iou'):
     """Calculate the ious between each bbox of bboxes1 and bboxes2.
@@ -246,7 +242,10 @@ def print_recall_summary(recalls,
         row_idxs = np.arange(proposal_nums.size)
     if col_idxs is None:
         col_idxs = np.arange(iou_thrs.size)
-    row_header = [''] + iou_thrs[col_idxs].tolist()
+    row_header=[]
+    for i in range(len(iou_thrs)):
+        row_header.append(round(iou_thrs[i],2))
+    row_header = [''] + row_header
     table_data = [row_header]
     for i, num in enumerate(proposal_nums[row_idxs]):
         row = [
@@ -258,10 +257,15 @@ def print_recall_summary(recalls,
     table = AsciiTable(table_data)
     print(table.table)
 
-
-if __name__=='__main__':
-    eval_with_pkl_file = True
-    """假定result.pkl已经获得则可按如下进行评估，但实际的test forward()计算过程如下
+def evaluation(result_file_path, coco_obj, eval_types = ['bbox']):
+    """基于已经生成好的pkl模型预测文件，进行相关操作:
+    Args:
+        result_file_path(str): .pkl or .pkl.json file
+        coco_obj(obj): coco object belong to COCO class
+        eval_types(list): ['proposal_fast', 'bbox', 'proposal']
+    Return:
+        None
+    假定result.pkl已经获得则可按如下进行评估，但实际的test forward()计算过程如下
     在detector的forward_test()函数中, 内部调用simple_test()
         - 从backbone/neck获得x: 从img(1,3,800, 1216)到x[(1,256,200,304),(1,256,100,152),(1,256,50,76),(1,256,25,38),(1,256,13,39)]
         - 再从RPN head调用simple_test_rpn()
@@ -274,35 +278,23 @@ if __name__=='__main__':
             获得det_bboxes, det_labels = bbox_head.get_det_bboxes()，输出结构(100, 5)和(100,)
          - 最后调用bbox2result()从det_bboxes, det_labels中筛选出results, 结构为[class1, class2, ...]，
            每个class为(n,5)数据，代表预测到的该类的bbox个数和置信度
-         - 对于整个数据集的single_test，一张图片会对应一个result，所以：
-           最终results list长度5000，每个result长度80，每个类读应bbox array(n,5)    
+         - 对于整个数据集的single_test，一张图片会对应一个outputs，所以：
+           最终outputs结构：外层list长5000，中层list分类长80，内层array bbox尺寸(n,5)    
+         - 数据保存：
+             如果是为了做proposal_fast评测(评估AR)，按原样保存outputs变量成pkl文件即可
+             如果是为了做proposal/bbox评测(评测AP)，则需要修改outputs变量成json支持的dict格式保存(json不支持array)
+                 格式修改过程参考results2json()
     """
-    # 打开pkl获得数据
-    if eval_with_pkl_file:
-        # 测试一下gt bboxes的情况
-        f = open('coco_gt_bboxes.pkl','rb') # [array1, ...array5000]共5000张图的gt bboxes(xyxy格式)
-        gtb = pickle.load(f)
-        vis_bbox(None, gtb[0])  # 第一个None表示没有图片，但为什么显示不出来那些gt bboxs?
-        f.close()
-        
-        data_root = 'data/coco/'    # 需要预先把主目录加进sys.path
-        ann_file=[data_root + 'annotations/instances_train2017.json',
-                  data_root + 'annotations/instances_val2017.json']
-        img_prefix=[data_root + 'train2017/', data_root + 'val2017/']
-        
-        eval_types = ['proposal_fast']
-        result_file_path = 'data/coco/results.pkl'
-#        result_file_path = 'data/VOCdevkit_mac/results.pkl'
-        
-        if eval_types:
-            print('Starting evaluate {}'.format(' and '.join(eval_types)))
-            # 如果是快速方案验证，则直接提取pkl文件
-            if eval_types == ['proposal_fast']:
-                result_file = result_file_path
-                with open(result_file_path, 'rb') as f:
-                    results = pickle.load(f)   
-            # 创建coco对象: 基于val数据集
-            coco = COCO(ann_file[1])
+        # 创建coco对象: 基于val数据集
+    coco = coco_obj
+    if eval_types:# 假定数据文件已经处理保存好了(pkl or json)
+        print('Starting evaluate {}'.format(' and '.join(eval_types)))
+        if eval_types == ['proposal_fast']:  # 如果是快速方案验证，则提取对应pkl文件(直接outputs保存，外层list5000,中层list80, 内层array(n,5))
+            result_file = result_file_path
+            with open(result_file_path, 'rb') as f:
+                results = pickle.load(f)   
+
+            # 从coco数据集中提取ann info
             gt_bboxes = []
             img_ids = coco.getImgIds()
             for i in range(len(img_ids)):
@@ -333,15 +325,57 @@ if __name__=='__main__':
                                    results, 
                                    max_dets, 
                                    iou_thrs, 
-                                   print_summary=False)
+                                   print_summary=True)
             avg_recall = recalls.mean(axis=1)       # 计算AR(average recall) (3,10)
             # 显示recall
             for i, num in enumerate(max_dets):
                 print('AR@{}\t= {:.4f}'.format(num, avg_recall[i]))
+        
+        else:  # 如果是coco api的方案验证，则提取对应json文件(转换格式，外层list208750，内层dict('img_id','bbox','score','category'))
+            """cocoEval需参考：https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/cocoeval.py
+            注意：
+            1. coco.loadRes()为加载预测结果文件到coco对象，该预测结果格式必须为json, [dict1,..dictn]每个bbox一个dict
+               每个dict(('img_id','bbox','score','category')
+            2. 把模型输出outputs转换到以上coco认可的格式，需要通过results2json进行转换，可直接从pkl文件进行转换
+            """
+            result_file = result_file_path
+            with open(result_file, 'r') as f:
+                results = json.load(f) 
+            coco_dets = coco.loadRes(result_file) # coco api要求的结果形式：json, 外层list，内层dict
+            img_ids = coco.getImgIds()
+            # 定义iou_type: 在coco中iou_type = ['bbox','segm', 'keypoints']三种选择，物体检测需要选bbox
+            # 区别eval_types: proposals, bbox
+            for res_type in eval_types:
+                if res_type == 'proposal':
+                    iou_type = 'bbox'
+                else:
+                    iou_type = res_type
+                cocoEval = COCOeval(coco, coco_dets, iou_type)
+                cocoEval.params.imgIds = img_ids
+                if res_type == 'proposal':
+                    cocoEval.params.useCats = 0
+                    cocoEval.params.maxDets = list(max_dets)
+                
+                cocoEval.evaluate()     # 对每一张图片分别评估，耗时较长(1)
+                cocoEval.accumulate()   # 
+                cocoEval.summarize()    # 结果中AP@IoU=0.5:0.95为0.364，跟faster rcnn披露出来的box AP一致
 
-            
-            
-            
-            
+
+
+if __name__=='__main__':
+    eval_with_pkl_file = True
+    if eval_with_pkl_file:
+        data_root = 'data/coco/'    # 需要预先把主目录加进sys.path
+        ann_file=[data_root + 'annotations/instances_train2017.json',
+                  data_root + 'annotations/instances_val2017.json']
+        coco = COCO(ann_file[1])  #验证集
+        
+        eval_types = ['bbox']  # 可选择['proposal_fast']或['bbox', 'proposal']
+        result_file_path = 'data/coco/results.pkl.json'  # 可选择pkl文件或者json文件
+        
+        evaluation(result_file_path, coco, eval_types = eval_types)     
+
+        
+
             
     
