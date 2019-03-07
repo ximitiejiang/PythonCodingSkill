@@ -10,11 +10,9 @@ import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-#from mmcv.cnn import (VGG, xavier_init, constant_init, kaiming_init, normal_init)
-from C902_SSD_vgg import VGG
-from models.backbone_support.weight_init import constant_init, normal_init, kaiming_init, xavier_init
-#from mmcv.runner import load_checkpoint  # 原来mmcv的load_checkpoint升级了，所以手改了一个
-from C905_SSD_checkpoint import load_checkpoint
+from vgg import VGG
+from weight_init import constant_init, normal_init, kaiming_init, xavier_init
+from checkpoint import load_checkpoint
 
 class SSDVGG(VGG):
     extra_setting = {
@@ -147,5 +145,6 @@ if __name__=="__main__":
                     l2_norm_scale=20.)
     print(ssdvgg)
     ssdvgg.init_weights(pretrained = 'open-mmlab://vgg16_caffe')  # 新版mmcv中load checkpoint支持下载weights了
+                                                                  # 可以看到加载的state dict只包含vgg本体的，新增的extra layer/l2 norm不包含
     
     

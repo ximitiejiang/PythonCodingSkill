@@ -8,14 +8,15 @@ Created on Tue Mar  5 15:42:09 2019
 
 import logging
 from torch.nn.parallel import DataParallel
-from mmcv import Config
-from mmcv.runner import Runner
+
 import torch.distributed as dist
 from collections import OrderedDict
 import torch
-#from C950_SSD_core import Config
-from C904_SSD_detector import OneStageDetector
-from B03_dataset_transform import VOCDataset, CocoDataset, vis_bbox
+from mmcv.runner import Runner
+
+from utils.config import Config
+from model.one_stage_detector import OneStageDetector
+from dataset import VOCDataset, CocoDataset, vis_bbox
 
 def get_dist_info():
     if dist._initialized:
@@ -89,17 +90,17 @@ def train():
     model = DataParallel(model)
     
     # prepare data & dataloader
-    trainset = CocoDataset(cfg.data.train.dataset.ann_file, )
-    dataloader = []
+    dataset = CocoDataset(cfg.data.train.dataset.ann_file, cfg)
+    dataloader = Dataloader(dataset, batch_size)
     
     # define runner and running type(1.resume, 2.load, 3.train/test)
-    runner = Runner()
+    runner = Runner(model, batch_processor, cfg.optimizer, cfg.work_dir, cfg.log_level)
     if cfg.resume_from:  # 恢复训练
-        runner.resume()
+        runner.resume(cfg.resume_from)
     elif cfg.load_from:  # 加载参数进行测试
-        runner.load_checkpoint()
+        runner.load_checkpoint(cfg.load_from)
     else:                # 从新训练
-        runner.run(dataloader)
+        runner.run(dataloader, cfg.workflow, cfg.total_epochs)
     
     
 if __name__ == '__main__':

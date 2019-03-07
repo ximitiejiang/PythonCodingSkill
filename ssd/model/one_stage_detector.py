@@ -6,8 +6,8 @@ Created on Tue Mar  5 16:05:16 2019
 @author: ubuntu
 """
 import logging
-from C902_SSD_ssdvgg import SSDVGG
-from C903_SSD_head import SSDHead
+from ssdvgg import SSDVGG
+from ssd_head import SSDHead
 import torch.nn as nn
 import numpy as np
 import mmcv
@@ -18,7 +18,7 @@ class OneStageDetector(nn.Module):
     虽然ssd head继承自anchor head但他并没有用来生成rois，所以作为bbox head使用。
     2. 
     """
-    def __init__(self, cfg, pretrained=None):  # 输入参数修改
+    def __init__(self, cfg, pretrained=None):  # 输入参数修改成cfg，同时预训练模型参数网址可用了
         super(OneStageDetector, self).__init__()
         self.backbone = SSDVGG(**cfg.model.backbone)        # 初始化backbone - 参数要导入
         self.bbox_head = SSDHead(**cfg.model.bbox_head)      # 初始化bbox head

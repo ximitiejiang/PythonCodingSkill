@@ -564,19 +564,349 @@ conv = nn.Conv2d(3, 64, 3, stride=1, padding=0, dilation=1, bias=True)  # 除了
 out = conv(d1)
 
 
-'''------------------------------------------------------------------------
-Q. 对checkpoint/state_dict的加载与保存操作如何进行？
+# %%
+'''Q. 对checkpoint/state_dict的加载与保存操作如何进行？
+1. checkpoint是什么：只要是用torch.save()保存的，都可以称为checkpoint
+   state_dict是什么：这是pytorch定义的专指模型参数的一个OrderedDict
+   经常的操作是：定义一个checkpoint数据(比如是一个dict或OrderedDict)，里边保存state_dict(OrderedDict)
+   然后通过keys()筛选关键字'state_dict'而获得真正的state_dict
+
+2. 保存模型参数： torch.save(model, filename), 其中filename是一个str
+   > 常见的约定是采用.pt/.pth作为后缀来保存模型参数
+   > 可以保存tensor, 模型参数，整个模型
+   > 如果要提取出state dict单独保存，需要采用torch.save(model.state_dict(), filename)
+   
+3. 加载模型参数：torch.load(filename, map_location=None), 其中map_location是目标设备={'cuda:0'}
+   > 可以load之前保存的任何东西，比如tensor,模型参数，整个模型
+   > 如果要把保存好的state_dict加载到模型，就需要采用model.load_tate_dict(st_name)
+
+4. checkpoint文件可以是state dict(Ordered Dict), 也可以是添加了其他附加信息的数据
 '''
+# 可以保存tensor
+x1 = torch.tensor([1,2,3])
+torch.save(x1, 'savetorch.pth')
+# 加载tensor
+x2 = torch.load('torchsave.pth')
+
+# 可以保存model
+model = torch.nn.Conv2d(3,64,3,1,1)
+torch.save(model, 'savemodel.pth')
+# 加载model
+new = torch.load('savemodel.pth')
+
+# 可以保存state_dict
+model = torch.nn.Conv2d(3,64,3,1,1)
+torch.save(model.state_dict(), 'saveparam.pth')
+# 加载state dict
+sd = torch.load('saveparam.pth')
+sd.keys()
+sd['weight'].shape
+sd['bias'].shape
+model.load_state_dict(sd)
+
+
 
 # %%
-'''-------------------------------module----------------------------------
-Q. 在深入各个子模型之前，如何跑一个最小系统？
-'''
+"""上面是涉及到继承和重写data parallel模型需要做的事情，但单纯应用data parallel模型？
+data parallel虽然可以使用多gpu加速，但本质上是假的多
+1. data parallel只在gpu操作：所以第一步是检查有多少gpu,如果大于0，就可以应用并行模型
+2. 创建data parallel容器打包model的本质：
+    >会在原有model外边套一个module外壳，通过model.module就可以直接调用里边的原始model
+    >会使参数也增加一个module外壳，通过字典表达式可以去除module外壳
+3. 调试data parallel：初期调试需要设置gpus=1, 这样单步运行才能直接进入module，否则scatter了就没法step in了。
+4. 加载参数给data parallel模型的方法：
+    > 并行模型：加载带有module外壳的参数
+    > 普通模型：加载不带module外壳的参数
+    > 普通模型：带module外壳的参数经过处理后去除module外壳，也可以加载给普通模型
+
+"""
+
+from torch.nn.parallel import DataParallel
+import torch.nn as nn
+
+# 定义dataparallel模型基本操作
+model = pretrained_models(model_name='resnet18', num_classes=cfg.num_classes)
+if torch.cuda.device_count() > 0 and cfg.gpus == 1:   # 单GPU不并行
+    model = model.cuda()
+    
+elif torch.cuda.device_count() > 1 and cfg.gpus > 1:  # 多gpu并行
+    model = DataParallel(model, device_ids=range(cfg.gpus)).cuda()
+
+
+# 对比data parallel模型state dict的区别
+model = nn.Conv2d(3,64,3,1,1)
+model = DataParallel(model, device_ids = [0,1]).cuda()
+print(model)                        # model变成了(module).model
+print(model.module)
+
+torch.save(model.state_dict(), 'saveparam.pth')  # 保存并行模型参数
+st1 = torch.load('saveparam.pth')   # state_dict变成了'module.weight', 'module.bias'
+st1.keys()
+
+torch.save(model.module.state_dict(), 'saveparam2.pth')  # 保存普通模型参数
+st2 = torch.load('saveparam2.pth')
+st2.keys()
+
+# 对data parallel model加载参数
+model.load_state_dict(torch.load('saveparam.pth'))   # 正确：并行模型加载并行参数
+model.module.load_state_dict(torch.load('saveparam2.pth'))  # 正确：普通模型加载普通模型参数
+
+model.load_state_dict(torch.load('saveparam2.pth'))  # 报错：因为并行模型不能装载普通模型参数
+
+if list(st1.keys())[0].startswith('module'):
+    st3 = {key[7:]:value for key, value in st1.items()} # 修改st3的内容，去掉module外壳
+model.module.load_state_dict(st3)
+
 
 
 # %%
-'''-------------------------------module----------------------------------
-Q.在pytorch中model的本质是什么，有哪几种model
+'''Q. 数据集加载的dataloader各个参数如何使用？
+DataLoader(dataset, batch_size=1, shuffle=False, sampler=None, batch_sampler=None,
+           num_works=0, collate_fn=default_collate, pin_memory=false, drop_last=False, 
+           timeout=0, worker_init_fn=None)
+源码在：https://github.com/pytorch/pytorch/blob/master/torch/utils/data/dataloader.py
+关键参数解释：
+1. shuffle: 设置为True时，每个epoch会重新打乱数据集
+2. sampler: 用于定义如何从数据集获取样本，即采样方式
+3. num_workers: 用于定义要多少个子进程来加载数据，默认=0是在主进程加载数据
+4. collate_fn: (collate有整理校对的含义)用于把一系列采样的样本形成一个batch
+5. pin_memory: 用于
+'''
+from ssd.dataset.dataset import VOCDataset
+from torch.utils.data import DataLoader, Sampler
+
+data_root = 'data/VOCdevkit_mac/'  # 如果是mac则增加_mac后缀
+ann_file=[data_root + 'VOC2007/ImageSets/Main/trainval.txt',
+          data_root + 'VOC2012/ImageSets/Main/trainval.txt']
+img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/']
+
+voc07 = VOCDataset(ann_file[0], img_prefix[0])
+voc12 = VOCDataset(ann_file[0], img_prefix[0])
+dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
+classes = voc07.CLASSES
+
+datalader
+
+
+# %%
+"""如何使用 with no_grad()函数，目的是什么？
+"""
+
+
+
+
+
+
+# %%
+'''Q. 如何创建module容器, 以及组合module容器？
+1. 可以用nn.Sequential(*lst), nn.Sequential(), 前者传入的是list解包后的元素，后者传入的是list解包后的OrderedDict()
+    后者可以方便增加名称       - 有实现forward()函数
+2. 可以用nn.Modulelist(list) - 但forward()需要自己分层写
+3. 可以用nn.ModuleDict(dict) - 但forward()需要自己分层写
+(3个容器区别：Sequential是一个完整的带forward的module子类，可直接作为children module。而其他2中ModuleList/ModuleDict适合
+先创建类，实现forward方法，然后在加入到一个主module中作为children module，好处是继承自module可以默认使用module的方法注册module/参数)
+
+4. 组合module容器
+    >可以借用module的方法model.add_module(): 组合后的module作为子模型被加入_modules的字典中作为child_module
+'''
+import torch.nn as nn
+from collections import OrderedDict
+# 方式1: 直接输入每一层进sequential
+model1 = nn.Sequential(nn.Conv2d(2,2,3),
+                       nn.ReLU())
+# 方式2: 先list，再解包
+layers = [nn.Conv2d(1,2,3),nn.ReLU()]
+model2 = nn.Sequential(*layers)
+print(model2)
+
+# 方式3: OrderedDict
+model3 = nn.Sequential(OrderedDict([('conv1',nn.Conv2d(1,2,3)),
+                                   ('re1', nn.ReLU())]))
+print(model3)
+
+# 方式4: OrderedDict的简写
+model4 = nn.Sequential(OrderedDict(conv1=nn.Conv2d(1,2,3),
+                                  re1=nn.ReLU()))
+print(model4)
+
+# 方式5: ModuleList, 配合list的所有方法(append/extend/insert)
+layers = [nn.Conv2d(2,2,3) for i in range(10)]
+model5 = nn.ModuleList(lst)
+print(model5)
+
+# 方式6: ModuleDict，配合dict的所有方法(pop/keys()/values()/update)
+layers = dict(conv1 = nn.Conv2d(2,4,3),
+              conv2 = nn.Conv2d(4,4,3),
+              conv3 = nn.Conv2d(4,2,3))
+model6 = nn.ModuleDict(layers)
+print(model6)
+
+# 基于ModuleList/ModuleDict需要额外实现forward
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        ms = nn.ModuleList([nn.Conv2d(2,2,3) for i in range(5)])
+    def forward(x):
+        for i, m in enumerate(ms):
+            if i // 2==0:
+                x = m(x)
+            else:
+                x = nn.ReLU(m(x))
+        return x
+
+# 添加子模型
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        
+        self.level1 = nn.Sequential(OrderedDict(   # 添加子模型的方式1：直接设置属性
+                conv1 = nn.Conv2d(3,64,3),
+                bn1 = nn.BatchNorm2d(64),
+                relu1 = nn.ReLU()))
+        
+        self.add_module('level2', nn.Sequential(OrderedDict(   # 添加子模型的方式2：add_module()函数，等效于添加属性
+                conv1 = nn.Conv2d(64,64,3),
+                bn1 = nn.BatchNorm2d(64),
+                relu1 = nn.ReLU())))
+        
+    def forward(self,x):
+        x = self.level1(x)
+        x = self.level2(x)
+        return x
+model = Net()
+
+# 以下为了验证2种添加子模型的方式是完全等价，可以查看_modules/named_modules()/...
+print(model)
+print(model._modules.keys())
+names = []
+for name, module in model.named_modules():
+    names.append(name)
+print('total name len:{}'.format(len(names)))  # 输出主模型/子模型/层模型，只有主模型没有名字
+print(names)
+
+
+# %%
+'''Q.如何便捷获取module的属性？
+1. 通过module的3大字典属性_modules, _parameters, _buffers
+2. 通过生成器方法modules(), parameters(), buffers(), children() - 只提供值
+3. 通过生成器方法named_modules(), named_parameters(), name_buffers(), named_children() - 提供(名称,数值)
+方法3使用最方便(因为里边包含了name/param比较全)，而named_children()比named_modules()更方便，因为named_modules()里边模型太完整不方便调用
+'''
+# 单层模型
+import torch.nn as nn
+l1 = nn.Linear(2, 2)
+l1._modules.keys()
+l1._parameters.keys()
+l1._buffers.keys()
+list(l1.named_modules())
+list(l1.named_children())  # 单层没有named_children()
+
+# 多层模型
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.level1 = nn.Sequential(OrderedDict(
+                conv1 = nn.Conv2d(3,64,3),
+                bn1 = nn.BatchNorm2d(64),
+                relu1 = nn.ReLU()))
+        self.level2 = nn.Conv2d(64,3,3)
+    def forward(self,x):
+        x = self.level1(x)
+        x = self.level2(x)
+        return x
+model = Net()
+
+model._modules.keys()                          # _modules里边保存的是子模型(类似named_children,不过一个是dict一个是iterator)
+
+for module in model.named_modules():           # named_modules()输出所有主模型/子模型/层,其中主模型没名字，其他都预设用属性的名字
+    print(module)
+for name, module in model.named_modules():     # named_modules()每一个输出元素是tuple(name, module)
+    print(name)    
+
+for child in model.named_children():            # named_children()只输出子模型 
+    print(child)
+for name, module in model.named_children():     # named_children()每一个输出元素是tuple(name, module)
+    print(name)
+    
+for name, param in model.named_parameters():    # named_parameters()每一个输出元素是tuple(name, parameter)
+    print(name)
+
+
+# %%
+"""Function存在意义？如何写自己的Function?
+参考：https://zhuanlan.zhihu.com/p/27783097
+https://blog.csdn.net/u012436149/article/details/78829329
+Function的意义：作为一个类似于module的层存在，自动参与前向计算和反向传播，但不需要有cache/不会有可学习参数
+比较适合定义relu/pooling/align/nms等结构
+1. Module类：
+    >前向计算：module类需要自定义forward()方法，作为__call__()的调用
+    >反向传播：module类不需要自定义，而是采用autograd机制，通过调用各个子Funtion的backward()来实现(比如tensor/层/激活函数都有自己的backward)
+    >参数存储：module自带cache能够存储参数w用于更新，适合于定义标准层或网络层
+2. Function类
+    >前向计算：Function类需要自定义forward()方法
+    >反向传播：Function类需要自定义backward()方法
+    >参数存储：Funtion类不能存储参数，只能作为单次运算操作，适合于激活函数/pooling层等不带训练参数的结构
+"""
+# 自定义一个new relu
+import torch
+class NewReLU(torch.autograd.Function):
+    
+    def forward(self, x):
+        self.save_for_backward(x)
+        output = x.clamp(min=0)
+        return output
+    
+    def backward(self, grad_out):
+        x, = self.saved_tensors
+        grad_input = gard_out.clone()   # 基于relu的特性：输出的梯度反过来得到输入
+        grad_input[x < 0] = 0           # 基于relu的特征：如果x<0，则梯度取0 
+        return grad_input
+
+# 验证新定义的ReLU
+x = torch.linspace(-3,3,steps=5)
+relu = NewReLU()
+out = relu(x)
+
+print(relu)
+print(out)
+
+# 自定义一个global_max_pool
+"""待调试和消化，当前代码会导致kernel die"""
+from torch.autograd import gradcheck
+class GlobalMaxPool(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, inputs):
+        b,c,h,w = inputs.size()
+        flatten_hw = inputs.view(b,c,-1)
+        max_val, indices = torch.max(flatten_hw, dim=-1, keepdim=True)
+        max_val = max_val.view(b,c,1,1)
+        ctx.save_for_backward(inputs, indices)
+        return max_val, indices
+    
+    @staticmethod
+    def backward(ctx, grad_max_val, grad_indices):
+        inputs, indices = ctx.saved_variables
+        
+        b,c,h,w = inputs.size()
+        grad_inputs = inputs.data.new().resize_as_(inputs.data).zero_().view(b, c, -1) 
+        grad_inputs.scatter_(-1, indices.data, torch.squeeze(grad_max_val.data).contiguous().view(b, c, 1)) 
+        grad_inputs = grad_inputs.view_as(inputs.data)
+        
+        return grad_inputs
+
+def global_max_pool(input):
+    return GlobalMaxPool.apply(input)
+
+in_ = torch.randn(2, 1, 3, 3, requires_grad=True).double() 
+res, _ = global_max_pool(in_) # print(res) 
+res.sum().backward() 
+res = gradcheck(GlobalMaxPool.apply, (in_,)) 
+print(res)
+
+
+
+# %%
+'''源码解析：nn.Module
 1. 核心概念：所有layer/model核心都是nn.module的继承，module基类包含了
 2. 基类module的核心属性：
     model._buffers，为OrderedDict变量，以下为相关函数：
@@ -923,321 +1253,15 @@ class ModuleDict(Module):
     
 
     
-# %%
-'''------------------------------module-----------------------------------
-Q. 如何创建module容器, 以及组合module容器？
-1. 可以用nn.Sequential(*lst), nn.Sequential(), 前者传入的是list解包后的元素，后者传入的是list解包后的OrderedDict()
-    后者可以方便增加名称       - 有实现forward()函数
-2. 可以用nn.Modulelist(list) - 但forward()需要自己分层写
-3. 可以用nn.ModuleDict(dict) - 但forward()需要自己分层写
-(3个容器区别：Sequential是一个完整的带forward的module子类，可直接作为children module。而其他2中ModuleList/ModuleDict适合
-先创建类，实现forward方法，然后在加入到一个主module中作为children module，好处是继承自module可以默认使用module的方法注册module/参数)
-
-4. 组合module容器
-    >可以借用module的方法model.add_module(): 组合后的module作为子模型被加入_modules的字典中作为child_module
-'''
-import torch.nn as nn
-from collections import OrderedDict
-# 方式1: 直接输入每一层进sequential
-model1 = nn.Sequential(nn.Conv2d(2,2,3),
-                       nn.ReLU())
-# 方式2: 先list，再解包
-layers = [nn.Conv2d(1,2,3),nn.ReLU()]
-model2 = nn.Sequential(*layers)
-print(model2)
-# 方式3: OrderedDict
-model3 = nn.Sequential(OrderedDict([('conv1',nn.Conv2d(1,2,3)),
-                                   ('re1', nn.ReLU())]))
-print(model3)
-# 方式4: OrderedDict的简写
-model4 = nn.Sequential(OrderedDict(conv1=nn.Conv2d(1,2,3),
-                                  re1=nn.ReLU()))
-print(model4)
-# 方式5: ModuleList, 配合list的所有方法(append/extend/insert)
-layers = [nn.Conv2d(2,2,3) for i in range(10)]
-model5 = nn.ModuleList(lst)
-print(model5)
-# 方式6: ModuleDict，配合dict的所有方法(pop/keys()/values()/update)
-layers = dict(conv1 = nn.Conv2d(2,4,3),
-              conv2 = nn.Conv2d(4,4,3),
-              conv3 = nn.Conv2d(4,2,3))
-model6 = nn.ModuleDict(layers)
-print(model6)
-
-# 基于ModuleList/ModuleDict需要额外实现forward
-class Net(nn.Module):
-    def __init__(self):
-        super().__init__()
-        ms = nn.ModuleList([nn.Conv2d(2,2,3) for i in range(5)])
-    def forward(x):
-        for i, m in enumerate(ms):
-            if i // 2==0:
-                x = m(x)
-            else:
-                x = nn.ReLU(m(x))
-        return x
-
-# 添加子模型
-class Net(nn.Module):
-    def __init__(self):
-        super().__init__()
-        
-        self.level1 = nn.Sequential(OrderedDict(   # 添加子模型的方式1：直接设置属性
-                conv1 = nn.Conv2d(3,64,3),
-                bn1 = nn.BatchNorm2d(64),
-                relu1 = nn.ReLU()))
-        
-        self.add_module('level2', nn.Sequential(OrderedDict(   # 添加子模型的方式2：add_module()函数，等效于添加属性
-                conv1 = nn.Conv2d(64,64,3),
-                bn1 = nn.BatchNorm2d(64),
-                relu1 = nn.ReLU())))
-        
-    def forward(self,x):
-        x = self.level1(x)
-        x = self.level2(x)
-        return x
-model = Net()
-
-# 以下为了验证2种添加子模型的方式是完全等价，可以查看_modules/named_modules()/...
-print(model)
-print(model._modules.keys())
-names = []
-for name, module in model.named_modules():
-    names.append(name)
-print('total name len:{}'.format(len(names)))  # 输出主模型/子模型/层模型，只有主模型没有名字
-print(names)
 
 
 
-'''-----------------------------------------------------------------------
-Q.如何便捷获取module的属性？
-1. 通过module的3大字典属性_modules, _parameters, _buffers
-2. 通过生成器方法modules(), parameters(), buffers(), children() - 只提供值
-3. 通过生成器方法named_modules(), named_parameters(), name_buffers(), named_children() - 提供(名称,数值)
-方法3使用最方便(因为里边包含了name/param比较全)，而named_children()比named_modules()更方便，因为named_modules()里边模型太完整不方便调用
-'''
-# 单层模型
-import torch.nn as nn
-l1 = nn.Linear(2, 2)
-l1._modules.keys()
-l1._parameters.keys()
-l1._buffers.keys()
-list(l1.named_modules())
-list(l1.named_children())  # 单层没有named_children()
 
-# 多层模型
-class Net(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.level1 = nn.Sequential(OrderedDict(
-                conv1 = nn.Conv2d(3,64,3),
-                bn1 = nn.BatchNorm2d(64),
-                relu1 = nn.ReLU()))
-        self.level2 = nn.Conv2d(64,3,3)
-    def forward(self,x):
-        x = self.level1(x)
-        x = self.level2(x)
-        return x
-model = Net()
 
-model._modules.keys()                          # _modules里边保存的是子模型(类似named_children,不过一个是dict一个是iterator)
-
-for module in model.named_modules():           # named_modules()输出所有主模型/子模型/层,其中主模型没名字，其他都预设用属性的名字
-    print(module)
-for name, module in model.named_modules():     # named_modules()每一个输出元素是tuple(name, module)
-    print(name)    
-
-for child in model.named_children():            # named_children()只输出子模型 
-    print(child)
-for name, module in model.named_children():     # named_children()每一个输出元素是tuple(name, module)
-    print(name)
-    
-for name, param in model.named_parameters():    # named_parameters()每一个输出元素是tuple(name, parameter)
-    print(name)
 
 
 # %%
-"""pytorch中除了Moduel基础类之外还有一种基础类叫Function, 跟module类区别是什么，应用场景差异？
-参考：https://zhuanlan.zhihu.com/p/27783097
-https://blog.csdn.net/u012436149/article/details/78829329
-1. Module类：
-    >前向计算：module类需要自定义forward()方法，作为__call__()的调用
-    >反向传播：module类不需要自定义，而是采用autograd机制，通过调用各个子Funtion的backward()来实现(比如tensor/层/激活函数都有自己的backward)
-    >参数存储：module自带cache能够存储参数w用于更新，适合于定义标准层或网络层
-2. Function类
-    >前向计算：Function类需要自定义forward()方法
-    >反向传播：Function类需要自定义backward()方法
-    >参数存储：Funtion类不能存储参数，只能作为单次运算操作，适合于激活函数/pooling层等不带训练参数的结构
-"""
-# 自定义一个new relu
-import torch
-class NewReLU(torch.autograd.Function):
-    
-    def forward(self, x):
-        self.save_for_backward(x)
-        output = x.clamp(min=0)
-        return output
-    
-    def backward(self, grad_out):
-        x, = self.saved_tensors
-        grad_input = gard_out.clone()   # 基于relu的特性：输出的梯度反过来得到输入
-        grad_input[x < 0] = 0           # 基于relu的特征：如果x<0，则梯度取0 
-        return grad_input
-
-# 验证新定义的ReLU
-x = torch.linspace(-3,3,steps=5)
-relu = NewReLU()
-out = relu(x)
-
-print(relu)
-print(out)
-
-# 自定义一个global_max_pool
-"""待调试和消化，当前代码会导致kernel die"""
-from torch.autograd import gradcheck
-class GlobalMaxPool(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, inputs):
-        b,c,h,w = inputs.size()
-        flatten_hw = inputs.view(b,c,-1)
-        max_val, indices = torch.max(flatten_hw, dim=-1, keepdim=True)
-        max_val = max_val.view(b,c,1,1)
-        ctx.save_for_backward(inputs, indices)
-        return max_val, indices
-    
-    @staticmethod
-    def backward(ctx, grad_max_val, grad_indices):
-        inputs, indices = ctx.saved_variables
-        
-        b,c,h,w = inputs.size()
-        grad_inputs = inputs.data.new().resize_as_(inputs.data).zero_().view(b, c, -1) 
-        grad_inputs.scatter_(-1, indices.data, torch.squeeze(grad_max_val.data).contiguous().view(b, c, 1)) 
-        grad_inputs = grad_inputs.view_as(inputs.data)
-        
-        return grad_inputs
-
-def global_max_pool(input):
-    return GlobalMaxPool.apply(input)
-
-in_ = torch.randn(2, 1, 3, 3, requires_grad=True).double() 
-res, _ = global_max_pool(in_) # print(res) 
-res.sum().backward() 
-res = gradcheck(GlobalMaxPool.apply, (in_,)) 
-print(res)
-
-
-# %%
-"""
-Q.在pytorch中几个基础模型的创建方式
-1. vgg
-2. resnet
-"""
-# ---------vgg-----------------
-import torch.nn as nn
-class VGG(nn.Module):
-    """vgg模型的实现："""
-    arch_settings = {
-            11: (1, 1, 2, 2, 2),
-            13: (2, 2, 2, 2, 2),
-            16: (2, 2, 3, 3, 3),
-            19: (2, 2, 4, 4, 4)}  # 记住2,2,4,4,4,这个vgg19是最常用
-    def make_vgg_layer(self, num_blocks):     # 记住每个block结构(conv3x3+bn+relu)*n + maxpool
-        layer = []
-        for i in range(num_blocks):
-            layer.append(nn.Conv2d(inplane, outplane, 3, padding=padding, dilation=dilation))
-            if bn:
-                layer.append(nn.BatchNorm2d())
-            layer.append(nn.ReLU())
-        layer.append(nn.MaxPool2d())
-        return layer
-    
-    def __init__(self,depth, 
-                 with_bn=True,
-                 dilations=[1,1,1,1,1],
-                 out_indics=[],
-                 with_last_pool=false):
-        self.out_indics = out_indics
-        blocks = arch_settings.get(depth)
-        layers = []
-        for block in blocks:
-            layers.extend(make_vgg_layer(block))
-        if not with_last_pool:
-            layers.pop(-1)
-        vgg_layer = nn.Sequential(*layers)
-        
-        
-    def forward(self,x):
-        out = []
-        features = model(x)
-        for layer in self.out_indics:
-            out.append(features[layer])
-        
-# ----------resnet----------------
-class BasicBlock:
-    """可以先用moduleList实现子模块,，但需要实现forward，然后作为children module加入主模型"""
-    def __init__(self):
-        pass
-    def forward(self):
-        pass
-
-class BottleNeck():
-    def __init__(self):
-        pass
-    def forward(self):
-        pass
-    
-class Resnet(nn.Module):
-    arch_settings = {
-        18: (BasicBlock, (2, 2, 2, 2)),
-        34: (BasicBlock, (3, 4, 6, 3)),
-        50: (Bottleneck, (3, 4, 6, 3)),
-        101: (Bottleneck, (3, 4, 23, 3)),
-        152: (Bottleneck, (3, 8, 36, 3))}
-    def make_resnet_block(self):
-        pass
-    def __init__(self):
-        pass
-    def __forward__(self):
-        pass
-
-
-
-'''-------------------------------module----------------------------------
-Q.在pytorch中conv2d的基本计算过程以及各个参数的作用？
-'''
-m = nn.Conv2d(3,3,3)
-from numpy import random
-random.seed(11)
-a = random.uniform(0,1, size=(3,5,5))
-input = torch.tensor(a)
-output = m(input)
-print(output)
-
-
-
-'''
-Q. 对于下采样时conv2d/maxpool的设置区别？
-'''
-# 作为下采样功能：
-# 可以用conv2d/maxpool，对应s=2, 但两者由于计算w/h方式不同所以kernel size一般不同
-# conv2d的k-size取3, (w-3+2)/2+1为整数，maxpool的k-size取2, (w-2)/2+1为整数
-conv1 = nn.Conv2d()
-maxpool1 = nn.MaxPool2d()
-
-
-    
-'''-------------------------------module----------------------------------
-Q.在pytorch中mmodule参数初始化方法有哪些，有什么区别？
-1. 包含：
-2. 
-'''
-init_weight = ???
-net = nn.Sequential(nn.Linear(2, 2), nn.Linear(2, 2))
-net.apply(init_weight)
-
-
-# %%
-"""Q.在pytorch中的data paralle模块如何实施, 跟常规模型有什么区别？
+"""源码解析：data paralle模块
 主要分如下几步：
 1. 对model封装，得到Data Parallelmodel, 重写forwrad()，在forward()中定义如下步骤
     >先对数据进行scatter
@@ -1392,11 +1416,10 @@ def gather():
     finally:
         gather_map = None
 
-# 尝试实践一个data parallel模型，看看跟常规模型在模型本身/模型参数上有什么区别？
 
 
-'''-------------------------------module----------------------------------
-Q.在pytorch中distributed模块进行分布式计算的基础是什么？
+# %%
+'''Q.在pytorch中distributed模块进行分布式计算的基础是什么？
 '''
 import torch.distributed as dist
 import os
