@@ -117,11 +117,17 @@ try:
 
 '''----------------------------------------------------------------------
 Q. 如何使用logging进行调试？
+logging的特点：
 1. logging不会抛出错误，而且可以输出到文件
 2. logging的输出等级：DEBUG < INFO < WARNING < ERROR < CRITICAL，越往后信息量越少
    其中DEBUG/INFO级别的日志用于进行开发或部署调试，WARNING/ERROR/CRITICAL级别的
-   日志则用来降低机器I/O压力
-
+   日志则用来降低机器I/O压力.
+   默认的logging输出是Warning，低于该级别不输出
+3. logging的4大组件
+    >loggers
+    >handlers
+    >filters
+    >formatters
 
 # 对logging的输出等级进行配置：logging.basicConfig()
 logging.basicConfig(filename='logging_test.txt',  # 日志输出文件名，指定后就不会输出到控制台
@@ -155,6 +161,16 @@ def init_logger(self, log_dir=None, level=logging.INFO):
         log_file = osp.join(log_dir, filename)
         self._add_file_handler(logger, log_file, level=level)
     return logger
+
+# 把logger输出到屏幕
+import logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+handler = logging.FileHandler('log.txt')  # 会创建一个log.txt文件
+handler.setLevel(logging.INFO)
+
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 
 
 

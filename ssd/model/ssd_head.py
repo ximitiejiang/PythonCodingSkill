@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 #from mmcv.cnn import xavier_init  
-from weight_init import xavier_init  # 修改来源
+from .weight_init import xavier_init  # 修改来源
 
 from mmdet.core import (AnchorGenerator, anchor_target, weighted_smoothl1,
                         multi_apply)

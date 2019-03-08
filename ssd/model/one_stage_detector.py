@@ -6,8 +6,8 @@ Created on Tue Mar  5 16:05:16 2019
 @author: ubuntu
 """
 import logging
-from ssdvgg import SSDVGG
-from ssd_head import SSDHead
+from .ssdvgg import SSDVGG
+from .ssd_head import SSDHead
 import torch.nn as nn
 import numpy as np
 import mmcv

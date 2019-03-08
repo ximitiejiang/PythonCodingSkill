@@ -661,21 +661,25 @@ model.module.load_state_dict(st3)
 
 # %%
 '''Q. 数据集加载的dataloader各个参数如何使用？
+dataloader本质是python iterator迭代器，所以有实现__iter__, __next__方法，
+用iter(dataloader).next()即可调用
 DataLoader(dataset, batch_size=1, shuffle=False, sampler=None, batch_sampler=None,
-           num_works=0, collate_fn=default_collate, pin_memory=false, drop_last=False, 
+           num_workers=0, collate_fn=default_collate, pin_memory=false, drop_last=False, 
            timeout=0, worker_init_fn=None)
 源码在：https://github.com/pytorch/pytorch/blob/master/torch/utils/data/dataloader.py
 关键参数解释：
 1. shuffle: 设置为True时，每个epoch会重新打乱数据集
-2. sampler: 用于定义如何从数据集获取样本，即采样方式
+2. sampler: 用于定义如何从数据集获取样本，即采样方式。如果要自己定义采样方式，则shuffle需设置为False
+   也就是说batch_sampler跟shuffle/sampler/drop_last相互不能
 3. num_workers: 用于定义要多少个子进程来加载数据，默认=0是在主进程加载数据
 4. collate_fn: (collate有整理校对的含义)用于把一系列采样的样本形成一个batch
-5. pin_memory: 用于
+5. pin_memory: 用于定义是否把数据保存到pin memory区，在这个区域的数据做GPU运算会更快
+6. drop_last: 用于定义是否丢弃最后剩下不足一个batch的数据
 '''
 from ssd.dataset.dataset import VOCDataset
 from torch.utils.data import DataLoader, Sampler
 
-data_root = 'data/VOCdevkit_mac/'  # 如果是mac则增加_mac后缀
+data_root = 'data/VOCdevkit/'  # 如果是mac则增加_mac后缀
 ann_file=[data_root + 'VOC2007/ImageSets/Main/trainval.txt',
           data_root + 'VOC2012/ImageSets/Main/trainval.txt']
 img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/']
@@ -685,7 +689,9 @@ voc12 = VOCDataset(ann_file[0], img_prefix[0])
 dataset = voc07 + voc12             # Dataset类有重载运算符__add__，所以能够直接相加 (5011+5011)
 classes = voc07.CLASSES
 
-datalader
+dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers = 2)
+
+img, label = iter(dataloader).next()
 
 
 # %%

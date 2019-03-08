@@ -112,7 +112,18 @@ path的语法跟from..import语法有一个地方正好相反：就是从相对�
     这两种连接方式只要反过来就是错的，暂时不知道怎么去理解，就记成：path间接连，import直接连
     
 '''
-import os
+import sys, os
+
+# 获得当前文件相关名称
+os.path.abspath(__file__)
+os.path.dirname(__file__)
+os.path.basename(__file__)
+
+# 获得当前目录父包和父父包路径
+os.path.abspath('.')
+os.path.abspath('..')
+
+
 path = './config/config.py'   # 基于当前文件的相对路径
 abspath = os.path.abspath(path)       # 相对路径转绝对路径
 print(abspath)
@@ -194,13 +205,28 @@ Q. 为什么经常导入失败？？？如何通过相对路径，绝对路径�
 通过这个入口，能够到达main函数的文件树的平级以及下一级的文件并访问，但不可能跳到其他文件树上去。
 第二个入口是sys.path中存储的文件夹，通过这个入口同样能够访问该入口文件树的平级以及下级文件，但因为
 该入口比较靠根部，这颗文件树比较大所以能够访问的文件也就比较多。
-    (1) 作为open之类的data/coco斜杠写法，就需要上面的两入口理论。
-    (2) 作为import似乎又不太一样，能成功？
 
+这会总结一次核心的完整的：
+（默认讨论的都是作为__main__来运行的情况下）
+1. import相关的：符合2个入口理论()，且在写相对目录时，不用写父目录地址
+    >情况1：导入同一个包里的同级文件，直接用该文件名进行导入即可成功 (但要确保被导入文件内部没有从当前__main__文件再往上去导入，否则报错)
+        比如：from B03_dataset_transform import VOCDataset
+    >情况2：导入同一个包里的同级文件夹下的文件，直接用该文件夹名进行导入即可成功 (但要确保被导入文件内部没有从当前__main__文件再往上去导入，否则报错)
+        比如：from config.config import Config
+    >情况3：导入上级文件或其他包里的文件，需要找到共同的父包，然后把这个父包加到sys.path
+   然后在该父包之下的所有文件夹/文件都可以直接调用，且不用写父包的名字
+
+2. 文件open相关的：
+    同样要满足2个入口理论，唯一区别在于打开文件的目录要把父目录包含进去，用./..代替
 '''
-
-
-
+# 情况1
+from B03_dataset_transform import VOCDataset
+# 情况2
+from config.config import Config
+# 情况3
+import sys, os
+sys.path.insert(0, os.path.abspath('.'))
+from B.data import b
 
 
 ''' --------------------------------------------------------------------------

@@ -8,6 +8,7 @@ Created on Tue Mar  5 15:42:09 2019
 
 import logging
 from torch.nn.parallel import DataParallel
+from torch.utils.data import DataLoader
 
 import torch.distributed as dist
 from collections import OrderedDict
@@ -16,7 +17,8 @@ from mmcv.runner import Runner
 
 from utils.config import Config
 from model.one_stage_detector import OneStageDetector
-from dataset import VOCDataset, CocoDataset, vis_bbox
+from dataset.voc_dataset import VOCDataset
+from dataset.utils import get_dataset
 
 def get_dist_info():
     if dist._initialized:
@@ -73,7 +75,7 @@ def train():
     training =True
     
     # get cfg
-    cfg_path = 'C901_SSD_cfg_300_vgg16.py'
+    cfg_path = 'config/cfg_ssd300_vgg16_voc.py'
     cfg = Config.fromfile(cfg_path)
     
     # set backends
@@ -90,9 +92,12 @@ def train():
     model = DataParallel(model)
     
     # prepare data & dataloader
-    dataset = CocoDataset(cfg.data.train.dataset.ann_file, cfg)
-    dataloader = Dataloader(dataset, batch_size)
-    
+    dataset = get_dataset(cfg.data.train, VOCDataset)
+    batch_size = cfg.data.imgs_per_gpu * cfg.gpus
+    num_workers = cfg.data.workers_per_gpu * cfg.gpus
+    dataloader = DataLoader(dataset, batch_size=batch_size, 
+                            shuffle=True, num_workers=num_workers)
+
     # define runner and running type(1.resume, 2.load, 3.train/test)
     runner = Runner(model, batch_processor, cfg.optimizer, cfg.work_dir, cfg.log_level)
     if cfg.resume_from:  # 恢复训练

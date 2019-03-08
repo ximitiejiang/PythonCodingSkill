@@ -6,7 +6,7 @@ from importlib import import_module
 
 from addict import Dict
 
-from .path import check_file_exist
+#from .path import check_file_exist
 
 
 class ConfigDict(Dict):
@@ -75,7 +75,7 @@ class Config(object):
     @staticmethod
     def fromfile(filename):
         filename = osp.abspath(osp.expanduser(filename))
-        check_file_exist(filename)
+#        check_file_exist(filename)
         if filename.endswith('.py'):
             module_name = osp.basename(filename)[:-3]
             if '.' in module_name:

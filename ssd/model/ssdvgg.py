@@ -10,9 +10,9 @@ import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from vgg import VGG
-from weight_init import constant_init, normal_init, kaiming_init, xavier_init
-from checkpoint import load_checkpoint
+from .vgg import VGG
+from .weight_init import constant_init, normal_init, kaiming_init, xavier_init
+from .checkpoint import load_checkpoint
 
 class SSDVGG(VGG):
     extra_setting = {
