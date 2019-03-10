@@ -13,10 +13,9 @@ $ pip3 install mmcv . #
 # install addict
 $ pip3 install addict
 
-# install
 
 """
 # %% part2
 # add sys path
 import sys, os
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.abspath('.'))

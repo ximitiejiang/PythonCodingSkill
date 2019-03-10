@@ -146,7 +146,7 @@ def bbox_flip2(bboxes, img_shape, flip_type='h'):
 
 
 # %%
-"""下面的相关底层函数是从mmcv获得，也可用上面的独立函数替代
+"""下面的相关底层函数是调用mmcv获得，也可用上面的独立函数替代
 为了保证robust，暂时不替代"""
 class ImageTransform(object):
     """Preprocess an image.
@@ -174,6 +174,7 @@ class ImageTransform(object):
         else:
             img, w_scale, h_scale = mmcv.imresize(
                 img, scale, return_scale=True)
+            # scale_factor是[ws, hs, ws, hs]
             scale_factor = np.array([w_scale, h_scale, w_scale, h_scale],
                                     dtype=np.float32)
         img_shape = img.shape
@@ -262,3 +263,5 @@ class Numpy2Tensor(object):
             return torch.from_numpy(args[0])
         else:
             return tuple([torch.from_numpy(np.array(array)) for array in args])
+
+        

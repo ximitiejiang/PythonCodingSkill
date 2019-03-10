@@ -93,10 +93,12 @@ def train():
     
     # prepare data & dataloader
     dataset = get_dataset(cfg.data.train, VOCDataset)
-    batch_size = cfg.data.imgs_per_gpu * cfg.gpus
-    num_workers = cfg.data.workers_per_gpu * cfg.gpus
-    dataloader = DataLoader(dataset, batch_size=batch_size, 
-                            shuffle=True, num_workers=num_workers)
+    batch_size = cfg.gpus * cfg.data.imgs_per_gpu
+    num_workers = cfg.gpus * cfg.data.workers_per_gpu
+    dataloader = DataLoader(dataset, 
+                            batch_size=batch_size, 
+                            shuffle=True, 
+                            num_workers=num_workers)
 
     # define runner and running type(1.resume, 2.load, 3.train/test)
     runner = Runner(model, batch_processor, cfg.optimizer, cfg.work_dir, cfg.log_level)

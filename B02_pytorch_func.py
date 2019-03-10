@@ -910,6 +910,24 @@ res = gradcheck(GlobalMaxPool.apply, (in_,))
 print(res)
 
 
+# %%
+"""如何创建自己的optimizer?
+1. optimizer的作用：就是在反向传播完成后(loss.backward())基于已更新的梯度值，来计算更新模型参数，wi = wi + lr*
+   所以optimizer的输入是模型所有参数model.parameters(), 以及lr学习率
+2. optimizer的更新过程：
+    >每个batch最初的梯度清零：optimizer.zero_grad()
+    >每个batch的参数更新：optimizer.step()
+3. optimizer的类型：
+    >SGD
+    >Adam
+
+"""
+# 
+import torch.optim 
+optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)  # 这是obj_from_dict()里的，如何理解???
+
+
+
 
 # %%
 '''源码解析：nn.Module

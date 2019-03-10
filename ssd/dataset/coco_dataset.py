@@ -2,7 +2,7 @@ import os.path as osp
 import torch
 import mmcv
 import numpy as np
-from mmcv.parallel import DataContainer as DC
+#from mmcv.parallel import DataContainer as DC
 from torch.utils.data import Dataset
 from collections import Sequence
 from dataset.transforms import (ImageTransform, BboxTransform, MaskTransform,
@@ -186,6 +186,7 @@ class CocoDataset(Dataset):
     def load_annotations(self, ann_file):
         self.coco = COCO(ann_file)
         self.cat_ids = self.coco.getCatIds()
+        # 注意这里的对应label是从1开始，所以如果做逆对应就需要-1才能得到对应的真实描述
         self.cat2label = {
             cat_id: i + 1
             for i, cat_id in enumerate(self.cat_ids)
@@ -310,17 +311,17 @@ class CocoDataset(Dataset):
             flip=flip)
 
         data = dict(
-            img=DC(to_tensor(img), stack=True),
-            img_meta=DC(img_meta, cpu_only=True),
-            gt_bboxes=DC(to_tensor(gt_bboxes)))
+            img=to_tensor(img),
+            img_meta=img_meta,
+            gt_bboxes=to_tensor(gt_bboxes))
         if self.proposals is not None:
-            data['proposals'] = DC(to_tensor(proposals))
+            data['proposals'] = to_tensor(proposals)
         if self.with_label:
-            data['gt_labels'] = DC(to_tensor(gt_labels))
+            data['gt_labels'] = to_tensor(gt_labels)
         if self.with_crowd:
-            data['gt_bboxes_ignore'] = DC(to_tensor(gt_bboxes_ignore))
+            data['gt_bboxes_ignore'] = to_tensor(gt_bboxes_ignore)
         if self.with_mask:
-            data['gt_masks'] = DC(gt_masks, cpu_only=True)
+            data['gt_masks'] = gt_masks
         return data
 
     def prepare_test_img(self, idx):
@@ -368,13 +369,13 @@ class CocoDataset(Dataset):
             _img, _img_meta, _proposal = prepare_single(
                 img, scale, False, proposal)
             imgs.append(_img)
-            img_metas.append(DC(_img_meta, cpu_only=True))
+            img_metas.append(_img_meta)
             proposals.append(_proposal)
             if self.flip_ratio > 0:
                 _img, _img_meta, _proposal = prepare_single(
                     img, scale, True, proposal)
                 imgs.append(_img)
-                img_metas.append(DC(_img_meta, cpu_only=True))
+                img_metas.append(_img_meta)
                 proposals.append(_proposal)
         data = dict(img=imgs, img_meta=img_metas)
         if self.proposals is not None:

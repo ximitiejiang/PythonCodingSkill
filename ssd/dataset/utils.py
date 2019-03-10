@@ -1,12 +1,14 @@
 import copy
 import numpy as np
 from torch.utils.data.dataset import ConcatDataset as _ConcatDataset
-
+from matplotlib import pyplot as plt
 
 def vis_bbox(img, bbox, label=None, score=None, score_thr=0, label_names=None,
              instance_colors=None, alpha=1., linewidth=1.5, ax=None):
     """另外一个图片+bbox显示的代码，感觉效果比cv2的好上几条街(来自chainercv)
     对应数据格式和注释已修改为匹配现有voc/coco数据集。
+    注意，该img输入为hwc/bgr(因为在test环节用这种格式较多)，如果在train等环节使用，
+    就需要把img先从chw/rgb转成hwc/bgr
     Args:
         img (ndarray): (h,w,c), BGR and the range of its value is
             :math:`[0, 255]`. If this is :obj:`None`, no image is displayed.
@@ -41,7 +43,7 @@ def vis_bbox(img, bbox, label=None, score=None, score_thr=0, label_names=None,
         Returns the Axes object with the plot for further tweaking.
 
     """
-    from matplotlib import pyplot as plt        
+            
     if label is not None and not len(bbox) == len(label):
         raise ValueError('The length of label must be same as that of bbox')
     if score is not None and not len(bbox) == len(score):
@@ -188,22 +190,12 @@ def get_dataset(data_cfg, dataset_class):
 
 
 if __name__ == '__main__':
-    """总结绝对导入和相对导入：
-    1. 带./..的都叫做相对导入，相对导入的好处是不受硬编码的影响，但缺点是不能直接运行
-    2. 三种导入：隐式相对导入(from A import a)，显式相对导入(from .A import a)，绝对导入
-    """
-#    sys.path.append(os.path.abspath('..')) 
-    import sys, os
-
-    sys.path.insert(0, os.path.abspath('..'))
-    print(sys.path)
     
-    data = 'voc'
+    data = 'coco'
 
-    
     if data == 'voc':
         from dataset.voc_dataset import VOCDataset
-        data_root = '../data/VOCdevkit/'
+        data_root = '../data/VOCdevkit/'  # 指代ssd目录下的data目录
         img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
         cfg_train=dict(
             type='RepeatDataset',
@@ -238,10 +230,20 @@ if __name__ == '__main__':
                 resize_keep_ratio=False))
         
         trainset = get_dataset(cfg_train, VOCDataset)
+        classes = trainset.CLASSES
+        data = trainset[1120]  # dict('img', 'img_meta', )
+        """已做的数据处理：rgb化，chw化，归一化，tensor化"""
+        bbox = data['gt_bboxes'].numpy()
+        label = data['gt_labels'].numpy()
+        img = data['img'].numpy()     # 逆tensor
+        img1 = img.transpose(1,2,0)   # 逆chw
+        img2 = np.clip((img1 * img_norm_cfg['std'] + img_norm_cfg['mean']).astype(np.int32), 0, 255)  # 逆归一
+#        plt.imshow(img2)
+        vis_bbox(img2[...,[2,0,1]], bbox, label-1, label_names=classes)  # vis_bbox内部会bgr转rgb，所以这里要用bgr输入
     
     if data == 'coco':
         from dataset.coco_dataset import CocoDataset
-        data_root = '../data/VOCdevkit/'
+        data_root = '../data/coco/'
         img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
         cfg_train=dict(
             type='RepeatDataset',
@@ -273,6 +275,16 @@ if __name__ == '__main__':
                 resize_keep_ratio=False))
 
         trainset = get_dataset(cfg_train, CocoDataset)
+        classes = trainset.CLASSES
+        data = trainset[0]
+        """已做的数据处理：rgb化，chw化，归一化，tensor化"""
+        bbox = data['gt_bboxes'].numpy()
+        label = data['gt_labels'].numpy()
+        img = data['img'].numpy()     # 逆tensor
+        img1 = img.transpose(1,2,0)   # 逆chw
+        img2 = np.clip((img1 * img_norm_cfg['std'] + img_norm_cfg['mean']).astype(np.int32), 0, 255)  # 逆归一
+#        plt.imshow(img2)
+        vis_bbox(img2[...,[2,0,1]], bbox, label-1, label_names=classes)  # vis_bbox内部会bgr转rgb，所以这里要用bgr输入
         
         
-        sys.path.pop(0)
+        

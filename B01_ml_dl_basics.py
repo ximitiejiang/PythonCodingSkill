@@ -469,6 +469,26 @@ def batch_norm_simple(x, gamma, beta, bn_param):
     
     return results , bn_param
 
+
+# %%
+"""数据集归一化的目的和功能？在采用预训练模型参数进行finetune微调时，如何定义数据集归一化参数
+1. 数据集归一化目的：
+2. 采用预训练模型微调时：尽可能采用原有的预训练模型的norm_cfg，需要注意，pytorch/caffe的norm参数差异较大
+   比如都是vgg16如果是vgg16-caffe对应的norm参数mean=[123.675, 116.28, 103.53], std=[1, 1, 1]
+   而如果是vgg16-pytorch对应的norm参数可能就是mean=[0.485, 0.456, 0.406]，std=[0.229, 0.224, 0.225]
+   参考：https://github.com/open-mmlab/mmdetection/issues/354
+"""
+# 基于norm cfg对每张图片归一化
+import torch
+img = torch.randint(1,200, size = (3,300,300))
+mean = torch.tensor([123.675, 116.28, 103.53])
+std = torch.tensor([1, 1, 1])
+img1 = (img - mean)/std
+
+# 对每张图片逆归一化
+
+
+
 # %%        网络基础层
 """BN批归一化跟SN(sycronize normalization)有什么区别？
 """

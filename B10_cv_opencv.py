@@ -5,8 +5,13 @@ Created on Tue Jan  8 22:52:47 2019
 
 @author: suliang
 """
-"""
-Q. 如何让matplotlib在spyder显示的图片单独窗口显示而不是显示在命令行
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from datasets.color_transforms import bgr2gray, bgr2hsv, hsv2bgr, rgb2bgr,bgr2rgb,gray2bgr
+
+# %%
+"""Q. 如何让matplotlib在spyder显示的图片单独窗口显示而不是显示在命令行
 """
 # 方式1: spyder中设置
 # Tools > Preferences > IPython Console > Graphics > Graphics backend
@@ -15,13 +20,35 @@ Q. 如何让matplotlib在spyder显示的图片单独窗口显示而不是显示�
 # %matplotlib qt5
 
 
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-from datasets.color_transforms import bgr2gray, bgr2hsv, hsv2bgr, rgb2bgr,bgr2rgb,gray2bgr
-'''-----------------------------------------------------------------------
-Q. 读取图片/显示图片/写入图片？
+# %%
+'''Q. 图片处理过程？
+1. 图片正向处理过程中：主要就是读取hwc/bgr，然后norm化，rgb化，chw化，tensor化
+2. 如果要逆向这个过程，需要改变的包括：
+    > 逆tensor化
+    > 逆chw化:  这一步要先做，否则可能导致后边广播机制不成功
+    > 中间这步rgb化不需要做，因为plt.imshow正好只认rgb(不像cv2.imshow认的是bgr)
+    > 逆norm化： img * std - mean, 这一步要注意是数据从float(+-2.x)变int(0-255)
+      由于数据集的归一化是到N(0,1)但数值是超过(0,1)这就意味着直接用float显示不对，
+      所以最好逆归一化后，先格式转换到int32再截断到(0-255,否则会导致显示不出来
+      np.clip((img*std+mean).astype(np.int32), 0, 255)
+    > 显示plt.imshow(): 要求hwc/rgb， 要求float(0-1)或int(0-255)，否则无法显示(即使自动clip但依然无法显示)
 '''
+path=''
+# 1. read - (h,w,c) - bgr(0~255)
+# 2. extra augment - (h,w,c) - bgr(0~255)
+# 3. scale or resize - (h,w,c) - bgr(0~255) - 影响bbox
+# 4. normalization - (h,w,c) - bgr(-2.x~2.x)     这一步是归一化的一种，归一化包括了(规则化到标准正态分布，归一化到数值0-1)比如pytorch中to_tensor归一化采用的方式是把数据转到(0-1)之间
+# 5. bgr to rgb - (h,w,c) - rgb(-2.x~2.x)
+# 6. padding - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
+# 7. flip or rotate - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
+# 8. transpose - (c,h,w) - bgr(-2.x~2.x)
+# 9. to tensor - (c,h,w) - bgr(-2.x~2.x) - 影响bbox
+
+
+# %%
+"""Q. 读取图片/显示图片/写入图片？
+1. 最常用显示图片的是plt.imshow(), 要求：rgb, (h,w,c)
+"""
 # 读取：一般用cv2.imread(), 直接得到bgr图
 img = cv2.imread('test/test_data/messi.jpg',1) # 1为彩色图，0为灰度图
 # 显示：一般用plt.imshow(),也可用cv2自带的
@@ -375,19 +402,7 @@ cv2.polylines(img, box.astype(np.int32).reshape(-1,1,2),
 
 
 
-'''-----------------------------------------------------------------
-Q. 图片处理过程？
-'''
-path=''
-# 1. read - (h,w,c) - bgr(0~255)
-# 2. extra augment - (h,w,c) - bgr(0~255)
-# 3. scale or resize - (h,w,c) - bgr(0~255) - 影响bbox
-# 4. normalization - (h,w,c) - bgr(-2.x~2.x)     这一步是归一化的一种，归一化包括了(规则化到标准正态分布，归一化到数值0-1)比如pytorch中to_tensor归一化采用的方式是把数据转到(0-1)之间
-# 5. bgr to rgb - (h,w,c) - rgb(-2.x~2.x)
-# 6. padding - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
-# 7. flip or rotate - (h,w,c) - bgr(-2.x~2.x) - 影响bbox
-# 8. transpose - (c,h,w) - bgr(-2.x~2.x)
-# 9. to tensor - (c,h,w) - bgr(-2.x~2.x) - 影响bbox
+
 
 
 

@@ -212,6 +212,17 @@ for hook in hooks:
     getattr(hook, 'before_epoch')(self)
 
 
+# %%
+"""基于子类可以获得父类的信息，那如何基于父类来得到子类？比如基于torch.optim父类，得到子类torch.optim.SGD？
+"""    
+import torch.optim
+type = 'SGD'
+new = getattr(torch.optim, type)
+
+
+
+
+# %%
 '''
 Q. 如何定义类的三种方法：类方法@classmethod，静态方法@staticmethod，属性方法@property
 三者的区别和使用范围是什么？

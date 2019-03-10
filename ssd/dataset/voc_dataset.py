@@ -100,10 +100,18 @@ class VOCDataset(Dataset):
             (6)SegmentationObject: 略
         2. 该类继承自Dataset的好处是可以使用Dataset自带的__add__方法以及该方法引入的ConcateDataset()类
         用来叠加一个数据集的多个子数据源，比如voc07和voc12
+        3. 可包含的ImageTransforms:
+            (1)rescale
+            (2)normalize
+            (3)flip
+            (4)pad
+            (5)transpose
     
         Args:
             ann_file(list): ['ann1', 'ann2'..] 代表图片名检索文件，可以包含1-n个数据源的不同检索文件
-            img_prefix(list): 代表检索文件名的前缀，前缀+检索文件名 = 完整文件名    
+            img_prefix(list): 代表检索文件名的前缀，前缀+检索文件名 = 完整文件名
+        Returns:
+            data(dict): {'img':, 'img_meta':, }
     """
 
     CLASSES = ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car',
@@ -187,6 +195,7 @@ class VOCDataset(Dataset):
         # image rescale if keep ratio
         self.resize_keep_ratio = resize_keep_ratio
         
+        # 注意这里的对应label是从1开始，所以如果做逆对应就需要-1才能得到对应的真实描述
         self.cat2label = {cat: i + 1 for i, cat in enumerate(self.CLASSES)}
 
     def __len__(self):
@@ -385,6 +394,7 @@ class VOCDataset(Dataset):
             proposal = None
 
         def prepare_single(img, scale, flip, proposal=None):
+            """嵌入在prepare_test_img()函数体内的prepare_single()函数"""
             _img, img_shape, pad_shape, scale_factor = self.img_transform(
                 img, scale, flip, keep_ratio=self.resize_keep_ratio)
             _img = to_tensor(_img)

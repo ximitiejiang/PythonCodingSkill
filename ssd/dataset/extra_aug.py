@@ -52,6 +52,17 @@ def bbox_overlaps(bboxes1, bboxes2, mode='iou'):
     return ious
 
 class PhotoMetricDistortion(object):
+    """随机调整图像的brightness/contrast/saturation/hue/swap channel (只影响图片)
+    随机调整亮度/随机亮度变化，随机调整对比度调整顺序/随机对比度比例，
+    随机饱和度比例，随机色相增量和角度，随机rgb三个通道顺序
+    brightness: img(bgr) + delta
+    contrast: img(bgr)*alpha
+    saturation: img(hsv)[...,1]*alpha
+    hue: img(hsv)[...,0]+delta
+         img(hsv)
+    swap channel: img(bgr)[...,random.permutation(3)]
+    
+    """
 
     def __init__(self,
                  brightness_delta=32,
@@ -111,7 +122,8 @@ class PhotoMetricDistortion(object):
 
 
 class Expand(object):
-
+    """随机放大图片n倍，然后随机把原图放到大图某位置, 相当于抠出原图一部分 (影响bbox)
+    """
     def __init__(self, mean=(0, 0, 0), to_rgb=True, ratio_range=(1, 4)):
         if to_rgb:
             self.mean = mean[::-1]
@@ -136,7 +148,8 @@ class Expand(object):
 
 
 class RandomCrop(object):
-
+    """随机切割
+    """
     def __init__(self,
                  min_ious=(0.1, 0.3, 0.5, 0.7, 0.9),
                  min_crop_size=0.3):
@@ -209,3 +222,64 @@ class ExtraAugmentation(object):
         for transform in self.transforms:
             img, boxes, labels = transform(img, boxes, labels)
         return img, boxes, labels
+
+if __name__ == '__main__':
+    import cv2
+    import matplotlib.pyplot as plt
+    path = '../repo/test.jpg'
+    img = cv2.imread(path) # (h,w,c)-bgr
+    img = img.astype(np.float32)
+    bbox = np.array([[-14,-14,20,20]])
+    label = np.array([[1]])
+    
+    id = 3
+    
+    if id == 2: # 验证2：expand效果
+        t2 = Expand(
+            mean=[123.675, 116.28, 103.53], 
+            to_rgb=True, ratio_range=(1, 4))
+        img1, *_ = t2(img,bbox,label)
+        img2, *_ = t2(img,bbox,label)
+        img3, *_ = t2(img,bbox,label)
+        
+        plt.subplot(141)
+        plt.imshow(img.astype(np.int))
+        plt.subplot(142)
+        plt.imshow(img1.astype(np.int))
+        plt.subplot(143)
+        plt.imshow(img2.astype(np.int))
+        plt.subplot(144)
+        plt.imshow(img3.astype(np.int))
+    
+    
+    if id == 1: # 验证1：distortion效果     
+        t1 = PhotoMetricDistortion(
+            brightness_delta=32,
+            contrast_range=(0.5, 1.5),
+            saturation_range=(0.5, 1.5),
+            hue_delta=18)
+        img1, *_ = t1(img,bbox,label)
+        img2, *_ = t1(img,bbox,label)
+        img3, *_ = t1(img,bbox,label)
+        plt.subplot(131)
+        plt.imshow(img1.astype(np.int))
+        plt.subplot(132)
+        plt.imshow(img2.astype(np.int))
+        plt.subplot(133)
+        plt.imshow(img3.astype(np.int))
+    
+    if id == 3: # 验证3： crop，没有看到变化，待分析函数逻辑
+        t3 = RandomCrop(
+            min_ious=(0.1, 0.3, 0.5, 0.7, 0.9),
+            min_crop_size=0.3)
+        img1, *_ = t3(img,bbox,label)
+        img2, *_ = t3(img,bbox,label)
+        img3, *_ = t3(img,bbox,label)
+        plt.subplot(221)
+        plt.imshow(img.astype(np.int))
+        plt.subplot(222)
+        plt.imshow(img1.astype(np.int))
+        plt.subplot(223)
+        plt.imshow(img2.astype(np.int))
+        plt.subplot(224)
+        plt.imshow(img3.astype(np.int))
