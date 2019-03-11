@@ -72,8 +72,7 @@ def batch_processor(model, data, train_mode):
     return outputs  
   
 def train():
-    training =True
-    
+    """借用mmcv的Runner框架进行训练，包括里边的hooks作为lr更新，loss计算的工具"""
     # get cfg
     cfg_path = 'config/cfg_ssd300_vgg16_voc.py'
     cfg = Config.fromfile(cfg_path)
@@ -89,7 +88,7 @@ def train():
     
     # build model & detector
     model = OneStageDetector(cfg)
-    model = DataParallel(model)
+    model = DataParallel(model, device_ids = range(cfg.gpus)).cuda()
     
     # prepare data & dataloader
     dataset = get_dataset(cfg.data.train, VOCDataset)
@@ -99,14 +98,20 @@ def train():
                             batch_size=batch_size, 
                             shuffle=True, 
                             num_workers=num_workers)
+    
 
     # define runner and running type(1.resume, 2.load, 3.train/test)
     runner = Runner(model, batch_processor, cfg.optimizer, cfg.work_dir, cfg.log_level)
+    runner.register_training_hooks(cfg.lr_config,
+                                   cfg.optimizer_config,
+                                   cfg.checkpoint_config,
+                                   cfg.log_config)
+    
     if cfg.resume_from:  # 恢复训练
         runner.resume(cfg.resume_from)
     elif cfg.load_from:  # 加载参数进行测试
         runner.load_checkpoint(cfg.load_from)
-    else:                # 从新训练
+    else:                # 从新训练: 采用workflow来区分train还是test
         runner.run(dataloader, cfg.workflow, cfg.total_epochs)
     
     

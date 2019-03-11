@@ -547,20 +547,20 @@ Q: 如何生成正态分布的随机数据？
 类似函数比较多，写法不统一，比较乱，numpy这块有点反人类的感觉, 但最终总结成好理解的2类：
 一类按分布的rand/randn, 一类按取值范围的randint/uniform
 
-第一类：从分布率写起，可扩展到其他分布
+第一类：从分布率写起，可扩展到其他分布  (对应pytorch有torch.rand()/torch.randn())
     > rand(m,n) 均匀分布u(0,1)，也可单个数rand()
         通过变换可以得到(-1,1)或任何其他区间的均匀分布，比如rand(2,4)*2-1就是(-1,1)的均匀分布
     > randn(m,n) 标准正态分布N(0,1),注意不是取值0-1而是均值和方差是0/1，也可单个数randn()
         通过变换可以得到其他区间的正态分布
     
-第二类：从取值范围写起
+第二类：从取值范围写起  (对应pytorch只有torch.randint())
     > randint(low, high) 整数范围取1个数，或size个数
     > uniform(low, high) 实数范围取1个书，或size个数
 
-核心功能2： 随机打乱序列
+核心功能2： 随机打乱序列  (对应pytorch只实现了一个torch.randperm()对从0开始的数组重排列)
 random.permutation(lst)
 random.shuffle(lst)    inplace操作
-核心功能3：从一组数随机选一个
+核心功能3：从一组数随机选一个  (对应pytorch没有)
 random.choice(lst)
 '''
 import numpy as np

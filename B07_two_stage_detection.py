@@ -760,7 +760,7 @@ def anchor_target_mine(gt_bboxes, inside_anchors, inside_f, assigned,
             num_total_pos, num_total_neg)
 
 def unmap(data, total, inds, fill=0):
-    """借用inside_flags把得到的data映射回原来的total数据中：
+    """借用inside_flags把得到的data映射回原来的total数据中：(因为原来total数据是堆叠在一起的)
     即创建一个跟原来all anchors尺寸一样的0数组，然后把target数据放入指定位置
     """
     if data.dim() == 1:

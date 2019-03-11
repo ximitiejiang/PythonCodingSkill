@@ -1,22 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar  5 15:10:28 2019
-
-@author: ubuntu
-对config中参数的几个解释：
-1. 数据集归一化参数：对coco是mean=[123.675, 116.28, 103.53], std=[1, 1, 1]
-
-"""
-
-# 已修改： 增加../data, 增加gpus=1
 # model settings
-input_size = 300
 model = dict(
     type='SingleStageDetector',
-    pretrained='open-mmlab://vgg16_caffe',
+    pretrained='modelzoo://vgg16_caffe',   # 这个源码地址报错
     backbone=dict(
-        type='SSDVGG',
+        type='Resnet50',
         input_size=input_size,
         depth=16,
         with_last_pool=False,
@@ -25,16 +12,7 @@ model = dict(
         out_feature_indices=(22, 34),
         l2_norm_scale=20),
     neck=None,
-    bbox_head=dict(
-        type='SSDHead',
-        input_size=input_size,
-        in_channels=(512, 1024, 512, 256, 256, 256),
-        num_classes=81,
-        anchor_strides=(8, 16, 32, 64, 100, 300),
-        basesize_ratio_range=(0.15, 0.9),
-        anchor_ratios=([2], [2, 3], [2, 3], [2, 3], [2], [2]),
-        target_means=(.0, .0, .0, .0),
-        target_stds=(0.1, 0.1, 0.2, 0.2)))
+    bbox_head=None)
 cudnn_benchmark = True
 train_cfg = dict(
     assigner=dict(
@@ -56,19 +34,22 @@ test_cfg = dict(
     max_per_img=200)
 # model training and testing settings
 # dataset settings
-dataset_type = 'CocoDataset'
-data_root = '../data/coco/'
+dataset_type = 'DogsCats'
+data_root = '../data/DogsCats/'
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
 data = dict(
     imgs_per_gpu=4,
     workers_per_gpu=2,
     train=dict(
         type='RepeatDataset',
-        times=5,
+        times=2,
         dataset=dict(
             type=dataset_type,
-            ann_file=data_root + 'annotations/instances_train2017.json',
-            img_prefix=data_root + 'train2017/',
+            ann_file=[
+                data_root + 'VOC2007/ImageSets/Main/trainval.txt',
+                data_root + 'VOC2012/ImageSets/Main/trainval.txt'
+            ],
+            img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/'],
             img_scale=(300, 300),
             img_norm_cfg=img_norm_cfg,
             size_divisor=None,
@@ -92,8 +73,8 @@ data = dict(
             resize_keep_ratio=False)),
     val=dict(
         type=dataset_type,
-        ann_file=data_root + 'annotations/instances_val2017.json',
-        img_prefix=data_root + 'val2017/',
+        ann_file=data_root + 'VOC2007/ImageSets/Main/test.txt',
+        img_prefix=data_root + 'VOC2007/',
         img_scale=(300, 300),
         img_norm_cfg=img_norm_cfg,
         size_divisor=None,
@@ -104,8 +85,8 @@ data = dict(
         resize_keep_ratio=False),
     test=dict(
         type=dataset_type,
-        ann_file=data_root + 'annotations/instances_val2017.json',
-        img_prefix=data_root + 'val2017/',
+        ann_file=data_root + 'VOC2007/ImageSets/Main/test.txt',
+        img_prefix=data_root + 'VOC2007/',
         img_scale=(300, 300),
         img_norm_cfg=img_norm_cfg,
         size_divisor=None,
@@ -115,7 +96,7 @@ data = dict(
         test_mode=True,
         resize_keep_ratio=False))
 # optimizer
-optimizer = dict(type='SGD', lr=2e-4, momentum=0.9, weight_decay=5e-4)  # 学习率是8块GPU的，所以在1块GPU下从2e-3改为了2e-4
+optimizer = dict(type='SGD', lr=1e-3, momentum=0.9, weight_decay=5e-4)
 optimizer_config = dict()
 # learning policy
 lr_config = dict(
@@ -123,7 +104,7 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=500,
     warmup_ratio=1.0 / 3,
-    step=[16, 22])
+    step=[16, 20])
 checkpoint_config = dict(interval=1)
 # yapf:disable
 log_config = dict(
@@ -134,11 +115,11 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
-gpus=1
-total_epochs = 24
+gpus = 2 
+total_epochs = 10
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = './work_dirs/ssd300_coco'
+work_dir = './work_dirs/ssd300_voc'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]

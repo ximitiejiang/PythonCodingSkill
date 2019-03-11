@@ -918,8 +918,9 @@ print(res)
     >每个batch最初的梯度清零：optimizer.zero_grad()
     >每个batch的参数更新：optimizer.step()
 3. optimizer的类型：
-    >SGD
-    >Adam
+    >torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+    >torch.optim.Adam()
+    >
 
 """
 # 
