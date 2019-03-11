@@ -472,11 +472,16 @@ def batch_norm_simple(x, gamma, beta, bn_param):
 
 # %%
 """数据集归一化的目的和功能？在采用预训练模型参数进行finetune微调时，如何定义数据集归一化参数
-1. 数据集归一化目的：
+1. 数据集归一化目的：使img数据归一化到N(0,1)的标准正态分布上，在计算时更容易收敛
 2. 采用预训练模型微调时：尽可能采用原有的预训练模型的norm_cfg，需要注意，pytorch/caffe的norm参数差异较大
    比如都是vgg16如果是vgg16-caffe对应的norm参数mean=[123.675, 116.28, 103.53], std=[1, 1, 1]
    而如果是vgg16-pytorch对应的norm参数可能就是mean=[0.485, 0.456, 0.406]，std=[0.229, 0.224, 0.225]
    参考：https://github.com/open-mmlab/mmdetection/issues/354
+3. 归一化参数差别的原因：
+    >如果对数据集计算norm参数前是先除以255归一化，则得到的norm参数就是mean=[0.485, 0.456, 0.406]，std=[0.229, 0.224, 0.225]
+    >如果对数据集计算norm参数前不做归一化，图片通常都是(0-255)，则得到的norm参数就是[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375]
+    >如果采用的模型是caffe
+4. 计算一个数据集的mean/std代码，参考https://blog.csdn.net/weixin_38533896/article/details/85951903
 """
 # 基于norm cfg对每张图片归一化
 import torch
@@ -485,7 +490,50 @@ mean = torch.tensor([123.675, 116.28, 103.53])
 std = torch.tensor([1, 1, 1])
 img1 = (img - mean)/std
 
-# 对每张图片逆归一化
+def calculate_dataset_norm_params():
+    """计算数据集的mean/std参数：基于先除以255归一化后再计算mean/std
+    参考自：https://blog.csdn.net/weixin_38533896/article/details/85951903
+    """
+    import numpy as np
+    import cv2
+    import random
+     
+    # calculate means and std
+    train_txt_path = './train_val_list.txt'
+     
+    CNum = 10000     # 挑选多少图片进行计算
+     
+    img_h, img_w = 32, 32
+    imgs = np.zeros([img_w, img_h, 3, 1])
+    means, stdevs = [], []
+     
+    with open(train_txt_path, 'r') as f:
+        lines = f.readlines()
+        random.shuffle(lines)   # shuffle , 随机挑选图片
+     
+        for i in tqdm_notebook(range(CNum)):
+            img_path = os.path.join('./train', lines[i].rstrip().split()[0])
+     
+            img = cv2.imread(img_path)
+            img = cv2.resize(img, (img_h, img_w))
+            img = img[:, :, :, np.newaxis]
+            
+            imgs = np.concatenate((imgs, img), axis=3)
+    #         print(i)
+    imgs = imgs.astype(np.float32)/255.
+     
+    for i in tqdm_notebook(range(3)):
+        pixels = imgs[:,:,i,:].ravel()  # 拉成一行
+        means.append(np.mean(pixels))
+        stdevs.append(np.std(pixels))
+     
+    # cv2 读取的图像格式为BGR，PIL/Skimage读取到的都是RGB不用转
+    means.reverse() # BGR --> RGB
+    stdevs.reverse()
+     
+    print("normMean = {}".format(means))
+    print("normStd = {}".format(stdevs))
+    print('transforms.Normalize(normMean = {}, normStd = {})'.format(means, stdevs))
 
 
 
