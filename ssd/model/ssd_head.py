@@ -10,17 +10,21 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-#from mmcv.cnn import xavier_init  
-from .weight_init import xavier_init  # 修改来源
 
-from mmdet.core import (AnchorGenerator, anchor_target, weighted_smoothl1,
-                        multi_apply)
+#from mmdet.core import (AnchorGenerator, anchor_target, weighted_smoothl1, multi_apply)
 #from .anchor_head import AnchorHead
 #from ..registry import HEADS
+#from mmcv.cnn import xavier_init
+from mmdet.core import multiclass_nms
 
+from utils.anchor_generator import AnchorGenerator
+from utils.anchor_target import anchor_target
+from utils.multi_apply import multi_apply  
+from utils.bbox_reg import delta2bbox
+from .weight_init import xavier_init  
+from .losses import weighted_smoothl1
 
-
-class SSDHead(nn.Module): # TODO: 增加父类anchor head的内容
+class SSDHead(nn.Module):
 
     def __init__(self,
                  input_size=300,
@@ -33,6 +37,7 @@ class SSDHead(nn.Module): # TODO: 增加父类anchor head的内容
                  target_stds=(1.0, 1.0, 1.0, 1.0),
                  **kwargs): # 增加一个多余变量，避免修改cfg, 里边有一个type变量没有用
         super().__init__()
+        
         self.input_size = input_size
         self.num_classes = num_classes
         self.in_channels = in_channels
@@ -108,6 +113,9 @@ class SSDHead(nn.Module): # TODO: 增加父类anchor head的内容
                 xavier_init(m, distribution='uniform', bias=0)
 
     def forward(self, feats):
+        """ssd feats层数不同，不能统一用一种conv，也就不能multi apply同一种forward_single
+        这里直接采用循环分别计算每一层的输出。
+        """
         cls_scores = []
         bbox_preds = []
         for feat, reg_conv, cls_conv in zip(feats, self.reg_convs,
@@ -115,14 +123,54 @@ class SSDHead(nn.Module): # TODO: 增加父类anchor head的内容
             cls_scores.append(cls_conv(feat))
             bbox_preds.append(reg_conv(feat))
         return cls_scores, bbox_preds
+    
+    def get_anchors(self, featmap_sizes, img_metas):
+        """Get anchors according to feature map sizes.
 
+        Args:
+            featmap_sizes (list[tuple]): Multi-level feature map sizes.
+            img_metas (list[dict]): Image meta info.
+
+        Returns:
+            tuple: anchors of each image, valid flags of each image
+        """
+        num_imgs = len(img_metas)
+        num_levels = len(featmap_sizes)
+
+        # since feature map sizes of all images are the same, we only compute
+        # anchors for one time
+        multi_level_anchors = []
+        for i in range(num_levels):
+            anchors = self.anchor_generators[i].grid_anchors(
+                featmap_sizes[i], self.anchor_strides[i])
+            multi_level_anchors.append(anchors)
+        anchor_list = [multi_level_anchors for _ in range(num_imgs)]
+
+        # for each image, we compute valid flags of multi level anchors
+        valid_flag_list = []
+        for img_id, img_meta in enumerate(img_metas):
+            multi_level_flags = []
+            for i in range(num_levels):
+                anchor_stride = self.anchor_strides[i]
+                feat_h, feat_w = featmap_sizes[i]
+                h, w, _ = img_meta['pad_shape']
+                valid_feat_h = min(int(np.ceil(h / anchor_stride)), feat_h)
+                valid_feat_w = min(int(np.ceil(w / anchor_stride)), feat_w)
+                flags = self.anchor_generators[i].valid_flags(
+                    (feat_h, feat_w), (valid_feat_h, valid_feat_w))
+                multi_level_flags.append(flags)
+            valid_flag_list.append(multi_level_flags)
+
+        return anchor_list, valid_flag_list
+    
     def loss_single(self, cls_score, bbox_pred, labels, label_weights,
                     bbox_targets, bbox_weights, num_total_samples, cfg):
         loss_cls_all = F.cross_entropy(
             cls_score, labels, reduction='none') * label_weights
         pos_inds = (labels > 0).nonzero().view(-1)
         neg_inds = (labels == 0).nonzero().view(-1)
-
+        
+        # hard negtive mining解决样本不平衡问题：提取负样本中损失最大的前k个，确保正负样本比例是1：3
         num_pos_samples = pos_inds.size(0)
         num_neg_samples = cfg.neg_pos_ratio * num_pos_samples
         if num_neg_samples > neg_inds.size(0):
@@ -144,9 +192,10 @@ class SSDHead(nn.Module): # TODO: 增加父类anchor head的内容
              cfg):
         featmap_sizes = [featmap.size()[-2:] for featmap in cls_scores]
         assert len(featmap_sizes) == len(self.anchor_generators)
-
+        # 获得anchor_list
         anchor_list, valid_flag_list = self.get_anchors(
             featmap_sizes, img_metas)
+        # 获得anchor
         cls_reg_targets = anchor_target(
             anchor_list,
             valid_flag_list,

@@ -3,6 +3,25 @@ import numpy as np
 from torch.utils.data.dataset import ConcatDataset as _ConcatDataset
 from matplotlib import pyplot as plt
 
+def tensor2imgs(tensor, mean=(0, 0, 0), std=(1, 1, 1), to_rgb=True):
+    """把tensor数据逆变换成可以显示img数据：逆rgb化，逆chw化，逆归一化，逆tensor化
+    """
+    num_imgs = tensor.size(0)
+    mean = np.array(mean, dtype=np.float32)
+    std = np.array(std, dtype=np.float32)
+    imgs = []
+    for img_id in range(num_imgs):
+        img = tensor[img_id, ...].cpu().numpy().transpose(1, 2, 0)  # to cpu, to numpy, chw to hwc
+#        img = mmcv.imdenormalize(
+#            img, mean, std, to_bgr=to_rgb).astype(np.uint8)
+        # TODO: 逆归一化后是否缺了整数化和clip到0-255
+        img = (img * std) + mean                               # denorm
+        if to_rgb:
+            img = img[...,[2,1,0]]                             # rgb2bgr
+        imgs.append(np.ascontiguousarray(img))
+    return imgs
+
+
 def vis_bbox(img, bbox, label=None, score=None, score_thr=0, label_names=None,
              instance_colors=None, alpha=1., linewidth=1.5, ax=None):
     """另外一个图片+bbox显示的代码，感觉效果比cv2的好上几条街(来自chainercv)
@@ -188,7 +207,99 @@ def get_dataset(data_cfg, dataset_class):
     return dset
 
 
-
-
+if __name__ == '__main__':
+    
+    source = 'voc'
+    
+    if source == 'voc':   
+        from voc_dataset import VOCDataset
+        data_root = '../data/VOCdevkit/'  # 指代ssd目录下的data目录
+        img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
+        cfg_train=dict(
+            type='RepeatDataset',
+            times=10,
+            dataset=dict(
+                type='VOCDataset',
+                ann_file=[
+                    data_root + 'VOC2007/ImageSets/Main/trainval.txt',
+                    data_root + 'VOC2012/ImageSets/Main/trainval.txt'
+                ],
+                img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/'],
+                img_scale=(300, 300),
+                img_norm_cfg=img_norm_cfg,
+                size_divisor=None,
+                flip_ratio=0.5,
+                with_mask=False,
+                with_crowd=False,
+                with_label=True,
+                test_mode=False,
+                extra_aug=dict(
+                    photo_metric_distortion=dict(
+                        brightness_delta=32,
+                        contrast_range=(0.5, 1.5),
+                        saturation_range=(0.5, 1.5),
+                        hue_delta=18),
+                    expand=dict(
+                        mean=img_norm_cfg['mean'],
+                        to_rgb=img_norm_cfg['to_rgb'],
+                        ratio_range=(1, 4)),
+                    random_crop=dict(
+                        min_ious=(0.1, 0.3, 0.5, 0.7, 0.9), min_crop_size=0.3)),
+                resize_keep_ratio=False))
+        
+        trainset = get_dataset(cfg_train, VOCDataset)
+        classes = trainset.CLASSES
+        data = trainset[1120]  # dict('img', 'img_meta', )
+        """已做的数据处理：rgb化，chw化，归一化，tensor化"""
+        bbox = data['gt_bboxes'].numpy()
+        label = data['gt_labels'].numpy()
+        img = data['img'].numpy()     # 逆tensor
+        img1 = img.transpose(1,2,0)   # 逆chw
+        img2 = np.clip((img1 * img_norm_cfg['std'] + img_norm_cfg['mean']).astype(np.int32), 0, 255)  # 逆归一
+        vis_bbox(img2[...,[2,0,1]], bbox, label-1, label_names=classes)  # vis_bbox内部会bgr转rgb，所以这里要用bgr输入
+    
+    if source == 'coco':
+        from coco_dataset import CocoDataset
+        data_root = '../data/coco/'
+        img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
+        cfg_train=dict(
+            type='RepeatDataset',
+            times=5,
+            dataset=dict(
+                type='CocoDataset',
+                ann_file=data_root + 'annotations/instances_train2017.json',
+                img_prefix=data_root + 'train2017/',
+                img_scale=(300, 300),
+                img_norm_cfg=img_norm_cfg,
+                size_divisor=None,
+                flip_ratio=0.5,
+                with_mask=False,
+                with_crowd=False,
+                with_label=True,
+                test_mode=False,
+                extra_aug=dict(
+                    photo_metric_distortion=dict(
+                        brightness_delta=32,
+                        contrast_range=(0.5, 1.5),
+                        saturation_range=(0.5, 1.5),
+                        hue_delta=18),
+                    expand=dict(
+                        mean=img_norm_cfg['mean'],
+                        to_rgb=img_norm_cfg['to_rgb'],
+                        ratio_range=(1, 4)),
+                    random_crop=dict(
+                        min_ious=(0.1, 0.3, 0.5, 0.7, 0.9), min_crop_size=0.3)),
+                resize_keep_ratio=False))
+    
+        trainset = get_dataset(cfg_train, CocoDataset)
+        classes = trainset.CLASSES
+        data = trainset[0]
+        """已做的数据处理：rgb化，chw化，归一化，tensor化"""
+        bbox = data['gt_bboxes'].numpy()
+        label = data['gt_labels'].numpy()
+        img = data['img'].numpy()     # 逆tensor
+        img1 = img.transpose(1,2,0)   # 逆chw
+        img2 = np.clip((img1 * img_norm_cfg['std'] + img_norm_cfg['mean']).astype(np.int32), 0, 255)  # 逆归一
+        vis_bbox(img2[...,[2,0,1]], bbox, label-1, label_names=classes)  # vis_bbox内部会bgr转rgb，所以这里要用bgr输入
         
         

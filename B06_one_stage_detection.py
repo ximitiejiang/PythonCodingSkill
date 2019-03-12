@@ -22,6 +22,108 @@ one stage detector的演进：
 """
 
 
+# %%
+"""Q. SSD的get anchors是如何计算，跟two stage的有什么区别？
+区别在于：
+1. base anchors的个数不同：ssd的6层特征图每层每个cell的base anchor个数不同.
+   分别是[4,6,6,6,4,4]，而在其他two stage上一般每层每个cell的anchor个数相同，
+   有的是3个scale*3个ratio=9个，最近的都是1个scale(取8)*3个ratio=3个
+2. base anchors的尺寸不同：ssd的base anchors尺寸定义过程，先要定义出一个尺寸阶梯，
+   每一层对应一个阶梯(30,60),(60,111),(111,162),(162,213),(213,264),(264,315)，
+   也就保证了，浅层采用小尺寸anchor，深层采用大尺寸anchor，然后按照ratio的不同生成。
+   而two stage的逻辑更清晰，就是定义一个base size(用的是下采样比例), 然后指定一个
+   scale和3个ratio，即得到3个anchor，每层都是一样逻辑，由于采用下采样比例做base size，
+   也是能保证浅层anchor小深层anchor大
+   
+"""
+import numpy as np
+def ssd_get_anchors(img_size,
+                    valid_size,
+                    featmap_sizes,
+                    base_scale=(0.2,0.9),
+                    strides = [8, 16, 32, 64, 100, 300],
+                    ratios=None, 
+                    scales=None):
+    """组合gen_base_anchors(), grid_anchors(), valid_flags()
+    
+    ssd的prior box就是先验盒本质上就是base anchor，但其生成逻辑不太一样
+    参考：https://www.jianshu.com/p/e13792628bac
+    参考：https://blog.csdn.net/qq_36735489/article/details/83653816
+    但在mmdetection中，还有一点不太一样就是s1_min/s1_max的计算逻辑
+    ssd把base anchor叫做prior bbox也就是先验框，也就是在已有经验下定义的尺寸，过程如下：
+    1. 定义sk为每个bbox跟原图的尺寸大小之比，smin,smax=(0.2,0.9)，这个比例值可调，比如
+    在voc_300定义成(0.2,0.9),voc_512就是(0.15,0.9),coco_300就是(0.15,0.9),coco_512就是(0.1,0.9)
+    2. 对每个特征图初始bbox比例求法：sk = smin + (smax-smin)*(k-1)/(m-1)，这其实就是在smin基础上逐级加step=(smax-smin)/(k-1)
+    其中m为总的特征图数，但因为s1用另外公式计算所以这里m取5而不是6, 其中k为第k个特征图。
+    用该公式可计算出6个比例(0.2,0.37,0.54,0.71,0.88,1.05)
+    3. 把base scale乘以图片输入尺寸，就是base bbox的实际尺寸(60,111,162,213,264,315)
+    然后把这个实际分寸分段为(60,111),(111,162),(162,213),(213,264),(264,315)就是特征图k2-k5的bbox尺寸范围
+    4. 单独计算特征图k1的bbox尺寸范围：原论文采用的0.5×s1，但在mmdetection是这么处理：
+    对voc_300(0.1,0.2)，对voc_512(0.07,0.15), 对coco_300(0.07,0.15), 对coco_512(0.04,0.1)
+    所以对voc_300的k1，bbox的实际尺寸范围就是(30,60)，
+    所有6个特征图k1-k6范围就是(30,60),(60,111),(111,162),(162,213),(213,264),(264,315)
+    5. 接下来生成anchors：
+    先要定义每个特征图的cell上anchors ratios=[1,1/2,2],或者ratios=[1,1/2,2,1/3,3]
+    也就是有的层有3种ratio，有的层有5种ratio，源码定义是0,4,5层是3种，1,2,3层是5种，也就如下：
+    这6层的ratio就是([1,1/2,2],[1,1/2,2,1/3,3],[1,1/2,2,1/3,3],[1,1/2,2,1/3,3],[1,1/2,2],[1,1/2,2])
+    再要定义scales，统一定义为2个scale，一个scale=1即小方框边长用min_size, 另一个scale=sqrt(max_size/min_size)也就是大方框边长sqrt(min_size*max_size)
+    也就是2个scales[1, sqrt(max_size/min_size)]
+    所以理论上生成的anchor个数是ratio数*scales数，为[6,10,10,10,6,6]，但实际上源码只从中取了一部分，
+    其中保留了小框和相应的ratios以及唯一一个大框，而大框对应的ratios全都丢弃。
+    所以各特征图最终生成的anchor个数是[4,6,6,6,4,4]， 其中4为小框3种ratio加一个大框，6为小框5种ratio加一个大框
+    
+    grid的过程跟其他是一样的, 6个特征图分别进行grid anchor，生成的all_anchors数量
+    应该是5776+2166+600+150+36 = 8732个anchors(8732,4)
+        
+    Args:
+        
+    Return:
+        all_anchors(list): 代表每个特征图的所有anchors[(5776,4), (2166,4), (600,4), (150,4), (36,4), (4,4)]
+        valids(list): 代表每个特征图上每个anchors的标志[(5776,), (2166,), (600, ), (150,), (36, ), (4,)]
+    """
+    # 1. 生成每张featmaps的base anchors
+    smin, smax = base_scale
+    step = np.floor(100*(smax - smin) / 4.)/100  # 算步长
+    sk = np.arange(0.2,1.2,step)                 # 算基础scales
+    min_sizes = [np.ceil(sk[i]*img_size) for i in range(len(sk)-1)]   # 算min_size
+    max_sizes = [np.ceil(sk[i+1]*img_size) for i in range(len(sk)-1)] # 算max_size
+    min_sizes.insert(0, 0.1*img_size)
+    max_sizes.insert(0, 0.2*img_size)
+    ratios = [[1,1/2,2],           # 表示不同anchor的h/w比例，这是在ssd算法中固定的一个先验数据
+              [1,1/2,2,1/3,3],
+              [1,1/2,2,1/3,3],
+              [1,1/2,2,1/3,3],
+              [1,1/2,2],
+              [1,1/2,2]]
+
+    base_anchors = []
+    for i in range(len(strides)):
+        anchor_base = min_sizes[i]
+        scale = [1., np.sqrt(max_sizes[i]/min_sizes[i])]
+        ratio = ratios[i]
+        ctr = [strides[i]/2, strides[i]/2]
+        anchors = gen_base_anchors_mine(anchor_base, ratio, scale, ctr)  # 先足量生成anchors
+        anchors = anchors[:(len(ratio)+1)]                               # 然后按照源码提取其中的小框+小框变种+大框(也就是前ratio个数+1)
+        base_anchors.append(anchors)
+         
+    # 2. 网格化anchors
+    all_anchors = []
+    all_valids = []
+    for i in range(len(featmap_sizes)):
+        all_anchor = grid_anchors_mine(featmap_sizes[i], strides[i], base_anchors[i])
+        all_anchors.append(all_anchor)
+    
+    # 3. 生成valid flag
+        valid_feat_h = min(np.ceil(valid_size/strides[i]), featmap_sizes[i][0])
+        valid_feat_w = min(np.ceil(valid_size/strides[i]), featmap_sizes[i][1])
+        valid_feat_size = [int(valid_feat_h), int(valid_feat_w)] 
+        valids = valid_flags(featmap_sizes[i], valid_feat_size, len(base_anchors[i]))
+        all_valids.append(valids)
+    
+    return all_anchors, all_valids
+
+
+
 # %% 
 """Q. SSD的anchor target是如何计算的？跟two stage的faster rcnn有什么区别？
 """

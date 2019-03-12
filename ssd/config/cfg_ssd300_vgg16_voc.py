@@ -2,7 +2,7 @@
 input_size = 300
 model = dict(
     type='SingleStageDetector',
-    pretrained='modelzoo://vgg16_caffe',   # 这个源码地址报错
+    pretrained='open-mmlab://vgg16_caffe',   
     backbone=dict(
         type='SSDVGG',
         input_size=input_size,
@@ -49,7 +49,7 @@ dataset_type = 'VOCDataset'
 data_root = '../data/VOCdevkit/'
 img_norm_cfg = dict(mean=[123.675, 116.28, 103.53], std=[1, 1, 1], to_rgb=True)
 data = dict(
-    imgs_per_gpu=4,
+    imgs_per_gpu=2,   # 从4改成2
     workers_per_gpu=2,
     train=dict(
         type='RepeatDataset',
@@ -107,7 +107,7 @@ data = dict(
         test_mode=True,
         resize_keep_ratio=False))
 # optimizer
-optimizer = dict(type='SGD', lr=1e-3, momentum=0.9, weight_decay=5e-4)
+optimizer = dict(type='SGD', lr=1e-4, momentum=0.9, weight_decay=5e-4) # 学习率是8块GPU的，所以在1块GPU下从1e-3改为了1e-4
 optimizer_config = dict()
 # learning policy
 lr_config = dict(
@@ -126,7 +126,7 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
-gpus = 2 # 增加该句，因为build_dataloader函数需要
+gpus = 1      # 增加该句，从arg里边移过来因为build_dataloader函数需要
 total_epochs = 24
 dist_params = dict(backend='nccl')
 log_level = 'INFO'

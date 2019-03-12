@@ -672,14 +672,15 @@ DataLoader(dataset, batch_size=1, shuffle=False, sampler=None, batch_sampler=Non
 2. sampler: 用于定义如何从数据集获取样本，即采样方式。如果要自己定义采样方式，则shuffle需设置为False
    也就是说batch_sampler跟shuffle/sampler/drop_last相互不能
 3. num_workers: 用于定义要多少个子进程来加载数据，默认=0是在主进程加载数据
-4. collate_fn: (collate有整理校对的含义)用于把一系列采样的样本形成一个batch
+4. collate_fn: (collate有整理校对的含义)用于把一个batch的数据堆叠stack在一起，形成(b,c,h,w)的形式
+   因此，default_collate只能支持img的堆叠，如果里边混入了其他数据(比如bbox/labels)，这个default_collate就报错了
 5. pin_memory: 用于定义是否把数据保存到pin memory区，在这个区域的数据做GPU运算会更快
 6. drop_last: 用于定义是否丢弃最后剩下不足一个batch的数据
 '''
-from ssd.dataset.dataset import VOCDataset
-from torch.utils.data import DataLoader, Sampler
+from ssd.dataset.voc_dataset import VOCDataset
+from torch.utils.data import DataLoader
 
-data_root = 'data/VOCdevkit/'  # 如果是mac则增加_mac后缀
+data_root = './data/VOCdevkit/'  # 如果是mac则增加_mac后缀
 ann_file=[data_root + 'VOC2007/ImageSets/Main/trainval.txt',
           data_root + 'VOC2012/ImageSets/Main/trainval.txt']
 img_prefix=[data_root + 'VOC2007/', data_root + 'VOC2012/']

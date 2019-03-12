@@ -6,22 +6,26 @@ Created on Tue Mar  5 16:05:16 2019
 @author: ubuntu
 """
 import logging
-from .ssdvgg import SSDVGG
-from .ssd_head import SSDHead
 import torch.nn as nn
 import numpy as np
+import pycocotools.mask as maskUtils
 import mmcv
 
+from .ssdvgg import SSDVGG
+from .ssd_head import SSDHead
+from dataset.utils import tensor2imgs
+from dataset.class_names import get_classes
+
 class OneStageDetector(nn.Module):
-    """one stage单级检测器
+    """one stage单级检测器: 整合了base/singlestagedetector在一起
     1. 采用ssd head作为bbox head来使用： bbox head的本质应该是输出最终结果。
     虽然ssd head继承自anchor head但他并没有用来生成rois，所以作为bbox head使用。
     2. 
     """
     def __init__(self, cfg, pretrained=None):  # 输入参数修改成cfg，同时预训练模型参数网址可用了
         super(OneStageDetector, self).__init__()
-        self.backbone = SSDVGG(**cfg.model.backbone)        # 初始化backbone - 参数要导入
-        self.bbox_head = SSDHead(**cfg.model.bbox_head)      # 初始化bbox head
+        self.backbone = SSDVGG(**cfg.model.backbone)        
+        self.bbox_head = SSDHead(**cfg.model.bbox_head)    
         
         self.train_cfg = cfg.train_cfg
         self.test_cfg = cfg.test_cfg
@@ -73,8 +77,7 @@ class OneStageDetector(nn.Module):
         if return_loss:
             return self.forward_train(img, img_meta, **kwargs)
         else:
-            return self.forward_test(img, img_meta, **kwargs)
-    
+            return self.forward_test(img, img_meta, **kwargs)  
     
     def simple_test(self, img, img_meta, rescale=False):
         """用于测试时单图前向计算：
@@ -83,11 +86,9 @@ class OneStageDetector(nn.Module):
         x = self.extract_feat(img)
         outs = self.bbox_head(x)
         bbox_inputs = outs + (img_meta, self.test_cfg, rescale)
-        # TODO: 检查bbox_head的get_bboxes()
         bbox_list = self.bbox_head.get_bboxes(*bbox_inputs)
-        # TODO: replace bbox2result()
         bbox_results = [
-            bbox2result(det_bboxes, det_labels, self.bbox_head.num_classes)
+            self.bbox2result(det_bboxes, det_labels, self.bbox_head.num_classes)
             for det_bboxes, det_labels in bbox_list
         ]
         return bbox_results[0]
@@ -106,12 +107,10 @@ class OneStageDetector(nn.Module):
 
         img_tensor = data['img'][0]
         img_metas = data['img_meta'][0].data[0]
-        # TODO: replace tensor2imgs()
         imgs = tensor2imgs(img_tensor, **img_norm_cfg)
         assert len(imgs) == len(img_metas)
 
         if isinstance(dataset, str):
-            # TODO: replace get_classes()
             class_names = get_classes(dataset)
         elif isinstance(dataset, (list, tuple)) or dataset is None:
             class_names = dataset
@@ -132,7 +131,6 @@ class OneStageDetector(nn.Module):
                 for i in inds:
                     color_mask = np.random.randint(
                         0, 256, (1, 3), dtype=np.uint8)
-                    # TODO: delete mask的部分是否必要
                     mask = maskUtils.decode(segms[i]).astype(np.bool)
                     img_show[mask] = img_show[mask] * 0.5 + color_mask * 0.5
             # draw bounding boxes
@@ -147,3 +145,23 @@ class OneStageDetector(nn.Module):
                 labels,
                 class_names=class_names,
                 score_thr=score_thr)
+    
+    def bbox2result(self, bboxes, labels, num_classes):
+        """Convert detection results to a list of numpy arrays.
+    
+        Args:
+            bboxes (Tensor): shape (n, 5)
+            labels (Tensor): shape (n, )
+            num_classes (int): class number, including background class
+    
+        Returns:
+            list(ndarray): bbox results of each class
+        """
+        if bboxes.shape[0] == 0:
+            return [
+                np.zeros((0, 5), dtype=np.float32) for i in range(num_classes - 1)
+            ]
+        else:
+            bboxes = bboxes.cpu().numpy()
+            labels = labels.cpu().numpy()
+            return [bboxes[labels == i, :] for i in range(num_classes - 1)]

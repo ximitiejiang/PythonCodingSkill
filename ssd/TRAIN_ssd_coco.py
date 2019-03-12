@@ -7,14 +7,16 @@ Created on Tue Mar  5 15:42:09 2019
 """
 
 import logging
-from torch.nn.parallel import DataParallel
 from torch.utils.data import DataLoader
-
 import torch.distributed as dist
 from collections import OrderedDict
 import torch
+from functools import partial
+
+from mmcv.parallel import MMDataParallel, collate
 from mmcv.runner import Runner
 
+from dataset.sampler import GroupSampler  # 用于dataloader采样定义
 from utils.config import Config
 from model.one_stage_detector import OneStageDetector
 from dataset.voc_dataset import VOCDataset
@@ -72,7 +74,11 @@ def batch_processor(model, data, train_mode):
     return outputs  
   
 def train():
-    """借用mmcv的Runner框架进行训练，包括里边的hooks作为lr更新，loss计算的工具"""
+    """借用mmcv的Runner框架进行训练，包括里边的hooks作为lr更新，loss计算的工具
+    1. dataset的数据集输出打包了img/gt_bbox/label/，采用DataContainer封装
+    2. Dataloader的default_collate用定制collate替换，从而支持dataset的多类型数据
+    3. DataParallel外壳用定制MMDataparallel替换，从而支持DataContainer
+    """
     # get cfg
     cfg_path = 'config/cfg_ssd300_vgg16_voc.py'
     cfg = Config.fromfile(cfg_path)
@@ -83,23 +89,30 @@ def train():
     
     # get logger
     distributed = False
+    parallel = True
     logger = get_root_logger(cfg.log_level)
     logger.info('Distributed training: {}'.format(distributed))
-    
+    logger.info('DataParallel training: {}'.format(parallel))
     # build model & detector
     model = OneStageDetector(cfg)
-    model = DataParallel(model, device_ids = range(cfg.gpus)).cuda()
+    if not parallel:
+        # TODO: for non-parallel model, need check whether support DC data?
+        model = model.cuda()
+    else:
+        model = MMDataParallel(model, device_ids = range(cfg.gpus)).cuda()
     
     # prepare data & dataloader
+    # Runner要求dataloader放在list里: 使workflow里每个flow对应一个dataloader
     dataset = get_dataset(cfg.data.train, VOCDataset)
     batch_size = cfg.gpus * cfg.data.imgs_per_gpu
     num_workers = cfg.gpus * cfg.data.workers_per_gpu
-    dataloader = DataLoader(dataset, 
+    dataloader = [DataLoader(dataset, 
                             batch_size=batch_size, 
-                            shuffle=True, 
-                            num_workers=num_workers)
+                            sampler = GroupSampler(dataset, cfg.data.imgs_per_gpu),
+                            num_workers=num_workers,
+                            collate_fn=partial(collate, samples_per_gpu=cfg.data.imgs_per_gpu),
+                            pin_memory=False)] 
     
-
     # define runner and running type(1.resume, 2.load, 3.train/test)
     runner = Runner(model, batch_processor, cfg.optimizer, cfg.work_dir, cfg.log_level)
     runner.register_training_hooks(cfg.lr_config,
