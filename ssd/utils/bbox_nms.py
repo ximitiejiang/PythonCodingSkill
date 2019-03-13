@@ -1,6 +1,6 @@
 import torch
 from . import nms_wrapper
-
+import numpy as np
 
 def multiclass_nms(multi_bboxes, multi_scores, score_thr, nms_cfg, max_num=-1):
     """NMS for multi-class bboxes.
@@ -55,43 +55,50 @@ def multiclass_nms(multi_bboxes, multi_scores, score_thr, nms_cfg, max_num=-1):
     return bboxes, labels
 
 
+# --------------------------------------------------------
+# Fast R-CNN
+# Copyright (c) 2015 Microsoft
+# Licensed under The MIT License [see LICENSE for details]
+# Written by Ross Girshick
+# --------------------------------------------------------
 def py_cpu_nms(dets, thresh):
-    """python版本的cpu_nms:
-    待验证是否可以在ssd采用该cpu版本nms计算，速度上是否影响很大    
+    """Pure Python NMS baseline.
+    RGB大神在Faster rcnn上的代码
+    Args:
+        dets:(m,5)  
+        thresh:scaler
     """
-    # dets:(m,5)  thresh:scaler
-    x1 = dets[:,0]
-    y1 = dets[:,1]
-    x2 = dets[:,2]
-    y2 = dets[:,3]
-    
-    areas = (y2-y1+1) * (x2-x1+1)
-    scores = dets[:,4]
-    keep = []
-    
-    index = scores.argsort()[::-1]  #因为-1反排，所以是从大到小的index
-    while index.size >0:  # 每次循环更新index，
-        i = index[0]       # 先取出最大置信度的bbox，直接放入keep
-        keep.append(i)
-        
-        x11 = np.maximum(x1[i], x1[index[1:]])    # 计算其他所有bbox跟最大置信度bbox的交集方框对应的(x1,y1,x2,y2)
-        y11 = np.maximum(y1[i], y1[index[1:]])
-        x22 = np.minimum(x2[i], x2[index[1:]])
-        y22 = np.minimum(y2[i], y2[index[1:]])
-        
-        w = np.maximum(0, x22-x11+1)    # the weights of overlap
-        h = np.maximum(0, y22-y11+1)    # the height of overlap
-       
-        overlaps = w * h
-        ious = overlaps / (areas[i]+areas[index[1:]] - overlaps)
-        idx = np.where(ious<=thresh)[0]    # 把ious小于thr的idx记录
-        
-        index = index[idx+1]   # because index start from 1
-    return keep
+    x1 = dets[:, 0]
+    y1 = dets[:, 1]
+    x2 = dets[:, 2]
+    y2 = dets[:, 3]
+    scores = dets[:, 4]
 
+    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+    order = scores.argsort()[::-1]  #[::-1]表示降序排序，输出为其对应序号
+
+    keep = []                     #需要保留的bounding box
+    while order.size > 0:
+        i = order[0]              #取置信度最大的（即第一个）框
+        keep.append(i)            #将其作为保留的框
+        
+        #以下计算置信度最大的框（order[0]）与其它所有的框（order[1:]，即第二到最后一个）框的IOU，以下都是以向量形式表示和计算
+        xx1 = np.maximum(x1[i], x1[order[1:]]) #计算xmin的max,即overlap的xmin
+        yy1 = np.maximum(y1[i], y1[order[1:]]) #计算ymin的max,即overlap的ymin
+        xx2 = np.minimum(x2[i], x2[order[1:]]) #计算xmax的min,即overlap的xmax
+        yy2 = np.minimum(y2[i], y2[order[1:]]) #计算ymax的min,即overlap的ymax
+
+        w = np.maximum(0.0, xx2 - xx1 + 1)      #计算overlap的width
+        h = np.maximum(0.0, yy2 - yy1 + 1)      #计算overlap的hight
+        inter = w * h                           #计算overlap的面积
+        ovr = inter / (areas[i] + areas[order[1:]] - inter) #计算并，-inter是因为交集部分加了两次。
+
+        inds = np.where(ovr <= thresh)[0]          #本轮，order仅保留IOU不大于阈值的下标
+        order = order[inds + 1]                    #删除IOU大于阈值的框, inds从1开始
+
+    return keep  
 
 if __name__ == '__main__':
-    import numpy as np
     import matplotlib.pyplot as plt
     boxes=np.array([[100,100,210,210,0.72],
                     [250,250,420,420,0.8],
