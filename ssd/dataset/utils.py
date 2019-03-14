@@ -209,7 +209,7 @@ def get_dataset(data_cfg, dataset_class):
 
 if __name__ == '__main__':
     
-    source = 'voc'
+    source = 'coco'
     
     if source == 'voc':   
         from voc_dataset import VOCDataset
@@ -251,9 +251,9 @@ if __name__ == '__main__':
         classes = trainset.CLASSES
         data = trainset[1120]  # dict('img', 'img_meta', )
         """已做的数据处理：rgb化，chw化，归一化，tensor化"""
-        bbox = data['gt_bboxes'].numpy()
-        label = data['gt_labels'].numpy()
-        img = data['img'].numpy()     # 逆tensor
+        bbox = data['gt_bboxes'].data.numpy()
+        label = data['gt_labels'].data.numpy()
+        img = data['img'].data.numpy()     # 逆tensor
         img1 = img.transpose(1,2,0)   # 逆chw
         img2 = np.clip((img1 * img_norm_cfg['std'] + img_norm_cfg['mean']).astype(np.int32), 0, 255)  # 逆归一
         vis_bbox(img2[...,[2,0,1]], bbox, label-1, label_names=classes)  # vis_bbox内部会bgr转rgb，所以这里要用bgr输入
@@ -293,11 +293,11 @@ if __name__ == '__main__':
     
         trainset = get_dataset(cfg_train, CocoDataset)
         classes = trainset.CLASSES
-        data = trainset[0]
+        data = trainset[1000]
         """已做的数据处理：rgb化，chw化，归一化，tensor化"""
-        bbox = data['gt_bboxes'].numpy()
-        label = data['gt_labels'].numpy()
-        img = data['img'].numpy()     # 逆tensor
+        bbox = data['gt_bboxes'].data.numpy()
+        label = data['gt_labels'].data.numpy()
+        img = data['img'].data.numpy()     # 逆tensor
         img1 = img.transpose(1,2,0)   # 逆chw
         img2 = np.clip((img1 * img_norm_cfg['std'] + img_norm_cfg['mean']).astype(np.int32), 0, 255)  # 逆归一
         vis_bbox(img2[...,[2,0,1]], bbox, label-1, label_names=classes)  # vis_bbox内部会bgr转rgb，所以这里要用bgr输入

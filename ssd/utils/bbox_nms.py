@@ -1,5 +1,5 @@
 import torch
-from . import nms_wrapper
+from nms import nms_wrapper
 import numpy as np
 
 def multiclass_nms(multi_bboxes, multi_scores, score_thr, nms_cfg, max_num=-1):
@@ -62,8 +62,8 @@ def multiclass_nms(multi_bboxes, multi_scores, score_thr, nms_cfg, max_num=-1):
 # Written by Ross Girshick
 # --------------------------------------------------------
 def py_cpu_nms(dets, thresh):
-    """Pure Python NMS baseline.
-    RGB大神在Faster rcnn上的代码
+    """Pure Python NMS baseline. RGB大神在Faster rcnn上的代码
+    逻辑：
     Args:
         dets:(m,5)  
         thresh:scaler
@@ -100,12 +100,8 @@ def py_cpu_nms(dets, thresh):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    boxes=np.array([[100,100,210,210,0.72],
-                    [250,250,420,420,0.8],
-                    [220,220,320,330,0.92],
-                    [100,100,210,210,0.72],
-                    [230,240,325,330,0.81],
-                    [220,230,315,340,0.9]]) 
+    # bbox(m,5)最后一列score (xmin,ymi,xmax,ymax, score)
+    
     def plot_bbox(dets, c='k'):
         x1 = dets[:,0]
         y1 = dets[:,1]

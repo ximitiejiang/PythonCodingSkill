@@ -8,17 +8,17 @@ Created on Sun Mar  3 08:26:28 2019
 
 import torch
 import cv2
-import mmcv
-from mmdet.models import build_detector
-from mmcv.runner import load_checkpoint
-from mmdet.datasets.transforms import ImageTransform
-from mmdet.core import get_classes
 import numpy as np
-from matplotlib import pyplot as plt
+
+from model.checkpoint import load_checkpoint
+from utils.config import Config
+from dataset.transforms import ImageTransform
+from dataset.class_names import get_classes
 from dataset.utils import vis_bbox
+from model.one_stage_detector import OneStageDetector
 
 
-def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
+def test_img(img_path, config_file, weights_path, class_name='voc', device = 'cuda:0'):
     """测试单张图片：相当于恢复模型和参数后进行单次前向计算得到结果
     注意由于没有dataloader，所以送入model的数据需要手动合成img_meta
     1. 模型输入data的结构：需要手动配出来
@@ -30,23 +30,26 @@ def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
         class_name(str): 'voc' or 'coco'
     """
     # 1. 配置文件
-    cfg = mmcv.Config.fromfile(config_file)
-    cfg.model.pretrained = None
+    cfg = Config.fromfile(config_file)
+    cfg.model.pretrained = None     # eval模式不再加载backbone的预训练参数，因为都在后边的checkpoints里边包含了。通过model load checkpoint统一来操作。
     # 2. 模型
-    path = 'https://s3.ap-northeast-2.amazonaws.com/open-mmlab/mmdetection/models/faster_rcnn_r50_fpn_1x_20181010-3d1b3351.pth'
-    model = build_detector(cfg.model, test_cfg = cfg.test_cfg)
-    _ = load_checkpoint(model, path)
+    model = OneStageDetector(cfg)
+    _ = load_checkpoint(model, weights_path)
     model = model.to(device)
-    model.eval()             # 千万别忘了这句，否则虽能出结果但少了很多
+    model.eval()             
+    
     # 3. 图形/数据变换
     img = cv2.imread(img_path)
-    img_transform = ImageTransform(size_divisor = cfg.data.test.size_divisor,
-                                   **cfg.img_norm_cfg)
-    # 5. 数据包准备
+    img_transform = ImageTransform(**cfg.img_norm_cfg)  # 测试阶段只采用ImageTransform这个基础变换
     ori_shape = img.shape
-    img, img_shape, pad_shape, scale_factor = img_transform(img, scale= cfg.data.test.img_scale)
+    img, img_shape, pad_shape, scale_factor = img_transform(
+        img, 
+        scale= cfg.data.test.img_scale, 
+        keep_ratio=False)  
+        # ssd要求输入必须300*300，所以keep_ratio必须False，否则可能导致图片变小输出最后一层size计算为负
     img = torch.tensor(img).to(device).unsqueeze(0) # 应该从(3,800,1216) to tensor(1,3,800,1216)
     
+    # 4. 数据包准备
     img_meta = [dict(ori_shape=ori_shape,
                      img_shape=img_shape,
                      pad_shape=pad_shape,
@@ -54,31 +57,30 @@ def test_img(img_path, config_file, class_name='coco', device = 'cuda:0'):
                      flip=False)]
 
     data = dict(img=[img], img_meta=[img_meta])
-    # 6. 结果计算: result(a list with )
-    # 进入detector模型的forward_test(),从中再调用simple_test(),从中再调用RPNTestMixin类的simple_test_rpn()方法
-    # 测试过程：先前向计算得到rpn head的输出，然后在rpn head中基于该输出计算proposal_list(一张图(2000,5))
     
+    # 5. 结果计算: result    
     with torch.no_grad():
-        result = model(return_loss=False, rescale=True, **data)
-    # 7. 结果显示
+        result = model(**data, return_loss=False, rescale=True)
+    # 6. 结果显示
     class_names = get_classes(class_name)
     labels = [np.full(bbox.shape[0], i, dtype=np.int32) 
-        for i, bbox in enumerate(result)]
+                for i, bbox in enumerate(result)]
     labels = np.concatenate(labels)
     bboxes = np.vstack(result)
     scores = bboxes[:,-1]
     img = cv2.imread(img_path, 1)
-    
-
-    vis_bbox(img.copy(), bboxes, label=labels, score=scores, score_thr=0.7, 
+    vis_bbox(img.copy(), bboxes, label=labels, score=scores, score_thr=0.4, 
              label_names=class_names,
              instance_colors=None, alpha=1., linewidth=1.5, ax=None)
     
 
 if __name__ == "__main__":     
+    
     test_this_img = True
+    
     if test_this_img:
-        img_path = 'test12.jpg'    
-        config_file = 'cfg_fasterrcnn_r50_fpn_coco.py'
-        class_name = 'coco'
-        test_img(img_path, config_file, class_name=class_name)
+        img_path = './data/misc/test14.jpg'    
+        config_file = './config/cfg_ssd300_vgg16_voc.py'
+        weights_path = './weights/myssd/epoch_24.pth'
+        class_name = 'voc'
+        test_img(img_path, config_file, weights_path, class_name=class_name)

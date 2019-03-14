@@ -18,6 +18,10 @@ from mmdet.models import build_detector, detectors
 
 from utils.coco_eval import evaluation
 
+from dataset.utils import get_dataset
+from dataset.voc_dataset import VOCDataset
+from model.one_stage_detector import OneStageDetector
+
 def single_test(model, data_loader, show=False):
     model.eval()
     results = []
@@ -71,12 +75,9 @@ def main():
     1. args parse用直接输入替代
     2. 
     """
-#    args = parse_args()
-
-#    if args.out is not None and not args.out.endswith(('.pkl', '.pickle')):
-#        raise ValueError('The output file must be a pkl file.')
-    config_path = './cfg_fasterrcnn_r50_fpn_coco.py'
-    checkpoint_path = 'https://s3.ap-northeast-2.amazonaws.com/open-mmlab/mmdetection/models/faster_rcnn_r50_fpn_1x_20181010-3d1b3351.pth'
+    """TODO: 模型是在VOC训练的，但在COCO上评价，合理吗？"""
+    config_path = './config/cfg_ssd300_vgg16_voc.py'  
+    checkpoint_path = './weights/myssd/epoch_24.pth'
     cfg = mmcv.Config.fromfile(config_path)
     out_file = 'dataset_eval_result/results.pkl'  # 注意这里要选择pkl而不能选择json，因为outputs里边包含array，用json无法保存
     eval_type = ['bbox']      # proposal_fast是mmdetection自己的实现
@@ -89,13 +90,18 @@ def main():
     # set cudnn_benchmark
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
-    cfg.model.pretrained = None
-    cfg.data.test.test_mode = True
+#    cfg.model.pretrained = None
 
-    dataset = obj_from_dict(cfg.data.test, datasets, dict(test_mode=True))
+#    dataset = obj_from_dict(cfg.data.test, datasets, dict(test_mode=True))
+    dataset = get_dataset(cfg.data.test, VOCDataset)
+    
+    cfg.gpus = 1
+    
     if cfg.gpus == 1:
-        model = build_detector(
-            cfg.model, train_cfg=None, test_cfg=cfg.test_cfg)
+#        model = build_detector(
+#            cfg.model, train_cfg=None, test_cfg=cfg.test_cfg)
+        model = OneStageDetector(cfg)
+        
         load_checkpoint(model, checkpoint_path)
         model = MMDataParallel(model, device_ids=[0])
 

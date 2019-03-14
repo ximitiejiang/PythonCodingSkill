@@ -94,9 +94,9 @@ def train():
     logger.info('Distributed training: {}'.format(distributed))
     logger.info('DataParallel training: {}'.format(parallel))
     # build model & detector
-    model = OneStageDetector(cfg)
+    model = OneStageDetector(cfg, pretrained=cfg.model.pretrained)
+#    model = OneStageDetector(cfg)
     if not parallel:
-        # TODO: for non-parallel model, need check whether support DC data?
         model = model.cuda()
     else:
         model = MMDataParallel(model, device_ids = range(cfg.gpus)).cuda()
@@ -119,13 +119,12 @@ def train():
                                    cfg.optimizer_config,
                                    cfg.checkpoint_config,
                                    cfg.log_config)
-    
-    if cfg.resume_from:  # 恢复训练
-        runner.resume(cfg.resume_from)
+    if cfg.resume_from:  # 恢复训练: './work_dirs/ssd300_voc/latest.pth'
+        runner.resume(cfg.resume_from, map_location = lambda storage, loc: storage)
     elif cfg.load_from:  # 加载参数进行测试
         runner.load_checkpoint(cfg.load_from)
-    else:                # 从新训练: 采用workflow来区分train还是test
-        runner.run(dataloader, cfg.workflow, cfg.total_epochs)
+    # 开始训练: 采用workflow来区分train还是test
+    runner.run(dataloader, cfg.workflow, cfg.total_epochs)
     
     
 if __name__ == '__main__':

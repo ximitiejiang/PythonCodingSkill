@@ -53,6 +53,7 @@ class OneStageDetector(nn.Module):
     def forward_test(self, imgs, img_metas, **kwargs):
         """用于测试时的前向计算：如果是单张图则跳转到simple_test(), 
         如果是多张图则跳转到aug_test()，但ssd当前不支持多图测试(aug_test未实施)
+        即在验证时每个gpu只能放1张图片
         """
         for var, name in [(imgs, 'imgs'), (img_metas, 'img_metas')]:
             if not isinstance(var, list):

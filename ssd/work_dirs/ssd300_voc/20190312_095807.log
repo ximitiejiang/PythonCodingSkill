@@ -1,2 +1,0 @@
-2019-03-12 09:58:20,855 - INFO - Start running, host: ubuntu@ubun, work_dir: /home/ubuntu/suliang_git/PythonCodingSkill/ssd/work_dirs/ssd300_voc
-2019-03-12 09:58:21,286 - INFO - workflow: [('train', 1)], max: 24 epochs

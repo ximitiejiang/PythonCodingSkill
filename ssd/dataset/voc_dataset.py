@@ -6,9 +6,9 @@ import xml.etree.ElementTree as ET
 from mmcv.parallel import DataContainer as DC
 from torch.utils.data import Dataset
 from collections import Sequence
-from dataset.transforms import (ImageTransform, BboxTransform, MaskTransform, Numpy2Tensor)
+from .transforms import (ImageTransform, BboxTransform, MaskTransform, Numpy2Tensor)
 #from utils import (to_tensor, random_scale)
-from dataset.extra_aug import ExtraAugmentation
+from .extra_aug import ExtraAugmentation
 
 
 

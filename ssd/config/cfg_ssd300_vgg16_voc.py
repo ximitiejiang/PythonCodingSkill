@@ -107,8 +107,8 @@ data = dict(
         test_mode=True,
         resize_keep_ratio=False))
 # optimizer
-optimizer = dict(type='SGD', lr=1e-4, momentum=0.9, weight_decay=5e-4) # 学习率是8块GPU的，所以在1块GPU下从1e-3改为了1e-4
-optimizer_config = dict()
+optimizer = dict(type='SGD', lr=2e-4, momentum=0.9, weight_decay=5e-4) # 学习率是8块GPU的，
+optimizer_config = dict()                                    # 所以在1块GPU下从1e-3改为了1e-4， 2块改成2e-4
 # learning policy
 lr_config = dict(
     policy='step',
@@ -126,11 +126,11 @@ log_config = dict(
     ])
 # yapf:enable
 # runtime settings
-gpus = 1      # 增加该句，从arg里边移过来因为build_dataloader函数需要
+gpus = 2      # 增加该句，从arg里边移过来因为build_dataloader函数需要
 total_epochs = 24
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 work_dir = './work_dirs/ssd300_voc'
 load_from = None
-resume_from = None
+resume_from = './work_dirs/ssd300_voc/latest.pth'
 workflow = [('train', 1)]
