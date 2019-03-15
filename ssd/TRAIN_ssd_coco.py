@@ -91,13 +91,11 @@ def train(cfg_path):
         torch.backends.cudnn.benchmark = True
     
     # get logger
-    distributed = False
-    parallel = True
     logger = get_root_logger(cfg.log_level)
     logger.info('Distributed training: {}'.format(distributed))
     logger.info('DataParallel training: {}'.format(parallel))
     # build model & detector
-    model = OneStageDetector(cfg, pretrained=cfg.model.pretrained)
+    model = OneStageDetector(cfg, pretrained=cfg.model.pretrained)   # 注意：要增加pretrained的路径定义
 #    model = OneStageDetector(cfg)
     if not parallel:
         model = model.cuda()
@@ -131,6 +129,6 @@ def train(cfg_path):
     
     
 if __name__ == '__main__':
-    cfg_path = 'config/cfg_ssd300_vgg16_voc.py'
+    cfg_path = 'config/cfg_ssd300_vgg16_coco.py' 
     train(cfg_path)
     

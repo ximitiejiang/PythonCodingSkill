@@ -1,14 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Mar  5 15:10:28 2019
-
-@author: ubuntu
-对config中参数的几个解释：
-1. 数据集归一化参数：对coco是mean=[123.675, 116.28, 103.53], std=[1, 1, 1]
-
-"""
-
 # 已修改： 增加../data, 增加gpus=1
 # model settings
 input_size = 300
@@ -115,7 +104,7 @@ data = dict(
         test_mode=True,
         resize_keep_ratio=False))
 # optimizer
-optimizer = dict(type='SGD', lr=2e-4, momentum=0.9, weight_decay=5e-4)  # 学习率是8块GPU的，所以在1块GPU下从2e-3改为了2e-4
+optimizer = dict(type='SGD', lr=4e-4, momentum=0.9, weight_decay=5e-4)  # 学习率是8块GPU的，所以在1块GPU下从2e-3改为了2e-4
 optimizer_config = dict()
 # learning policy
 lr_config = dict(
