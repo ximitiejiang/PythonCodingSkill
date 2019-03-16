@@ -661,7 +661,20 @@ model.module.load_state_dict(st3)
 
 # %%
 '''Q. 数据集加载的dataloader各个参数如何使用？
-dataloader本质是python iterator迭代器，所以有实现__iter__, __next__方法，
+参考：https://www.jianshu.com/p/bb90bff9f6e5 (介绍实现过程很完整)
+如果自己实现dataloader，整个过程是：
+    > dataset本身负责切片，给出1张图片
+    > dataloader负责定义batch size，然后提取n张图片
+    > dataloader内部采用default_collate函数，把n张图片stack成一个pack
+    > 由于dataloader采用stack函数堆叠，所以只能堆叠size相同的对象，比如size相同的图片
+    > 由于dataloader内部只能对一个batch的list元素[img1,img2..]进行堆叠，如果有bbox/label则需要
+      改造collate函数：
+      (1)数据集给出img+label的tuple, 再在collate函数中自己拆解batch(batch就是dataset[0]到dataset[n]的一个list)
+         并自己完成img/label的堆叠，该collate函数return img,label
+      (2)一种思路是mmdetection，把一个batch的list改造为[dict1, dict2..]
+      另一种思路是把label
+
+
 用iter(dataloader).next()即可调用
 DataLoader(dataset, batch_size=1, shuffle=False, sampler=None, batch_sampler=None,
            num_workers=0, collate_fn=default_collate, pin_memory=false, drop_last=False, 
