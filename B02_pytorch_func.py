@@ -432,7 +432,9 @@ d8 = np.concatenate((d4,d5),1)
 '''-------------------------------------------------------------------------
 Q. 对tensor的广播式扩展，跟堆叠有什么区别？
 1. repeat是把同一个数据堆叠，而stack/cat是把不同数据堆叠
-2. t.repeat(m,n)是把原数据堆叠成m行，n列，这是更便捷的行列同时堆叠，而stack/cat是一次只能往一个方向堆叠
+2. t.repeat(m,n)是相当于np.tile，把原数据堆叠成m行，n列，这是更便捷的行列同时堆叠，而stack/cat是一次只能往一个方向堆叠
+   t.repeat()可同时实现一个方向的堆叠和两个方向堆叠，所以不需要像numpy一样，一个方向是np.repeat,两个方向是np.tile
+3. t.expand(m,n)类似于list的extend命令，m,n代表最终的数列元素行列数，而repeat是把原数列看成元素，m,n就代表原数列做元素的行列数
 
 # 注意跟numpy的区别：
 1. torch的repeat是tensor的属性，只能后置，不能前置函数式
@@ -444,7 +446,9 @@ t2 = torch.tensor([6,7,8,9,10])
 t3 = torch.stack((t1,t2),0)  # stack在行方向上堆叠
 
 # t.repeat()相当与tile,非常方便
-t1.repeat(3,2)
+t1.repeat(3,2) # 相当于把t1看成一个元素，堆成(3,2)
+
+t2.repeat(3)  # 相当于(3,)即在一行堆叠3个
 
 # 另一种同一数据的堆叠方法是用t.expand(),该方法跟t.repeat()类似,但只适合二维
 # 并且expand的行列计数方式跟repeat不同，他采用的是定义生成的结果数组的行数和列数,
