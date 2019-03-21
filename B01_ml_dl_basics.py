@@ -729,6 +729,31 @@ plt.subplot(233), plt.plot(x, y_tanh), plt.title('tanh')
    其中imgs需要转换成概率输出，labels也需要转换成one-hot-code输出，也就是概率输出(值在0-1之间，相加=1)
    这个labels的独热编码，她的size应与imgs的size一致
    只有pytorch的交叉熵函数，是把label转化成独热编码的过程集成在了函数内，其他损失函数都需要自己转换label成独热编码
+
+5. *****一组损失函数核心总结*****
+    >损失函数的前置操作：(这些前置操作通常都是按元素操作)
+    一种是softmax: 里边exp用来非负化，求商求和用来概率归一化，针对多分类，所以每行概率值之和=1(也就是里边sum的缩减操作dim=1,因为所有缩减操作默认都是在最后一个维度计算)
+    一种是sigmoid: 用来概率归一化，但只针对二分类，所以概率值两两不相关
+    一种是logsoftmax: 用来把归一化转化为(-oo, 0)便于求导时连乘变连加
+    一种是one_hot_code: 用来把label转化为独热编码，独热编码本质上就是把label概率化，整行只有一个1其他都是0,整行之和=1,也就是概率的特征
+    
+    >两种损失函数：(损失函数通常都是缩减操作，不过回归的loss不缩减，除非要求缩减)
+    一种是分类损失函数，loss(score, target)，损失是按行求，不缩减则每一行得到一个损失，缩减后归为一个损失值
+        一行对应一个样本，该行对应n个分类。score就是m行对应m个样本，n列对应n个分类，所以一行就是一个分类也就是一个loss
+        这种包括交叉熵损失函数和负对数极大似然损失nll_loss
+        (负对数极大似然损失nll_loss本质上跟交叉熵损失一样，只是交叉熵集成了前置的logsoftmax,而nll_loss之前要增加logsoftmax才能使用)
+    另一种回归损失函数，loss(preds, target)，损失是按元素求，不缩减则每个元素得到一个损失，缩减后归为一个损失值
+        每个元素都对应一个回归参数，m行对应m个样本，n列对应n个回归参数，所以每行每列值都是一个独立参数，也就有独立loss
+        这种包括均方误差损失(也就是l2损失)，l1损失，smoothl1损失
+    
+    >损失函数的输入输出不同：
+    交叉熵损失：score可以任意，target只要>=0
+    二分类交叉熵：score可以任意(还是说要家sigmoid概率化?)，target只要0/1
+    均方误差损失：preds必须是logsoftmax的输出(-oo, 0), target必须是one-hot-code
+    l1损失/smoothl1损失：preds必须是
+    
+
+
 """
 # 计算各个损失函数的计算逻辑
 import torch
@@ -862,7 +887,7 @@ imgs = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574],
 labels = torch.tensor([2, 0, 4], dtype=torch.int64)
 labels = labels.view(-1,1)
 one_hot_labels = torch.zeros(3, 5).scatter_(1, labels, 1)  # mse loss需要预先对label进行独热标签的预处理
-loss = F.mse_loss(imgs, one_hot_labels)                    # 默认的缩减操作为求均值
+loss = F.mse_loss(imgs, one_hot_labels,reduction='none')                    # 默认的缩减操作为求均值
 # 纯手工实现mse
 labels = labels.view(-1,1)
 one_hot_labels = torch.zeros(3, 5).scatter_(1, labels, 1)
@@ -877,7 +902,8 @@ loss = losses.mean()     # 缩减输出
 imgs = torch.randn(3, 5, requires_grad=True)
 labels = torch.tensor([0, 2, 4])
 one_hot_labels = torch.zeros(3,5).scatter_(1,labels.view(-1,1),1)
-loss1 = F.l1_loss(imgs, one_hot_labels)
+loss1 = F.l1_loss(imgs, one_hot_labels,reduction='none')
+loss2 = F.l1_loss(imgs, one_hot_labels)  # 默认在dim=1进行mean缩减操作
 
 """nn.SmoothL1Loss/F.smooth_l1_loss 在bbox head的loss/faster_rcnn中使用，也叫Huber loss
    这里基于huber loss把其超参数设置为1，从而得到的smooth l1 loss
