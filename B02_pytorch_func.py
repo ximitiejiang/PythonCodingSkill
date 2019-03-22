@@ -609,10 +609,28 @@ sd['bias'].shape
 model.load_state_dict(sd)
 
 
+# %%
+"""如何把模型和运算放在GPU进行？
+本质上来说就是做2件事：
+1. 把model送到gpu： model = model.cuda()，这一步本质上是把model的parameter变成cuda形式，但要注意：
+    >.cuda()不是inplace操作,所以必须重新赋值给model，否则model本身的parameter还是不变，即需要model=model.cuda()
+    > model如果是一个module容器，或者model内部还包含module容器，则必须是module类型的容器，这样.cuda()操作才能递归
+    把容器内部的子module参数也转为cuda类型，但如果容器不是module类型容器，则.cuda()就只是把这个容器本身转为.cuda()
+    例如：用modulelist/moduledict/sequential这几种module容器，本身就是module继承类型，所以.cuda会对子模型参数递归转换
+    但如果用list/dict做module容器，则.cuda只是对list/dict本身转换为cuda格式，而里边的module参数依然是cpu类型，则会导致module跟input不匹配
+
+2. 把model的input送到gpu: img = img.cuda(), label = label.cuda(), 但要注意：
+    >只有tensor才能转cuda，所以这个转换前img/label都是已经转为tensor格式才能进行.cuda()操作
+
+"""
+model = model.cuda()
+img = img.cuda()
+label = label.cuda()
+
 
 # %%
 """上面是涉及到继承和重写data parallel模型需要做的事情，但单纯应用data parallel模型？
-data parallel虽然可以使用多gpu加速，但本质上是假的多
+data parallel虽然可以使用多gpu加速，但本质上是假的多进程
 1. data parallel只在gpu操作：所以第一步是检查有多少gpu,如果大于0，就可以应用并行模型
 2. 创建data parallel容器打包model的本质：
     >会在原有model外边套一个module外壳，通过model.module就可以直接调用里边的原始model
@@ -729,6 +747,15 @@ img, label = iter(dataloader).next()
 3. 可以用nn.ModuleDict(dict) - 但forward()需要自己分层写
 (3个容器区别：Sequential是一个完整的带forward的module子类，可直接作为children module。而其他2中ModuleList/ModuleDict适合
 先创建类，实现forward方法，然后在加入到一个主module中作为children module，好处是继承自module可以默认使用module的方法注册module/参数)
+
+既然modulelist也没有forward，为什么要用modulelist，直接用list不是就可以了？
+    原因：modulelist和moduledict都是一个模型容器，装在里边的模型需要自带forward，因为这个容器不带forward
+    只有sequential容器带了forward，但是modulelist/moduledict的优点是作为module可以继承module的所有方法。
+    比如model.cuda()就可以帮助把modulelist/moduledict的子模型都送到GPU
+    案例1：采用list装了多个module，发现.cuda()之后多个模型的参数始终还在cpu, 原因就是
+    .cuda()只是吧list看成一个数据送入gpu，但对list里边的子module并没有进行操作。
+    而如果用modulelist装多个子module，则.cuda()命令就会在module基础上深入子module直到底部
+    全部初始化。这个例子非常隐蔽，通过module的源码可知只要是module就会递归循环查看操作子module，这点属性非常好。
 
 4. 组合module容器
     >可以借用module的方法model.add_module(): 组合后的module作为子模型被加入_modules的字典中作为child_module
