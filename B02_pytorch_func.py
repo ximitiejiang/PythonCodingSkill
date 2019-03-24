@@ -585,6 +585,15 @@ out = conv(d1)
    > 如果要把保存好的state_dict加载到模型，就需要采用model.load_tate_dict(st_name)
 
 4. checkpoint文件可以是state dict(Ordered Dict), 也可以是添加了其他附加信息的数据
+
+5. 所以整个操作过程
+   > 先torch.load()加载checkpoint
+   > 再检查checkpoint的类型: 如果是dict则从中提取'state_dict'字段作为state dict
+     如果是ordered dict则直接作为state dict
+   > 再检查state dict的类型：如果是带module的并行模型参数，则从中提取cpu版本的参数作为state dict
+   > 再检查model的类型：如果是带module的并行模型，则提取cpu版本的模型
+   > 最后torch.nn.module.load_state_dict()把cpu版本的state dict加载到cpu版本的模型中
+     (也可采用mmdetection修改过的load_state_dict())
 '''
 # 可以保存tensor
 x1 = torch.tensor([1,2,3])
@@ -613,6 +622,8 @@ model.load_state_dict(sd)
 """如何把模型和运算放在GPU进行？
 本质上来说就是做2件事：
 1. 把model送到gpu： model = model.cuda()，这一步本质上是把model的parameter变成cuda形式，但要注意：
+    > 由于model的cuda操作本质是model parameter的cuda，所以应该先model init然后再cuda
+      同时在model init的时候最好都是基于cpu版本的model和cpu版本的state dict，等init完成以后统一通过model.cuda()转化为GPU参数
     >.cuda()不是inplace操作,所以必须重新赋值给model，否则model本身的parameter还是不变，即需要model=model.cuda()
     > model如果是一个module容器，或者model内部还包含module容器，则必须是module类型的容器，这样.cuda()操作才能递归
     把容器内部的子module参数也转为cuda类型，但如果容器不是module类型容器，则.cuda()就只是把这个容器本身转为.cuda()
