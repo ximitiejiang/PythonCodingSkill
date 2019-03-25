@@ -401,6 +401,15 @@ plt.subplot(121), plt.imshow(img1[...,[2,1,0]])    #
 plt.subplot(122), plt.imshow(img_s[...,[2,1,0]])   
 
 
+# %%
+"""各个网络层在计算输出层数时的取整方式是什么样的，有什么区别吗？
+1.pytorch跟caffe会有差别，这里主要总结pytorch的计算取整方式
+2. 默认pytorch在conv/maxpool都是采用下取整(floor)
+3. 在maxpool中可以单独设置一个ceil mode，也就是上取整方式(ceil)。而conv不能设置，只能定义为下取整。
+"""
+
+
+
 
 # %%        网络基础层
 """BatchNorm层是什么，有什么功能，如何使用？
