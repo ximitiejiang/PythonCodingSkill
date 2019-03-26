@@ -1062,7 +1062,7 @@ plt.scatter(x,y)
 """
 import torch.nn.functional as F
 
-# 二值交叉熵公式第一种用法：(m,)代表m个样本，分别会产生m个loss
+# 二值交叉熵公式第一种用法：(m,)代表m个样本，对应m个标签，分别会产生m个loss，每个样本都是一个二分类
 preds = torch.tensor([-1.5, 0.2, 1.3])  # (m,)
 labels = torch.tensor([1., 0., 1.])    # (m,)
 preds_sig = F.sigmoid(preds)   # 非负/归一  [0.1824, 0.5498, 0.7858] 但注意归一化的原则是单个元素归一，每行之和不为1
@@ -1075,7 +1075,7 @@ labels = torch.tensor([[1.,0.,1.],[0.,0.,1.]])              # (m, n)
 preds_sig = F.sigmoid(preds)
 F.binary_cross_entropy(preds_sig, labels, reduction='none')
 
-# 二值交叉熵的第三种用法：(m,n) 代表m个样本，n个类别，属于多分类问题
+# 二值交叉熵的第三种用法：(m,n) 代表m个样本，n个类别，属于多分类问题，但等效看成：每个类别都是一个二分类问题
 # 然后使用focal loss
 preds = torch.tensor([[-1.5, 0.2, 1.3, 0.3, -2.1, 1.8],[-1.5, 0.2, 1.3, 0.3, -2.1, 1.8]])  # (2,6) 2个样本(比如2个bbox)，6分类
 target = torch.tensor([[0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,1.]])     # (2,6) 2个样本label分别是2和5, 分别转化为概率的独热编码
