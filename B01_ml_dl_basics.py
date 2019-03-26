@@ -741,27 +741,41 @@ plt.subplot(233), plt.plot(x, y_tanh), plt.title('tanh')
 
 5. *****一组损失函数核心总结*****
     >损失函数的前置操作：(这些前置操作通常都是按元素操作)
-    一种是softmax: 里边exp用来非负化，求商求和用来概率归一化，针对多分类，所以每行概率值之和=1(也就是里边sum的缩减操作dim=1,因为所有缩减操作默认都是在最后一个维度计算)
+    一种是softmax: 用来非负/归一化，通常针对多分类，所以每行概率值之和=1(也就是里边sum的缩减操作dim=1,因为所有缩减操作默认都是在最后一个维度计算)
     一种是sigmoid: 用来概率归一化，但只针对二分类，所以概率值两两不相关
-    一种是logsoftmax: 用来把归一化转化为(-oo, 0)便于求导时连乘变连加
+    一种是logsoftmax: 用来非负/归一/log化，当然log之后非负又会变成(-oo~0)但不会改变概率值的单调性
+        实际上应该从似然函数理解起来，似然函数转换为对数似然函数后，联合概率分布的连乘就能转换成连加，带指数的连成也能转换成普通乘法连加。
     一种是one_hot_code: 用来把label转化为独热编码，独热编码本质上就是把label概率化，整行只有一个1其他都是0,整行之和=1,也就是概率的特征
     
-    >两种损失函数：(损失函数通常都是缩减操作，不过回归的loss不缩减，除非要求缩减)
-    一种是分类损失函数，loss(score, target)，损失是按行求，不缩减则每一行得到一个损失，缩减后归为一个损失值
+    >两类损失函数：(损失函数通常都是缩减操作，不过回归的loss不缩减，除非要求缩减)
+    一类是分类损失函数，loss(score, target)，损失是按行求，不缩减则每一行得到一个损失，缩减后归为一个损失值
         一行对应一个样本，该行对应n个分类。score就是m行对应m个样本，n列对应n个分类，所以一行就是一个分类也就是一个loss
         这种包括交叉熵损失函数和负对数极大似然损失nll_loss
-        (负对数极大似然损失nll_loss本质上跟交叉熵损失一样，只是交叉熵集成了前置的logsoftmax,而nll_loss之前要增加logsoftmax才能使用)
-    另一种回归损失函数，loss(preds, target)，损失是按元素求，不缩减则每个元素得到一个损失，缩减后归为一个损失值
+        * 交叉熵损失函数(cross_entropy)：交叉熵H = -sum(log(px)*q(x))其中p(x)为预测pred的分布，q(x)为label真值的分布，交叉熵的值就是度量2个分布之间的距离
+          交叉熵值越小则两个分布越接近，也就预测越准，所以交叉熵天然是一个好的损失函数
+        * 负对数似然损失函数(nll_loss): 似然的概念类似于概率，似然函数代表了预测值与真值的相似程度(预测等于真值的概率)，对似然函数取对数就得到对数似然函数(取对数是为了把联合概率分布似然函数的乘积转化为log相加，便于计算)
+          对数似然函数越大说明概率越高也就是预测与真值越接近，所以基于对数似然函数的极大似然估计就是似然函数越大，预测越准。
+          而负对数似然则是取值越小预测越准，也就相当与损失函数了。对数似然函数的极大似然估计推导也可得到类似于交叉熵的形式
+          参考：https://blog.csdn.net/lanchunhui/article/details/75433608
+          所以可以认为nll loss跟交叉熵损失一样，只是交叉熵集成了前置的logsoftmax, 而nll_loss之前要增加logsoftmax才能使用)
+    另一类回归损失函数，loss(preds, target)，损失是按元素求，不缩减则每个元素得到一个损失，缩减后归为一个损失值
         每个元素都对应一个回归参数，m行对应m个样本，n列对应n个回归参数，所以每行每列值都是一个独立参数，也就有独立loss
-        这种包括均方误差损失(也就是l2损失)，l1损失，smoothl1损失
+        这种包括MSE均方误差损失(也就是l2损失)，l1损失，smoothl1损失
     
     >损失函数的输入输出不同：
-    交叉熵损失：score可以任意，target只要>=0
-    二分类交叉熵：score可以任意(还是说要家sigmoid概率化?)，target只要0/1
-    均方误差损失：preds必须是logsoftmax的输出(-oo, 0), target必须是one-hot-code
-    l1损失/smoothl1损失：preds必须是
+    F.cross_entropy(preds, labels):  
+        * preds的概率化操作已集成(logsoftmax对应了非负/归一/log)，labels的概率化操作也集成(nll_loss对应了独热编码/取负号)
+        * preds(m,n)代表m个样本n个分类, 普通数值即可(无需概率化表示)，labels(m,)代表m个样本对应标签，普通数值即可(无需独热编码的概率表示)
+    F.binary_cross_entropy(preds, labels): 
+        * preds(m,)代表m个样本,必须是sigmoid输出的非负归一化值，labels(m,)代表m个样本对应标签，必须是0/1独热编码的概率表示
+        * preds(m,n)代表m个样本
+    F.binary_cross_entropy_with_logits(preds, labels): 
+        * with logits代表该损失函数集成了sigmoid归一化
+        * preds(m,)代表m个样本，可以任意值，内部自带sigmoid归一化，labels(m,)代表m个样本对应标签，必须是0/1独热编码的概率表示
     
-
+    F.mse_loss()    
+    F.l1_loss()
+    F.smooth_l1_loss()
 
 """
 # 计算各个损失函数的计算逻辑
@@ -824,7 +838,7 @@ imgs = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574],
                      [ 1.5962,  2.2646, -0.2490,  0.1534, -0.5345],
                      [-0.2562, -0.4440, -0.1629,  0.8097,  0.6865]], requires_grad=True)
 labels = torch.tensor([2, 0, 4], dtype=torch.int64)  # pytorch的交叉熵函数要求label格式为int64/也就是LongTensor
-loss1 = F.cross_entropy(imgs, labels)   # loss = 2.1105
+loss1 = F.cross_entropy(imgs, labels)   # loss = 2.1105 (默认已经缩减)
 # 纯手动实现交叉熵
 n_img, n_class = imgs.shape
 imgs_exp = torch.exp(imgs)                 # exp非负化  
@@ -839,12 +853,16 @@ for i in range(n_img):
     losses[i] = imgs_log[i][loss_idx]      # nll的获得label对应loss
 loss_out = torch.mean(losses)              # nll的缩减操作 (3.9039+1.2425+1.1852)/3=2.1105
 # 手动算一个多分类交叉熵：相当于单样本，1个样本5个类别-----------------
-input_1 = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574]])
-t1 = F.softmax(input_1)               # 计算得到[[0.0764, 0.5624, 0.0202, 0.2112, 0.1299]]
-t2 = F.log_softmax(input_1, dim=1)    # 计算得到[[-2.5722, -0.5756, -3.9039, -1.5548, -2.0413]]
-label = torch.tensor([0,0,1,0,0])  # 手动独热编码化
-0*(-2.5722) + 0*(-0.5756) + 1*(-3.9039)+0+0  # loss = log(softmax(y^))*y, 其中y为label的独热编码，*代表按位乘法
-torch.sum(t2*label.float())  # 这是独热编码的好处，计算很简单。
+input1 = torch.tensor([[-0.5,  1.4, -1.9]])
+label1 = torch.tensor([2])
+loss1 = F.cross_entropy(F.log_softmax(input1), label1)  # loss=3.4710
+#以下是分解cross entropy为log_softmax
+t2 = F.log_softmax(input1, dim=1)    # 计算得到[[-2.0710, -0.1710, -3.4710]]
+labe2 = torch.tensor([0,0,1])  # 手动独热编码化2
+#以下是cross_entropy分解出来的nll_loss
+loss2 = F.nll_loss(t2, label1)  # loss=3.4710, 说明nll_loss不需要输入label的独热编码
+# 以下是手算nll loss
+-[0*(-2.0710) + 0*(-0.1710) + 1*(-3.4710)]=-3.4710  # loss = log(softmax(y^))*y, 其中y为label的独热编码，*代表按位乘法
 
 """nn.BCELoss/F.binary_cross_entropy 为二分类交叉熵损失函数：
    相当于二分类交叉熵计算 l(x,y) = yn*logxn + (1-yn)*log(1-xn)
@@ -855,7 +873,7 @@ img = torch.tensor([ 0.5913, -0.9281,  0.7846], requires_grad=True)
 label = torch.tensor([1., 0., 1.])
 loss = F.binary_cross_entropy(F.sigmoid(img),label)   # 计算得到loss = 0.3832
 # 手动计算过程如下: 相当于多样本，3个样本-----------------------
-from math import log, e
+from math import log, exp
 img_sigmoid = F.sigmoid(img)  # 得到[0.6437, 0.2833, 0.6867]
 -(1*log(0.6437) + (1-0)*log(1-0.2833) + 1*log(0.6867))/3  # 手算二值交叉熵得到loss=0.383159
 
@@ -1042,8 +1060,34 @@ plt.scatter(x,y)
 # %%        损失函数
 """在物体检测领域Retinanet(综合了one stage/two stage的优点)使用的Focal loss是个什么概念，有什么优势？
 """
+import torch.nn.functional as F
 
+# 二值交叉熵公式第一种用法：(m,)代表m个样本，分别会产生m个loss
+preds = torch.tensor([-1.5, 0.2, 1.3])  # (m,)
+labels = torch.tensor([1., 0., 1.])    # (m,)
+preds_sig = F.sigmoid(preds)   # 非负/归一  [0.1824, 0.5498, 0.7858] 但注意归一化的原则是单个元素归一，每行之和不为1
+F.binary_cross_entropy(preds_sig, labels, reduction='none')  # [1.7014, 0.7981, 0.2410]
+F.binary_cross_entropy(preds_sig, labels)                    # [0.9135] 默认是mean缩减
 
+# 二值交叉熵的第二种用法： (m,n) 可以代表m行n列个样本，每一个样本都是一个二分类问题，也就得到mxn个损失
+preds = torch.tensor([[-1.5, 0.2, 1.3],[-1.5, 0.2, 1.3]])   # (m, n)
+labels = torch.tensor([[1.,0.,1.],[0.,0.,1.]])              # (m, n)
+preds_sig = F.sigmoid(preds)
+F.binary_cross_entropy(preds_sig, labels, reduction='none')
+
+# 二值交叉熵的第三种用法：(m,n) 代表m个样本，n个类别，属于多分类问题
+# 然后使用focal loss
+preds = torch.tensor([[-1.5, 0.2, 1.3, 0.3, -2.1, 1.8],[-1.5, 0.2, 1.3, 0.3, -2.1, 1.8]])  # (2,6) 2个样本(比如2个bbox)，6分类
+target = torch.tensor([[0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,1.]])     # (2,6) 2个样本label分别是2和5, 分别转化为概率的独热编码
+label_weights = torch.tensor([[0.,1.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.]])
+
+gamma=2
+alpha=0.25
+preds_sig = F.sigmoid(preds)     # 二值交叉熵，需要预先sigmoid化，除非采用带sigmoid的F.binary_cross_entropy_with_logits()
+pt = (1 - pred_sigmoid) * target + pred_sigmoid * (1 - target)  #
+weight = (alpha * target + (1 - alpha) * (1 - target)) * weight
+weight = weight * pt.pow(gamma)
+F.binary_cross_entropy_with_logits(pred, target, weight, reduction=reduction) 
 
 
 # %%        反向传播
