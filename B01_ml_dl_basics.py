@@ -764,13 +764,20 @@ plt.subplot(233), plt.plot(x, y_tanh), plt.title('tanh')
     
     >损失函数的输入输出不同：
     F.cross_entropy(preds, labels):  
-        * preds的概率化操作已集成(logsoftmax对应了非负/归一/log)，labels的概率化操作也集成(nll_loss对应了独热编码/取负号)
         * preds(m,n)代表m个样本n个分类, 普通数值即可(无需概率化表示)，labels(m,)代表m个样本对应标签，普通数值即可(无需独热编码的概率表示)
+        * preds的概率化操作已集成(logsoftmax对应了非负/归一/log)，labels的概率化操作也集成(nll_loss对应了独热编码/取负号)
+        * 通过手算结果，可以理解为多值交叉熵也是对一个样本(比如80类)的每一个类别得到一个概率值，然后跟label的概率(独热编码)进行二值交叉熵计算，然后该行做缩减得到
+          也就是说多分类交叉熵本质也可以认为是调用二分类交叉熵的计算方法，区别在于对每个类的概率计算方法不同，多分类利用softmax得到，二分类利用sigmoid得到
+          另一个区别在于多分类交叉熵的log计算是放在前道的logsoftmax，而二分类的log计算是在binaray_cross_entropy里边
+          这种把多分类交叉熵理解为多个二分类交叉熵的逻辑，是focal loss的理解基础。
+        * 细化计算过程，多分类交叉熵：[exp非负+概率化+log]+[(-1)+概率相乘]，前半截在logsoftmax完成，后半截在nll_loss完成，也可以全部在cross_entropy中一起完成
+          同样的5大过程，二值交叉熵： [sigmoid非负和概率化]+[log+(-1)+概率相乘]，前半截在sigmoid完成，后半截在binary_cross_entropy完成，也可以全部在binary_cross_entropy_with_logits一起完成
+
     F.binary_cross_entropy(preds, labels): 
-        * preds(m,)代表m个样本,必须是sigmoid输出的非负归一化值，labels(m,)代表m个样本对应标签，必须是0/1独热编码的概率表示
-        * preds(m,n)代表m个样本
+        * preds(m,)代表m个样本,必须是sigmoid输出的非负归一化值，labels(m,)代表m个样本对应标签，必须是0/1的二值标签概率表示
+        * preds(m,n)代表mxn个样本,必须是sigmoid输出的非负归一化值，labels(m,n)代表mxn个样本对应标签，必须是0/1的二值标签概率表示
     F.binary_cross_entropy_with_logits(preds, labels): 
-        * with logits代表该损失函数集成了sigmoid归一化
+        * with logits代表该损失函数集成了sigmoid归一化(并且比单独用sigmoid更稳定)，
         * preds(m,)代表m个样本，可以任意值，内部自带sigmoid归一化，labels(m,)代表m个样本对应标签，必须是0/1独热编码的概率表示
     
     F.mse_loss()    
@@ -839,7 +846,8 @@ imgs = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574],
                      [-0.2562, -0.4440, -0.1629,  0.8097,  0.6865]], requires_grad=True)
 labels = torch.tensor([2, 0, 4], dtype=torch.int64)  # pytorch的交叉熵函数要求label格式为int64/也就是LongTensor
 loss1 = F.cross_entropy(imgs, labels)   # loss = 2.1105 (默认已经缩减)
-# 纯手动实现交叉熵
+# 纯手动实现多分类交叉熵：[exp+概率化+log]+[(-1)+概率相乘]，前半截在logsoftmax完成，后半截在nll_loss完成，也可以全部在cross_entropy中一起完成
+# 对比二值交叉熵的过程： [sigmoid]+[log+(-1)+概率相乘]，前半截在sigmoid完成，后半截在binary_cross_entropy完成，也可以全部在binary_cross_entropy_with_logits一起完成
 n_img, n_class = imgs.shape
 imgs_exp = torch.exp(imgs)                 # exp非负化  
 imgs_sum = torch.sum(imgs_exp, dim=1)      
@@ -980,8 +988,14 @@ def smooth_l1_loss(pred, target, beta=1.0, reduction='elementwise_mean'):
 # %%
 """Q. 为什么交叉熵损失函数优于均方差函数？
 参考：https://www.cnblogs.com/hutao722/p/9761387.html
-1. 在sigmoid函数输出条件下，交叉熵占优
-2. 在softmax函数输出条件下，交叉熵也占优
+1. 交叉熵H=-sum(logP(x)*q(x))，p与H的曲线就是-log在(0-1)的曲线，所以p增加H减小，这就是标准损失函数的特性，所以交叉熵能用来做损失函数
+2. 交叉熵损失函数在做分类时优于mse均方差损失函数，是因为在更新参数时w=w+dloss/dw，这里dloww/dw就是损失函数对参数的梯度。
+    > 常规mse损失函数，在对w进行链式求导时，会产生一个激活函数的导数项，sigmoid激活函数在接近1时他的导数基本为0,这就会在导数为0时造成梯度消失，或者收敛速度慢
+    > 而交叉熵损失函数，在对w进行链式求导时，激活函数sigmoid会被抵消掉，也就是dloss/dw可以跟激活函数的导数解耦，避免了导数为0造成梯度变为0的
+    > 以上结论是在激活函数为sigmoid的条件下证明，但就算是relu激活函数也有相同结论
+      所以交叉熵损失函数优于均方差函数
+3. 手动证明：需要结合反向传播的公式推导来做比较好，待整理
+
 """
 
 
@@ -1059,8 +1073,41 @@ plt.scatter(x,y)
 
 # %%        损失函数
 """在物体检测领域Retinanet(综合了one stage/two stage的优点)使用的Focal loss是个什么概念，有什么优势？
+1. 首先是focal loss的公式：  FL = -alpha_t * (1 - pt)^gamma * log(pt)
+   其中pt是pred与target的结合，alpha_t是alpha与target的结合，所以两个都需要写成跟target点乘的形式
+2. focal loss解决的是2个问题：
+    >如何防止负样本太多导致正负样本数量的不平衡？SSD的解决方法是采样，提取正负样本比例为1：3
+     focal loss的解决方法是在交叉熵基础上增加一个alpha参数，正样本时取alpha, 负样本时取(1-alpha)
+     这样正负样本的损失在输出时大约去控制在0.25：0.75，也就是正样本1：负样本3
+    >如何防止容易样本过多造成的收敛慢问题？SSD的解决方法是HNM即难的负样本提取，通过对负样本loss排序提取loss最大的部分
+     focal loss的解决方法是在交叉熵基础上增加一个(1-pt)^gamma参数，可以理解为损失贡献度参数，假定gamma=2
+     对于算法里对正样本定义是iou>0.5，所以对于pt=0.9或0.99的属于easy整样本，则损失贡献度是1/100和1/10000, 贡献度就很低
+     而对于pt=0.5这样的hard正样本，则损失贡献度1/4, 相对来说贡献度就大多了。
+     
 """
+import torch
 import torch.nn.functional as F
+
+# 二值交叉熵与多分类交叉熵在概率上的差别： 结论是无论是用多分类交叉熵处理多分类问题，还是二值交叉熵处理多分类问题，似乎没有本质区别
+preds = torch.tensor([[-1.5, 0.2, 1.3],[-1.5, 0.2, 1.3]]) 
+labels = torch.tensor([[1.,0.,0.],[0.,1.,0.]])
+preds_sig = F.sigmoid(preds)                                 # 概率[[0.1824, 0.5498, 0.7858],[0.1824, 0.5498, 0.7858]]
+                                                             # sigmoid对一行求概率虽然和不为1, 但概率单调性跟softmax一样
+F.binary_cross_entropy(preds_sig, labels, reduction='none')  # 损失[[1.7014, 0.7981, 1.5410],[0.2014, 0.5981, 1.5410]]
+F.binary_cross_entropy(preds_sig, labels,reduction='none')[0].sum()/3   # 损失[1.3469]获得第1行平均损失   
+F.binary_cross_entropy(preds_sig, labels,reduction='none')[1].sum()/3   # 损失[0.7802]获得第2行平均损失
+                                                             # 二值交叉熵最终可以通过缩减逻辑得到跟多分类交叉熵一样的效果(比如按行缩减平均)
+                                                             # 也就把多分类问题看成每一个元素跟真值的二分类问题，然后整行求平均得到多分类的损失结果，这也是可行的
+                                                             # 区别在于这种二值交叉熵处理多分类需要损失缩减才能获得一个样本单行的损失，而多分类交叉熵是直接获得一个样本单行的损失
+                                                             # 但采用这种二分类交叉熵处理多分类问题，是focal loss的核心理念
+preds1 = torch.tensor([[-1.5, 0.2, 1.3],[-1.5, 0.2, 1.3]]) 
+labels1 = torch.tensor([0,1])
+F.cross_entropy(preds1, labels1, reduction='none')           # 直接算多分类交叉熵损失[3.1319, 1.4319]
+preds1_soft = preds.softmax(dim=1)                           # 概率：[[0.0436, 0.2388, 0.7175],[0.0436, 0.2388, 0.7175]]
+preds1_logsoft = (preds1_soft).log()                         # log概率：[[-3.1319, -1.4319, -0.3319],[-3.1319, -1.4319, -0.3319]]
+                                                             # 可见log概率虽然为负值，和也不为1,但概率单调性跟sigmoid/softmax一样
+F.nll_loss(preds1_logsoft, labels1, reduction='none')        # 损失[3.1319, 1.4319]
+                                                             # 多分类交叉熵
 
 # 二值交叉熵公式第一种用法：(m,)代表m个样本，对应m个标签，分别会产生m个loss，每个样本都是一个二分类
 preds = torch.tensor([-1.5, 0.2, 1.3])  # (m,)
@@ -1077,17 +1124,75 @@ F.binary_cross_entropy(preds_sig, labels, reduction='none')
 
 # 二值交叉熵的第三种用法：(m,n) 代表m个样本，n个类别，属于多分类问题，但等效看成：每个类别都是一个二分类问题
 # 然后使用focal loss
-preds = torch.tensor([[-1.5, 0.2, 1.3, 0.3, -2.1, 1.8],[-1.5, 0.2, 1.3, 0.3, -2.1, 1.8]])  # (2,6) 2个样本(比如2个bbox)，6分类
+pred = torch.tensor([[-1.5, 0.2, 1.3, 0.3, -2.1, 1.8],[-1.5, 0.2, 1.3, 0.3, -2.1, 1.8]])  # (2,6) 2个样本(比如2个bbox)，6分类
 target = torch.tensor([[0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,1.]])     # (2,6) 2个样本label分别是2和5, 分别转化为概率的独热编码
 label_weights = torch.tensor([[0.,1.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.]])
 
 gamma=2
 alpha=0.25
-preds_sig = F.sigmoid(preds)     # 二值交叉熵，需要预先sigmoid化，除非采用带sigmoid的F.binary_cross_entropy_with_logits()
-pt = (1 - pred_sigmoid) * target + pred_sigmoid * (1 - target)  #
-weight = (alpha * target + (1 - alpha) * (1 - target)) * weight
-weight = weight * pt.pow(gamma)
-F.binary_cross_entropy_with_logits(pred, target, weight, reduction=reduction) 
+def sigmoid_focal_loss(pred, target, weight, gamma=2.0, alpha=0.25, reduction='elementwise_mean'):
+    """基于二值交叉熵损失函数计算focal loss，该代码来源于mmdetection，但为了便于理解修改了部分表达
+    1. 把预测pred先概率化(通过sigmoid完成)
+    2. 计算权重1(pt)，此为把pred和target相结合，也就是pt = pred if target==1 else (1-pred)
+    3. 计算权重2(alpha_t), 此为增加一组跟target相结合的alpha权重，也就是alpha_t = alpha if target==1 else (1-alpha)
+    4. 组合最终权重，把alpha_t, label_weight, pt.pow(gamma)结合
+    5. 基于二值交叉熵计算损失: 相当于对每一个样本的每一个类别的概率都作为二分类问题来进行交叉熵计算loss，
+       最后loss的缩减操作是所有元素求和再平均，这里reduction='elementwise_mean'其实就是mean，估计新的写法都是mean了
+       毕竟对于二值交叉熵来说，loss本来就是按元素求解，mean一下也只能按元素mean，也就是整体求和后平均，也没有那种按行按列求平均的讲法。
+    6. 这里还有一个坑：这样算出来的focal loss值比较大(70几)，还需要除以平均因子avg_factor(这里取正样本数量为平均因子)使loss的数值规范化到一定范围内。
+       理论上说focal loss算出来已经在binary cross entropy中进行了平均，但由于其数值本来就大，所以有必要做进一步的所谓normalize(规范化)
+       focal loss原文说到要把focal loss normalize by number of anchors assigned to a ground-truth box.也就是除以正样本数，使loss值规范化
+       也可参考：https://github.com/open-mmlab/mmdetection/issues/289
+    Args:
+        pred(tensor): (m,n)代表m个样本，n个类别的多分类问题
+        target(tensor): (m,n)代表m个样本的标签,并且已经转化为二值独热编码的概率形式
+        weight(tensor)
+    """
+    pred_sigmoid = pred.sigmoid()   # 先把预测pred概率化
+    pt = pred_sigmoid * target + (1-pred_sigmoid) * (1 - target)    # pt = p if t==1, else (1-p)
+    alpha_t = alpha * target + (1 - alpha) * (1 - target)           # alpha_t = alpha if target>0 else (1-alpha)
+    weight = weight * alpha_t * (1 - pt).pow(gamma)
+    return F.binary_cross_entropy_with_logits(pred, target, weight, reduction=reduction)
+
+f_loss = sigmoid_focal_loss(pred, target, label_weights)
+
+# 对比不同loss func的差异
+preds2 = torch.tensor([0.1, 0.5, 0.9]) 
+labels2 = torch.tensor([0., 1., 1.])
+F.binary_cross_entropy(preds2, labels2, reduction='none')  # 损失[0.1054, 0.6931, 0.1054]
+
+
+# %%        损失函数
+"""损失函数：GHM(gradient harmonized)梯度均衡损失函数是如何设计的？有什么优点？
+1. 对于focal loss是对困难正样本的损失增加更大权重，通过(1-p)^gamma实现，而GHM则是换一个角度看困难样本和容易样本
+   简单正样本的梯度对于整个梯度贡献很小，而困难正样本梯度应该贡献更大的梯度，所以提出了梯度均衡方法作为损失函数
+   
+"""
+
+
+# %%        损失函数
+"""损失函数Giou(generalized-iou)通用iou损失函数是如何设计的？有什么优点？
+0. Giou的提出主要是希望使用iou原本优点，并客服iou原本缺点：使用iou挑选出来的bbox通过l1 norm或者l2 norm做bbox回归到dx/dy/dw/dh
+   但忽略了一个问题，如果两个bbox对角点的l2 norm的距离相同，但产生的iou类型却各种各样，说明单纯用l1 norm/l2 norm做回归的损失函数存在局限性
+   所以提出用Giou来作为bbox回归求解4个位置坐标的损失函数
+1. Giou计算比较简单：Giou = iou - |C - AUB|/|C| 也就是算出一个包络A,B的方形面积C(c应该是代表convex)，然后得到C中去除AUB并集的面积之后，剩余面积在C的占比
+   然后用iou减去这个占比就是Giou。可以看到0<iou<1, 0<C的剩余面积占比<1，所以-1<Giou<1，在两个重合时iou=Giou=1
+   
+斯坦福的源码参考：https://github.com/generalized-iou/g-darknet/blob/master/scripts/iou_utils.py
+"""
+def giou(a, b):
+    '''
+        input: 2 boxes (a,b)
+        output: Itersection/Union - (c - U)/c
+    '''
+    I = intersection(a,b)
+    U = union(a,b)
+    C = c(a,b)
+    iou_term = (I / U) if U > 0 else 0
+    giou_term = ((C - U) / C) if C > 0 else 0
+    #print("  I: %f, U: %f, C: %f, iou_term: %f, giou_term: %f"%(I,U,C,iou_term,giou_term))
+    return iou_term - giou_term
+
 
 
 # %%        反向传播
@@ -1313,6 +1418,10 @@ loader = Data.DataLoader(dataset=torch_dataset, batch_size=BATCH_SIZE, shuffle=T
 1. conv2d使用kaiming_init(model)
 2. Batchnorm使用constant_init(model, val)
 
+4. 特殊情况1： Retinanet的最后一个卷积层，初始阶段由于positive/negatie分类概率基本一致导致focal loss不起作用，无法抑制easy example
+所以为了打破这种情况，对最后一层分类卷积层bias初始化做修改，初始化成一个特殊值-log((1-0.01)0.01)
+bias_init = float(-np.log((1 - prior_prob) / prior_prob))
+参考：https://www.jianshu.com/p/204d9ad9507f
 """
 
 
