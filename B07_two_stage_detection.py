@@ -947,7 +947,7 @@ def nms(proposals, iou_thr, device_id=None):
     而如果过小会导致去除的多，从而导致recall大幅下降
     2. 两种nms算法：一种是贪心算法Greedy，一种是最优解算法
     3. 无论one stage还是two stage算法都需要进行nms，只不过two stage是针对proposal进行nms得到rois
-    而one stage是针对???
+    而one stage是针对test来做的，在train的阶段所有anchor都被拿来训练，通过采样原则来获得target
 
     """
     x1 = proposals[:,0]

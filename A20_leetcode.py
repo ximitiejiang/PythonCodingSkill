@@ -39,8 +39,8 @@ Created on Sun Jan 20 09:48:53 2019
     > 数学问题和其他
 
 """
-import numpy as np
-from numpy import random
+
+
 
 # %% 
 """在python实现一个链表：get(index), addAtHead(val), addAtTail(val), addAtIndex(index, val), deletAtInde(index)
