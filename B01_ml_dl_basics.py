@@ -656,26 +656,28 @@ x13 = x12.reshape(1,-1)     # 去除维度为1的部分，得到(b,c)即等效�
 
 # %%        网络基础层
 """哪些在基础层之上搭建的常用基础小模块，且已经称为事实上的封装模块
-0. linear + relu + dropout: 用在VGG最后, 但现在linear已经用得比较少了
-    >linear
-    >relu
-    >dropout
     
-1. conv + bn + relu: 用在VGG中间的所有block，配置成blocks(2,2,3,3,3)，也沿用到resnet
+1. VGG上的基础模块：conv3x3 + bn + relu，
+    >用在VGG中间的所有block，配置成blocks(2,2,3,3,3)
     >conv用于特征过滤：
     >bn用于数据的归一化：nn.BatchNorm2d(in_channel)
     >relu用于非线性映射：nn.ReLU(inplace=True)
 
-2. (3x3conv + bn/relu)x2 + shortcut: 用在resnet的basic block中
+2. (conv3x3 + bn + relu) + (conv3x3 + bn + relu) + shortcut: 
+    >用在resnet的basic block中,本质上是用shortcut组合了2个vgg的基础模块
     >3x3
     >shortcut
 
-3. (1x1conv +bn/relu + 3x3conv + bn/relu + 1x1conv + bn/relu) + shortcut: 用在resnet中间的bottleneck中
+3. (1x1conv +bn/relu + 3x3conv + bn/relu + 1x1conv + bn/relu) + shortcut: 
+    >用在resnet中间的bottleneck中
     >1x1
     >3x3
     >1x1
     >shortcut
-3. 
+
+4. conv3x3 做最后的分类
+    >卷积层负责(b,c,h,w)->(b,n_class,h,w)，然后搭配permute到(b,h,w,c)，reshape到(b,-1,n_class)
+
 """
 # 1. 卷积3件套
 conv_module = nn.Sequential(nn.Conv2d(3,64,3,1,1),
@@ -773,11 +775,15 @@ plt.subplot(233), plt.plot(x, y_tanh), plt.title('tanh')
         * 细化计算过程，多分类交叉熵：[exp非负+概率化+log]+[(-1)+概率相乘]，前半截在logsoftmax完成，后半截在nll_loss完成，也可以全部在cross_entropy中一起完成
           同样的5大过程，二值交叉熵： [sigmoid非负和概率化]+[log+(-1)+概率相乘]，前半截在sigmoid完成，后半截在binary_cross_entropy完成，也可以全部在binary_cross_entropy_with_logits一起完成
 
-    F.binary_cross_entropy(preds, labels): 
+    F.binary_cross_entropy(preds, labels): 输入的形式多样，只要保证preds/labels的尺寸相同就行！ 
         * preds(m,)代表m个样本,必须是sigmoid输出的非负归一化值，labels(m,)代表m个样本对应标签，必须是0/1的二值标签概率表示
+        * preds(m,1)代表m个样本,必须是sigmoid输出的非负归一化值，labels(m,1)代表m个样本对应标签，必须是0/1的二值标签概率表示
         * preds(m,n)代表mxn个样本,必须是sigmoid输出的非负归一化值，labels(m,n)代表mxn个样本对应标签，必须是0/1的二值标签概率表示
+        * 有个坑：对于二值交叉熵损失函数其类别数量是1,也就是前景或不是前景，在设计head层卷积输出就需要考虑输出层数是anchor个数乘以1(参考faster rcnn的rpn head)
+          (不过我个人理解二分类问题当成类别数=2来做更好理解，也就是分前景和背景，卷积输出为anchor个数乘以2, 但因为mmdetection就是这么实现的，暂时留个疑问吧)
+
     F.binary_cross_entropy_with_logits(preds, labels): 
-        * with logits代表该损失函数集成了sigmoid归一化(并且比单独用sigmoid更稳定)，
+        * with logits代表该损失函数集成了sigmoid归一化(并且比单独用sigmoid更稳定)，或者理解为该损失函数带了logsigmoid，也就是pred部分不用自己处理了，只需要自己处理labels
         * preds(m,)代表m个样本，可以任意值，内部自带sigmoid归一化，labels(m,)代表m个样本对应标签，必须是0/1独热编码的概率表示
     
     F.mse_loss()    
@@ -1131,7 +1137,7 @@ label_weights = torch.tensor([[0.,1.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.]])
 gamma=2
 alpha=0.25
 def sigmoid_focal_loss(pred, target, weight, gamma=2.0, alpha=0.25, reduction='elementwise_mean'):
-    """基于二值交叉熵损失函数计算focal loss，该代码来源于mmdetection，但为了便于理解修改了部分表达
+    """基于二值交叉熵损失函数计算focal loss，该代码来源于mmdetection，但为了便于理解修改了部分写法，比如pt的定义修改成跟原论文一致
     1. 把预测pred先概率化(通过sigmoid完成)
     2. 计算权重1(pt)，此为把pred和target相结合，也就是pt = pred if target==1 else (1-pred)
     3. 计算权重2(alpha_t), 此为增加一组跟target相结合的alpha权重，也就是alpha_t = alpha if target==1 else (1-alpha)
@@ -1148,7 +1154,7 @@ def sigmoid_focal_loss(pred, target, weight, gamma=2.0, alpha=0.25, reduction='e
         target(tensor): (m,n)代表m个样本的标签,并且已经转化为二值独热编码的概率形式
         weight(tensor)
     """
-    pred_sigmoid = pred.sigmoid()   # 先把预测pred概率化
+    pred_sigmoid = pred.sigmoid()   # 先把预测pred概率化用来求pt，但注意送入二值交叉熵的pred是非概率化数据，因为with_logits版本的二值交叉熵自带了sigmoid
     pt = pred_sigmoid * target + (1-pred_sigmoid) * (1 - target)    # pt = p if t==1, else (1-p)
     alpha_t = alpha * target + (1 - alpha) * (1 - target)           # alpha_t = alpha if target>0 else (1-alpha)
     weight = weight * alpha_t * (1 - pt).pow(gamma)

@@ -77,6 +77,14 @@ def nms_test_time4(boxes_new):
     return keep
 
 if __name__ == "__main__":
+    """这个文件主要是为了对比实现nms的几种不同方法在速度上的差异：
+    1. python版本的nms
+    2. python版本的nms采用cython编译成c版本
+    3. python版本的nms直接修改静态变量并存成基于cpu版本的pyx文件，然后采用cython编译成c版本
+    4. python版本的nms直接修改静态变量并存成基于gpu版本的pyx文件，然后采用cython编译成c版本
+    
+    在实际应用中，SSD/M2det算法采用的就是i方式3/4分别编译出nms_cpu/nms_gpu版本的
+    """
     ver = 4
     if ver == 1:
         """处理过程：创建py文件，导入调用
