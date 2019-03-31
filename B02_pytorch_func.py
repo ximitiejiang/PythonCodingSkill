@@ -897,8 +897,10 @@ for name, param in model.named_parameters():    # named_parameters()每一个输
 # %%
 """Function存在意义？如何写自己的Function?
 参考：https://zhuanlan.zhihu.com/p/27783097
-https://blog.csdn.net/u012436149/article/details/78829329
+https://blog.csdn.net/u012436149/article/details/78829329 (解释清晰完整)
+https://www.cnblogs.com/hellcat/p/8453615.html (叠加态的猫，实例清晰，逐行解释)
 Function的意义：作为一个类似于module的层存在，自动参与前向计算和反向传播，但不需要有cache/不会有可学习参数
+另外，module通常使用的是pytorch默认的求导方式，但如果有的操作不可导，这就需要自定义求导方式，也就是extend torch.autograd，就需要用到torch.autograd.Function
 比较适合定义relu/pooling/align/nms等结构
 1. Module类：
     >前向计算：module类需要自定义forward()方法，作为__call__()的调用
@@ -906,8 +908,13 @@ Function的意义：作为一个类似于module的层存在，自动参与前向
     >参数存储：module自带cache能够存储参数w用于更新，适合于定义标准层或网络层
 2. Function类
     >前向计算：Function类需要自定义forward()方法
+     用来计算operation的前向过程，输入的参数可以是python的任何参数类型，但输出由于要用来做梯度计算，所以只能是tensor
+    
     >反向传播：Function类需要自定义backward()方法
+     用来计算梯度
+     
     >参数存储：Funtion类不能存储参数，只能作为单次运算操作，适合于激活函数/pooling层等不带训练参数的结构
+3. 
 """
 # 自定义一个new relu
 import torch
@@ -933,7 +940,15 @@ print(relu)
 print(out)
 
 # 自定义一个global_max_pool
-"""待调试和消化，当前代码会导致kernel die"""
+"""待调试和消化，当前代码会导致kernel die
+1. ctx是指代context，是a context object that can be used to stash information for backward computation也就是一个上下文对象，用来存放一些反向传播的数据。
+   由于Function不是module没有self，所以ctx相当于self的角色，在forward/backward之间协调参数，
+   ctx对象有自己的方法，用来存放一些变量，在backward中可以被调用， ctx.save_for_backward()用于在forward中存变量，ctx.saved_variables()用来在backward存放变量
+2. forward函数的输出参数应该跟backward的输入参数一一对应(ctx不算)，backward函数的输出参数应该跟forward的输入参数一一对应
+3. 调用Function的前向传播的方法：output = Func类名.apply(参数)
+   调用Function的反向传播的方法：output.backward()
+4. 
+"""
 from torch.autograd import gradcheck
 class GlobalMaxPool(torch.autograd.Function):
     @staticmethod
