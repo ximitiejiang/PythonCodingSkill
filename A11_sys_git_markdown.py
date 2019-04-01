@@ -100,6 +100,20 @@ ssd
 
 # %%
 """如何使用简单的makefile，用来对build
+0. makefile的功能：用于描述整个c++工程的编译/链接的规则，就包括那些源文件需要编译，如何编译，需要哪些库文件，如何产生可执行文件。
+虽然makefile编写事无巨细都要定义，但只要定义完成后整个工程的自动化编译就只需要一句make，很方便。
+所谓编译，就是把源文件编译成中间文件，linux下中间文件是.out文件，windows下是.obj文件，这就是compile
+所谓链接，就是把大量编译文件.o合成一个执行文件，这就是link
+
+1. 基本makefile的写法：
+    target ... : prerequisites ...
+        command
+        ...
+    其中target可以是编译的.out文件，也可以是链接的可执行文件
+    其中prerequisites就是生成target所需要的文件
+    其中command就是make需要执行的shell命令
+    makefile执行过程：他会比较target与prerequisites的文件修改日期，如果targets较早，则更新，如果targets不存在，则执行command
+    
 1. 常见处理方法如下：相比之下我喜欢用sh文件直接调用setup.py这样省去了makefile
     compile.sh 调用setup.py,  这种方式好处是省略了写makefile
     compile.sh 调用makefile，然后makefile再调用setup.py，这种方式好处是可以单独运行make，且不用输入文件名

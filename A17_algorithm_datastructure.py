@@ -17,7 +17,7 @@ def gen_base_anchors(base_size, ratios, scales):
     因为很多算法里边往往只需要一个scale对应的一轮ratios，第二轮则只取一个scale, 这样写便于截取
     所以是每一个scale对应j列ratios,也就是k行scale对应j列ratio, 也就是生成(k,j)
     Args:
-        base_size(int): 基础方框的尺寸
+        base_size(int): 基础方框的尺寸, 通常区stride的值
         ratios(array): (j,)代表h/w的比值, 涉及numpy的广播机制，所以必须是array而不是list
         scales(array): (k,)代表相对于base_size的缩放比例, 涉及numpy的广播机制，所以必须是array而不是list
     Returns:
@@ -49,14 +49,31 @@ if __name__=='__main__':
 # %% 核心算法2
 """如何grid anchors?
 """
-def grid_anchors():
+def grid_anchors(featmap_size, stride, base_anchors):
     """网格化anchors到featmap的每一个cell上面，即生成所有anchors()
     Args:
         featmap_size
         stride()
-        base_anchors(tensor)
+        base_anchors(tensor): (m,4)(xmin,ymin,xmax,ymax)
     """
+    x = torch.arange(0, featmap_size[0], stride)
+    y = torch.arange(0, featmap_size[1], stride).reshape(-1,1)
+    xx = x.repeat(len(y), dim = 0).reshape(-1)
+    yy = y.repeat(len(x), dim = 1).reshape(-1)
     
+    anchors = [base_anchors[:,0] + xx,
+               base_anchors[:,2] + yy,
+               base_anchors[:,1] + xx,
+               base_anchors[:,3] + yy]
+    return anchors
+
+if __name__ == '__main__':
+    run_grid_anchor = True
+    if run_grid_anchor:
+        featmap_size = [320,320]
+        stride = 8
+        base_anchors = [[-10,-10,10,10],[-20,-20,20,20]]
+        grid_anchors(featmap_size, stride, base_anchors)
 
 # %% 核心算法3
 """如何计算iou支持assigner?
@@ -72,7 +89,7 @@ def ious(bb1, bb2):
 
 
 # %% 核心算法4
-"""如何进行bbox回归?即如何做bbox2delt，以及如何回复bbox坐标?
+"""如何进行bbox回归?即如何得到bbox target，以及如何回复bbox坐标?
 """
 def bbox2delta():
     pass
@@ -115,7 +132,7 @@ def focal_loss(preds, targets, alpha=0.25, gamma=2, avg_factor):
     return loss/avg_factor
     
 if __name__=='__main__':
-    run_focal_loss = True
+    run_focal_loss = False
     if run_focal_loss:
         preds = torch.randn(3,80)        # (m,80)
         targets = torch.tensor([1,0,7])
@@ -141,11 +158,32 @@ def nms():
     ymin
     xmax
     ymax
-    areas = 
+    areas
     
 
 def soft_nms():
     pass
 
 
+# %% 核心算法
+"""如何进行hard negtive mining?
 
+"""    
+def hard_negtive_mining(loss_cls_all, pos_inds, neg_inds, num_total_samples):
+    """通过hard negtive mining筛选
+    1. 所有targets都进行loss计算，其中正样本loss很少(20+)，负样本loss大量存在(8000+)
+    2. 正样本loss全部保留(20+)，负样本loss个数取正样本的3倍个数，且只取负样本loss的排名前面的3倍loss(60+)
+    3. 缩减loss: 分别求正样本loss之和，负样本loss之和
+    4. 平均loss: 平均因子取label中正样本个数(注意坑：label里边正样本就是label>0，
+       有可能target的正样本数量少于label正样本数量，所以一定要取label的正样本个数而不是target正样本个数)
+    """
+    num_pos_samples = pos_inds.size(0)     # 获得正样本个数
+    num_neg_samples = num_pos_samples * 3  # 获得负样本个数
+    if num_neg_samples > neg_inds.size(0): # 如果负样本数量太少，少于正样本的3倍，则负样本数量只能取实际负样本数量
+        num_neg_samples = neg_inds.size(0)
+    
+    topk_loss_neg = loss_cls_all[neg_inds].topk(num_neg_samples)  # 取负样本损失的前k个
+    
+    loss_cls_pos = loss_cls_all[pos_inds].sum()   # loss缩减
+    loss_cls_neg = topk_loss_neg.sum()            # loss缩减
+    loss_cls = (loss_cls_pos + loss_cls_neg)/num_total_samples    # loss平均
