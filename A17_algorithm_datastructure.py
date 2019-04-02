@@ -5,6 +5,107 @@ Created on Thu Feb 14 15:01:02 2019
 
 @author: ubuntu
 """
+# %% 训练框架
+"""如何写一个训练框架？
+5步走：
+1. 配置
+2. 模型
+3. 数据
+4. 训练设置
+5. 训练
+"""
+import Config
+import torch
+import torch.nn as nn
+import CocoDataset, VOCDataset
+import OneStageDetector
+import GroupSampler
+
+'基于cfg的type和params创建对象'
+def get_dataset(cfg_data):
+    """返回一个数据集对象: 保留repeat dataset功能，保留多数据集组合功能
+    """
+    if cfg_data.pop('type') == 'CocoDataset':
+        dataset = CocoDataset(cfg_data)
+    elif cfg_data.pop('type') == 'VOCDataset':
+        dataset = VOCDataset(cfg_data)  
+    return dataset
+    
+def get_optimizer(cfg_opt):
+    """返回优化器对象：
+    """
+    obj_type = cfg_opt.pop('type')                       # 获得类型字符串
+    obj_type = getattr(torch.optim.Optimizer, obj_type)  # 从父类获得类：但Optimizer跟比如SGD类应该还是有区别吧，能代替子类来创建optimizer吗？
+    return obj_type(cfg_opt)
+    
+def set_lr(optimizer, cfg_lr):
+    """设置优化器学习率
+    """
+    lr_groups = []
+    for param_group, lr in zip(optimizer.param_groups, lr_groups):  # optimizer.param_groups就是参数dict
+        param_group['lr'] = lr
+
+def batch_processor(model, data_batch):
+    """进行每个batch data的核心计算,主要是求解loss,计算loss求和
+    """
+    losses = model(**data_batch)
+    loss = losses.sum()
+    outputs = dict(loss = loss)
+    return outputs
+
+def collat_func():
+    """进行数据的堆叠
+    """
+    pass
+
+def train(cfg_path, dataset_class):
+    '1. cfg'
+    cfg = Config.fromfile(cfg_path)
+    torch.backends.cudnn.benchmark = True   # 目的是让内置cudnn自动寻找最合适的高效算法来优化运行效率，如果网络输入数据的维度/类型变化不大，可设置为True,但如果输入数据在每个iter维度/类型变化，则导致cudnn每次要去寻找一遍最优配置，反而会降低运行效率
+    '2. model'
+    model = OneStageDetector(cfg)
+    if cfg.parallel:
+        model = nn.DataParallel(model)
+    '3. data'
+    batch_size = 2
+    num_workers = 2
+    dataset = get_dataset(cfg.data.train, cfg.data.test)    
+    dataloader = nn.DataLoader(dataset, 
+                            batch_size = batch_size,
+                            sampler = GroupSampler(),
+                            num_workers=num_workers,
+                            collate_fn=collat_func,
+                            pin_memory=False)
+    '4. training set'
+    optimizer = get_optimizer(cfg.optimizer)  # 训练设置都封装在runner.init()
+    epoch=0
+    iter=0
+    
+    while epoch < cfg.epoches:   # epoch部分封装在runner.run()    
+        '5. train'
+        model.train()            # 其他封装在runner.train()
+        '5.1 before epoch'
+        set_lr()
+        
+        for i, data_batch in enumerate(dataloader):
+            '5.2 before iter'
+            outputs = batch_processor(model, data_batch)
+            
+            '5.3 after iter'   # 可通过hook实现
+            optimizer.zero_grad()        # 梯度清零
+            outputs['loss'].backward()   # 更新梯度
+            optimizer.step()             # 更新参数
+            
+            iter += 1
+        '5.4 after epoch'
+        epoch += 1
+    
+if __name__ == '__main__':
+    run_train = True
+    if run_train:
+        cfg_path = './config/cfg_ssd300_voc.py'
+        train(cfg_path, CocoDataset)
+
 
 # %% 核心算法1
 """如何生产base anchors?
@@ -105,7 +206,7 @@ def ious(bb1, bb2):
     return cal_iou
     
 if __name__ == '__main__':
-    run_ious = True
+    run_ious = False
     if run_ious:
         bb1 = torch.tensor([[-20.,-20.,20.,20.],[-18.,-18.,18.,18.]])
         bb2 = torch.tensor([[-19.,-19.,23.,23.],[-19.,-19.,22.,22.]])

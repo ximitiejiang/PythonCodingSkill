@@ -6,4 +6,6 @@ Created on Wed Jan  9 16:00:51 2019
 @author: ubuntu
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(__file__))
+path = os.path.abspath('.')
+if not path in sys.path:
+    sys.path.insert(0, path)

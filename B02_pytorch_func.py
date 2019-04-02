@@ -33,6 +33,7 @@ torch.arange(1,10,2)  # (start, end, step)这跟切片一样，跟array统一
 torch.linspace(3,10,5) # (start, end, n_num)
 
 # 另一种是对照一个已有tensor创建一个新tensor,具有相同dtype/device
+# 适合在GPU参与的情况下创建变量，避免了device的位置检测和设置，非常方便！！！
 # 而size可以重新指定，填充value也可指定
 t1 = torch.tensor([[1.5, 2.1],[3.2, 4.7]])
 t1.new_zeros((2,3), dtype=torch.float32)    # 填充0
@@ -191,6 +192,7 @@ Q. tensor的排序和筛选
     筛选返回bool: a>0
     筛选返回value: a[a>0]
     筛选返回index: np.where(a>0)
+    
 2. pytorch的实施
 (1) tensor的排序
     排序返回数值/index: t1, indics = torch.sort(t, dim=1)
