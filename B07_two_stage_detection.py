@@ -1103,13 +1103,20 @@ rois的得到过程：
 
 # %%
 """Q. 如何基于rois提取bbox_feats? 也就是如何设计RoIAlign？
-设计RoIAlign的目的：从backbone出来的feats对应到不同bbox中有不同的尺寸，通过RoIAlign可以把每个bbox包含的feats
-尺寸都调整成一个尺寸(7,7)，层数也不改变，这样做的好处是
-需要利用roi extractor实现，里边核心的部分就是RoIAlign模块：
+1.设计RoIAlign的目的：从backbone出来的feats对应到不同bbox中有不同的尺寸，通过RoIAlign可以把每个bbox包含的feats
+尺寸都调整成一个尺寸(7,7)，层数也不改变，这样做的原因是接下来做分类回归的网络只能接收size相同features，而不能是size变化的features
+所以需要RoiAlign把特征尺寸都调为一样的。
+
+2.需要利用roi extractor实现，里边核心的部分就是RoIAlign模块：
     >数据准备：把rois先map到每一层特征图上：也就是rois(512,4) -> [(4,5),(12,5),(77,5),(931,5)]
     >数据对应：把4组rois和4组feats送入RoIAlign，相当于基于每个rois从特征图中抠图，并统一成7x7尺寸，层数不变
      所以每一个roi对应出一个抠图(256,7,7), 512个rois对应抠图就是(512，256,7,7)，如果是2张图就是(1024,256,7,7)这就是roi_feats
-     
+
+3. 底层原理：先把每个rois映射到对应特征图上，然后把对应特征划分为7x7的49块，然后在每一块中获得一个最大值作为池化输出值，最终得到7x7的尺寸
+底层RoiAlign的实现源码：rois映射到特征图上时除以stride时保留浮点数，划分7x7小块大小时也保留浮点数，对每一块获取一个最大值采用双线性采样来获得
+对比RoiPooling的实现原理：rois映射到特征图上时除以stride时下取整，划分7x7小块大小时下取整，对每一块获取一个最大值采用直接     
+一个实例：
+
 """
 def roi_extractor():
     roi_feats = []
