@@ -193,7 +193,7 @@ def ious(bb1, bb2):
     """
     area1 = (bb1[:,3] - bb1[:,1]) * (bb1[:,2] - bb1[:,0]) # (m,)
     area2 = (bb2[:,3] - bb2[:,1]) * (bb2[:,2] - bb2[:,0]) # (n,)
-    
+    # m个bb1,n个bb2,所以ious必然是(m,n)个，所以从求解xymin开始就要得到(m,n)个
     xymin = torch.max(bb1[:, None, :2], bb2[:,:2])  # (m,2) maxwith (n,2) -> (m,1,2)vs(n,2) -> (m,n,2)
     xymax = torch.min(bb1[:, None, 2:], bb2[:,2:])  # (m,n,2)
     
@@ -270,6 +270,7 @@ if __name__=='__main__':
 
 # %% 核心算法7
 """如何进行非极大值抑制nms以及如何做soft_nms?
+1. 对于普通nms: 基于score排序的index, 保存第一个，与剩余的做ious, 
 """
 def nms(proposals, iou_thr):
     """对输入的proposal进行nms过滤
@@ -279,15 +280,52 @@ def nms(proposals, iou_thr):
     Returns:
         keep(tensor): ()
     """
-    xmin
-    ymin
-    xmax
-    ymax
-    areas
-    
+    xmin = proposals[:,0]
+    ymin = proposals[:,1]
+    xmax = proposals[:,2]
+    ymax = proposals[:,3]
+    areas = (ymax-ymin+1) * (xmax-xmin+1)
+    scores = proposals[:,4]
+    keep = []
+    index = scores.argsort()[::-1]  # 先从大到小排序，返回index
+    while index.size >0:
+#        i = index[0]        
+        keep.append(index[0])     # 每轮循环提取score最高的第一个值作为对象，并保存index   
+        x11 = np.maximum(xmin[index[0]], xmin[index[1:]])    # 计算保存的这个bbox与其他所有bbox的iou
+        y11 = np.maximum(ymin[index[0]], ymin[index[1:]])    # (1,4)vs(n,4)
+        x22 = np.minimum(xmax[index[0]], xmax[index[1:]])
+        y22 = np.minimum(ymax[index[0]], ymax[index[1:]])        
+        w = np.maximum(0, x22-x11+1)    # the weights of overlap
+        h = np.maximum(0, y22-y11+1)    # the height of overlap       
+        overlaps = w * h        
+        ious = overlaps / (areas[index[0]]+areas[index[1:]] - overlaps)        
+        idx = np.where(ious<=iou_thr)[0]   # 查找所有ious小于阀值的index保留下来，其他大于阀值的index就相当于丢掉了        
+        index = index[idx+1]   # because index start from 1       
+    return keep
+
+def nms_tensor(proposals, iou_thr):
+    """
+    """
+    area2 = (proposals[index[0],2] -proposals[index[0],0]) * \
+            (proposals[index[0],2] -proposals[index[0],0])
+    scores = proposals[:,4]
+    index = torch.argsort(scores)[::-1]
+    keep = []
+    while index.size() > 0:
+        keep.append(index[0])
+        
+        area1 =  
+        xymin = proposals[]
 
 def soft_nms():
     pass
+
+if __name__ == '__main__':
+    proposals = torch.tensor([[-20,-20,20,20],
+                              [-25,-25,10,10],
+                              [-10,-10,30,30],
+                              [-23,-23,18,18]])
+    nms_tensor(proposals, iou_thr=0.7)
 
 
 # %% 核心算法
