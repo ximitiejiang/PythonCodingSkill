@@ -305,10 +305,10 @@ sorted_price = sorted(zip(price.values(),price.keys())) # zip()结合sorted()排
 Q: 有一组数据，如何获得最大的或最小的N个元素？
 '''
 num = [1,8,2,23,7,-4,18,23,42,37,2]
-max_3 = sorted(num)[:3]   # 通过先排序再切片的方式获得最大/最小的N个元素
+min_3 = sorted(num)[:3]   # 通过先排序再切片的方式获得最大/最小的N个元素
 # 这种写法非常有意思，可以方便获得从小到大排序和从大到小排序
-min_to_max = num.sorted()[::]
-max_to_min = num.sorted()[::-1]
+min_to_max = sorted(num)[::]
+max_to_min = sorted(num)[::-1]
 
 import numpy as np
 min_to_max_index = np.argsort(num)[::]
@@ -372,8 +372,11 @@ s3 = sorted(arr, key=lambda x:x[1])
 
 '''------------------------------------------------------------------------
 Q: 有一组序列，我知道怎么排序，但不知道怎么筛选出特定要求的元素？
-- 列表推导式做筛选
-- 字典推导式做筛选
+1. 如果是numpy直接用元素判断式筛选arr[arr>i], 无需写循环
+   或者用np.where筛选index
+2. 如果是原生的python数据结构list.dict，则需要利用列表推导式/字典推导式（循环判断筛选）
+    - 列表推导式做筛选
+    - 字典推导式做筛选
 '''
 import numpy as np
 
@@ -561,7 +564,7 @@ Q: 如何生成正态分布的随机数据？
     > uniform(low, high) 实数范围取1个书，或size个数
 
 核心功能2： 随机打乱序列  (对应pytorch只实现了一个torch.randperm()对从0开始的数组重排列)
-random.permutation(lst)
+random.permutation(lst), 如果是放入array，则每行看成一个元素，也作为list按行随机乱序
 random.shuffle(lst)    inplace操作
 核心功能3：从一组数随机选一个  (对应pytorch没有)
 random.choice(lst)
@@ -829,7 +832,15 @@ c1 = np.tile(c0, (2,3))
 
 '''------------------------------------------------------------------------
 Q. 常用最简单的几个打印命令？
-1. print的格式化输出有2种方式，一种{:f}，另一种%f，似乎第二种更简单，使用的人更多
+两种打印输出的格式，其中格式1少写好多字符，还是用格式1方便
+1. print的格式化输出方式1： %
+    - 'a = %s'   代表字符串
+    - 'a = %d'   代表整数
+    - 'a = %.3f' 代表3位小数的浮点数
+    - %a, %(a, b) 代表后道的变量
+
+2. print的方式2： format
+    - 'a = {:.3f}'.format(a)
 '''
 # 采用format的形式格式化输出： '{格式1}{格式2}'.format()
 # {:s}为字符，{:f}为浮点数，{:.6f}为6位浮点数，{:d}为整数
@@ -843,7 +854,7 @@ print(s0)
 
 # 采用%的形式格式化输出：  '%格式1%格式2'%(变量1,变量2)
 # %d为整数，%f为浮点数(%.6f为6位浮点数)，%s为字符串
-s2 = 'pi = %.50f'%pi
+s2 = 'pi = %.50f'%pi  # 小数点后50位
 print(s2)
 a =5
 b='eason'
