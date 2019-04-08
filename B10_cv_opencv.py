@@ -127,7 +127,7 @@ def save_video():
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    show_video = True
+    show_video = False
     if show_video:
         save_video()
         
@@ -583,6 +583,7 @@ Q. 如何检测边缘，边沿？ - 原来图像检测的那些技术都是从�
     step4: 最后进行滞后阈值hysteresis thresholding判断，定义maxval和minval,如果小于minval必然不是edge则放弃掉,大于maxval必然是则保留。
            而中间部分的如果跟必然是edge的部分能够连接则保留，不能连接则放弃。
 2. cv2.Canny()
+
 '''
 def edge_detect2():
     img = cv2.imread('test/test_data/messi.jpg',0)
@@ -594,8 +595,48 @@ def edge_detect2():
 """
 Q. 边缘检测在车道线案例中的应用？
 """
+def roi(img, vertices):
+    """提取感兴趣区域
+    Args:
+        img(array):  (h,w,c) or (h,w)
+        vertices(array): ()
+    """
+    mask = np.zeros_like(img)  # 全黑mask，默认就全部覆盖
+    if len(img.shape) > 2:     
+        channel_count = img.shape[2]
+        ignore_mask_color = (255,) * channel_count  
+    else:
+        ignore_mask_color = 255
+    cv2.fillPoly(mask, [vertices], ignore_mask_color)  # 在全黑mask里边填充一块vertices
+    masked_img = cv2.bitwise_and(img, mask)           # 发挥mask的功能：与0相与=0(代表覆盖)，与非0相与=
+    return masked_img
+    
 
+def lane_line_detector(img):
+    """基础视觉检测车道线"""
+    img_gray = bgr2gray(img)
+    low_thr = 40
+    high_thr = 150
+    img_canny = cv2.Canny(img_gray, low_thr, high_thr)
+#    plt.subplot(121),plt.imshow(img[:,:,[2,1,0]])  # bgr to rgb
+#    plt.subplot(122)
+    plt.imshow(img_canny, cmap='gray')
+    
+    h = img_canny.size(0)
+    w = img_canny.size(1)
+    lb = [0, h]
+    rb = [w, h]
+    apex = [w / 2, 300]
+    vertices = np.array([lb, rb, apex], np.int32)
+    img_roi = roi(img_canny, vertices)
+    
 
+if __name__ == '__main__':
+    path = './test/test_data/solidWhiteCurve.jpg'
+    img = cv2.imread(path)
+    lane_line_detector(img)
+    
+    
 
 
 
