@@ -12,7 +12,12 @@ Created on Thu Feb 14 15:01:02 2019
 2. 模型
 3. 数据
 4. 训练设置
-5. 训练
+5. 训练: 主要就是在两层循环里边调整optimizer的相关设置，并做loss反向传播
+    2层循环，
+    set_optimizer_lr()
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
 """
 import Config
 import torch
