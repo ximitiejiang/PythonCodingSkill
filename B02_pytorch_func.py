@@ -1552,6 +1552,24 @@ def get_dist_info():
     return rank, world_size
 
 
+# %%
+"""如何使用pytorch中的register_hook()和register_backward_hook()/register_forward_hook()函数
+很好的参考：https://ptorch.com/news/172.html  很好解释了为什么要有hook，以及如何写这3种hook函数
+之所以要有hook，是因为pytorch虽然会对计算链条里边每个变量都求梯度，但只会保留叶子节点的梯度，中间节点的梯度不会保留，
+所以为了得到中间节点的梯度，有必要采用hook来获得。
 
+1. register_hook()函数是任何一个tensor的方法，即t1.register_hook(myfunc)，这个方法的输入参数一定是一个自定义函数名(也就是一个hook)，用这个自定义函数可以接收到变量t1的梯度
+   而自定义函数func在写的时候，输入参数被固定为是grad，然后func的函数内部可以随便处理传递进来的hook，例如：
+   t1.register_hook(myfunc)  # 这句就是对tensor即t1进行梯度获取，pytorch自动吧grad传入myfunc，所以myfunc的形参只能是grad，当然也可以传入现有函数，比如print就相当于打印grad出来
+   def myfunc(grad):
+       print(grad)
+       grads = []
+       grads.append(grad)
+       return grads
+
+2. register_backward_hook()是任何一个module的方法，即module1.register_backward_hook(myfunc)，这个方法的输入参数也是一个自定义函数名(也就是一个hook)
+   自定义的函数func写的时候，输入参数也被固定为module,grad_input, grad_output这三个，   
+
+"""
 
 
