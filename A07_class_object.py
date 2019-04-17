@@ -249,8 +249,9 @@ Q. 如何定义类的三种方法：类方法@classmethod，静态方法@staticm
      * 类方法，classmethod，必写的隐含参数是cls，不可以访问对象属性，可以被类和对象调用
      * 普通方法(也叫实例方法)，必写的隐含参数是self，可以访问任何属性，只可以被对象调用
          * 属性方法属于普通方法的一种，所以必写隐含参数self
-     * 静态方法，staticmethod，没有必写隐含参数，不可以访问类或对象的任何属性/方法，可以被类和对象调用
-       但可以传入对象self, 然后再调用对象属性。
+     * 静态方法，staticmethod，没有必写隐含参数(即可以不写self或cls, 也可以写self/cls用来调用对象属性)，
+       不写self则不可以访问类或对象的任何属性/方法，但可以被类和对象调用
+       但写了self就是传入对象self作为一个形参, 然后就可以调用对象属性self.attri
        也可传入类cls，然后调用类属性
 
 关键4：几种特殊方法的典型应用
@@ -274,12 +275,15 @@ class Dog():
     def __init__(self, name):
         self.name = name
         self.__food = None
+    
     @staticmethod
     def eat(self):  # 静态方法，参数为对象
         print('%s is eating %s'% (self.name, 'pie'))
+        
     @staticmethod
     def run(name): # 静态方法，参数为形参
         print('%s is running!'% name)
+    
     def jump(cls):  # 静态方法，参数为类
         print('%s is running!'% cls.default_name)
         

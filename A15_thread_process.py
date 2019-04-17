@@ -33,15 +33,26 @@ def loop():
         time.sleep(1)
     print('thread %s ended.' % threading.current_thread().name)
 
-print('thread %s is running...' % threading.current_thread().name)
-t = threading.Thread(target=loop, name='LoopThread')  # 创建新线程
-t.start()                                             # 新线程启动
-t.join()                                              # 新线程
-print('thread %s ended.' % threading.current_thread().name)
+if __name__ == '__main__':
+    loopit = False
+    if loopit:
+        print('thread %s is running...' % threading.current_thread().name)
+        t = threading.Thread(target=loop, name='LoopThread')  # 创建新线程
+        t.start()                                             # 新线程启动
+        t.join()                                              # 新线程
+        print('thread %s ended.' % threading.current_thread().name)
 
 
-'''------------------------------------------------------------------------
+# %%
+'''
 Q. 线程锁怎么用？在python中的多线程是否
+基本流程： 2步走，第一步主程序创建线程锁/各个线程/打开加入线程，第二步单线程处理函数侦测/执行代码
+    1.1 创建一个线程锁，用来传递给任何一个线程，获得线程锁的线程就可以运行，否则就等待：lock = threading.Lock()
+    1.2 创建n个线程，每个线程都有自己的worker()线程函数
+    1.3 打开每个线程：
+    1.4 加入每个线程：此时线程开始搜索，先尝试获得lock(lock.acquire()或者with lock: 这两种方式来判断是否获得lock了)
+       如果获得了lock，则开始执行该进程的代码，执行完了之后需要释放lock(lock.release()或者如果是用with lock的方式则会自动释放而无需手动释放，类似于with open(file)这种方式)
+    2.1 编写单线程处理函数：侦测线程锁，执行代码
 1. 线程锁
 2. GIL(globle interpreter lock全局锁)
 3. python多线程的本质：由于有GIL全局锁的存在，每执行100个字节码就会自动释放GIL让别的线程有机会执行
@@ -53,50 +64,73 @@ Q. 线程锁怎么用？在python中的多线程是否
 参考：https://www.liaoxuefeng.com/wiki/0014316089557264a6b348958f449949df42a6d3a2e542c000/00143192823818768cd506abbc94eb5916192364506fa5d000
 '''
 import threading
-def change_it(n):
-    # 先存后取，结果应该为0:
-    global balance
-    balance = balance + n
-    balance = balance - n
-
-def run_thread(n):
-    for i in range(1000000):
-        change_it(n)
 # 假定这是你的银行存款:
-balance = 0
-# 启动2个线程分别修改存款数额10000次，理论上无论怎么改都是0
-t1 = threading.Thread(target=run_thread, args=(5,))  # 线程1
-t2 = threading.Thread(target=run_thread, args=(8,))  # 线程2
-t1.start()
-t2.start()
-t1.join()
-t2.join()
-print(balance)   # 此时的balance大部分时候为0,但有可能不为0,因为t1在跑没跑完时t2加入，倒是内部的中间变量复用冲突。
+balance = 100
 
-# 解决方案：修改run_thead()函数，增加lock
-import threading
-lock = threading.Lock()
-def change_it(n):
+def run_thread_1(n):
+    """一个错误多线程代码，由于没有线程锁，原本应该怎么改都是0
+    但实际上只要运行次数够多，结果不为0"""
     global balance
-    balance = balance + n
-    balance = balance - n
-
-def run_thread(n):
     for i in range(1000000):
-        lock.acquire()    #lock作为全局对象，谁先获得lock,谁就一直有执行权，直到他自己把lock释放掉
+        balance = balance + n
+        balance = balance - n
+    
+
+lock = threading.Lock()    # 增加lock
+def run_thread_2(n):
+    """一个正确多线程：
+    """
+    global balance
+    for i in range(1000000):
+        lock.acquire()    # 持续等待，直到获得才往下执行
         try:
-            change_it(n)
+            balance = balance + n
+            balance = balance - n
         finally:
             lock.release()
-balance = 0
-t1 = threading.Thread(target=run_thread, args=(5,))
-t2 = threading.Thread(target=run_thread, args=(8,))
-t1.start()
-t2.start()
-t1.join()
-t2.join()
-print(balance)
 
+def run_thread_3(n):
+    """另一种多线程写法：参考pytorch源码paralell_apply()"""
+    global balance
+    for i in range(1000000):
+        with lock:   # 用with的写法，可以省去lock.release()
+            balance = balance + n
+            balance = balance - n
+                     
+def practice(fn, n):
+    t1 = threading.Thread(target=fn, args=(n,))
+    t2 = threading.Thread(target=fn, args=(n,))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    print(balance)
+    
+def practice_complex(fn, n):
+    """定义10个线程"""
+    threads = []
+    for i in range(10):
+        threads.append(threading.Thread(target=fn, args=(n,)))
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    print(balance)
+    
+
+if __name__ == '__main__':
+    thread_test = 4
+    if thread_test == 1:   # 第一个多线程代码，结果随时变化
+        practice(run_thread_1, 12.34)
+    
+    if thread_test == 2:      # 第二个多线程代码，结果不变
+        practice(run_thread_2, 12.34)
+    
+    if thread_test == 3:      # 第三个多线程代码，结果不变
+        practice(run_thread_3, 12.34)
+    
+    if thread_test == 4:      # 更多线程代码，结果不变
+        practice_complex(run_thread_3, 12.34)     
 
 '''-----------------------------------------------------------------------
 Q. pytorch的多线程data parallel是如何实现的？
@@ -106,30 +140,54 @@ Q. pytorch的多线程data parallel是如何实现的？
 '''
 import torch
 """需事先准备好modules, inputs, devices, kwargs_tup，每个module都有对应一套数据"""
-def _worker(i, module, input, kwargs, device=None):
-    """这是每一个子线程的执行函数"""
-    try:
-        with torch.cuda.device(device):
-            output = module(*input, **kwargs)        
-        with lock:
-            results[i] = output
-    except Exception as e:
+def parallel_apply(modules, inputs, kwargs_tup, devices):
+    def _worker(i, module, input, kwargs, device=None):
+        """这是每一个子线程的执行函数"""
+        try:
+            with torch.cuda.device(device):
+                output = module(*input, **kwargs)        
             with lock:
-                results[i] = e
-            
-lock = threading.Lock()
-results = {}
-if len(modules) > 1:  # 如果是多GPU对应的多个modules,则创建同等数量的线程，每个GPU一个线程
-        threads = [threading.Thread(target=_worker,
-                                    args=(i, module, input, kwargs, device))
-                   for i, (module, input, kwargs, device) in
-                   enumerate(zip(modules, inputs, kwargs_tup, devices))]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
+                results[i] = output
+        except Exception as e:
+                with lock:
+                    results[i] = e
+                
+    lock = threading.Lock()
+    results = {}
+    if len(modules) > 1:  # 如果是多GPU对应的多个modules,则创建同等数量的线程，每个GPU一个线程
+            threads = [threading.Thread(target=_worker,
+                                        args=(i, module, input, kwargs, device))
+                       for i, (module, input, kwargs, device) in
+                       enumerate(zip(modules, inputs, kwargs_tup, devices))]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
 
-'''------------------------------------------------------------------------
-Q. 多进程实现方法
-1. 用multiprocess实现多进程
+# %%
 '''
+Q. 多进程实现方法
+通常是用multiprocess实现多进程，然后基于pytorch的distributed实现多进程分布到一机多卡或多机多卡
+
+1. torch.distributed.launch这是一个启动模块，采用python -m的方式启动：
+   $ python -m torch.distributed.launch --nproc_per_node=2 train.py --arg1 --arg2 
+   也就相当于通过launch.py这个模块来调用运行我们的train.py文件。
+   也就相当于launch.py是一个装饰器，他会预先初始化一些变量，并传递个itrain.py里边的相关代码，比如'RANK'
+
+2. 
+
+'''
+
+
+
+
+
+
+
+
+
+
+
+
+
+

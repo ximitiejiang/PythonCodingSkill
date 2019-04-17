@@ -914,9 +914,18 @@ Function的意义：作为一个类似于module的层存在，自动参与前向
     
     >反向传播：Function类需要自定义backward()方法
      用来计算梯度
-     
     >参数存储：Funtion类不能存储参数，只能作为单次运算操作，适合于激活函数/pooling层等不带训练参数的结构
-3. 
+    
+3. 写Function类的过程：
+    > forward()/backward()方法都必须是静态方法：也就是@staticmethod，
+      因为继承自Function，而Function把forward/backward都定义成了staticmethod并且是必须实施的2个方法
+    > 在forward/backward函数形参中一般会带一个ctx，ctx是一个内置对象，指代context/上下文，也就相当与常规类的self,用来在forward/backward之间定义全局变量传递参数，也就相当与self.xx的功能呢个
+      ctx的使用方法是，在forward中如果要保存变量给backward使用，则用ctx.save_for_backward(var1, var2..)
+      而在backward中如果要使用这些变量，则用var1,var2.. = ctx.saved_variables来提取出这些变量即可
+      ctx中存的变量，只能是tensor，只能是forward的实参或返回值
+    > Function写好后使用方法：AbcFunction.apply(input, weight..)
+      即只能通过.apply()来使用该函数。
+      当然也可以用nn.Module封装好以后作为Module来使用，从而不需要apply，调用更简单
 """
 # 自定义一个new relu
 import torch
@@ -945,7 +954,7 @@ print(out)
 """待调试和消化，当前代码会导致kernel die
 1. ctx是指代context，是a context object that can be used to stash information for backward computation也就是一个上下文对象，用来存放一些反向传播的数据。
    由于Function不是module没有self，所以ctx相当于self的角色，在forward/backward之间协调参数，
-   ctx对象有自己的方法，用来存放一些变量，在backward中可以被调用， ctx.save_for_backward()用于在forward中存变量，ctx.saved_variables()用来在backward存放变量
+   ctx对象有自己的方法，用来存放一些变量，在backward中可以被调用， ctx.save_for_backward()用于在forward中存变量，ctx.saved_variables用来在backward存放变量
 2. forward函数的输出参数应该跟backward的输入参数一一对应(ctx不算)，backward函数的输出参数应该跟forward的输入参数一一对应
 3. 调用Function的前向传播的方法：output = Func类名.apply(参数)
    调用Function的反向传播的方法：output.backward()
@@ -959,7 +968,7 @@ class GlobalMaxPool(torch.autograd.Function):
         flatten_hw = inputs.view(b,c,-1)
         max_val, indices = torch.max(flatten_hw, dim=-1, keepdim=True)
         max_val = max_val.view(b,c,1,1)
-        ctx.save_for_backward(inputs, indices)
+        ctx.save_for_backward(inputs, indices)  
         return max_val, indices
     
     @staticmethod

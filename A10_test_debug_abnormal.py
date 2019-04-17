@@ -111,7 +111,12 @@ else:
 try:
     
 
-# 用    
+"""应用场景1：用来防止发生导入错误后程序无法运行"""
+try:
+    from queue import Empty   # 正常操作
+except AttributeError:
+    class Empty(Exception):   # 如果报了AttributeError的错误，则创建一个Empty()类来替代
+        pass
 
 
 
