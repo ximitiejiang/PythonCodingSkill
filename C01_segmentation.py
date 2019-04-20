@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Apr 18 16:19:48 2019
+Created on Sat Apr 20 18:20:47 2019
 
 @author: ubuntu
+"""
+
+""" A系列主要是编程基础
+    B系列主要是视觉基础，物体检测
+    C系列主要是语义分割和实例分割
+    D系列主要是姿态估计
+    E系列主要是行人重识别(多摄像头)
 """
 
 # %%

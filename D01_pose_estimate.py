@@ -4,8 +4,17 @@
 Created on Sat Mar  2 17:09:47 2019
 
 @author: ubuntu
-视频一定是AI未来的主流方向而不是图像，所以对视频相关AI技术需要持续关注
-所用backbone/detector/dataset有很大的重叠度，便于从图像往视频过渡
+
+"""
+
+
+""" A系列主要是编程基础
+    B系列主要是视觉基础，物体检测
+    C系列主要是语义分割和实例分割
+    D系列主要是姿态估计
+    E系列主要是行人重识别(多摄像头)
+
+
 参考开源的姿态估计框架：
 1. AlphaPose(上海交大/tensorflow or pytorch): https://github.com/MVIG-SJTU/AlphaPose/tree/pytorch
 2. DensePose(Facebook/Detectron and Caffe2): https://github.com/facebookresearch/DensePose
