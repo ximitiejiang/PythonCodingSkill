@@ -104,6 +104,16 @@ git push origin mydev:mydev  # 从我本地mydev分支提交到我的远程mydev
 
 
 # %%
+"""如果.git文件太大，下载很慢，如何解决？
+由于.git文件夹里边保留了这个仓库的所有commit用于回退时使用，但时间久了就会积累到很大的空间。
+1. 方法1： 下载仓库，但只下载最近一次的commit
+2. 方法2： 手动清除.git里边的大文件，参考https://www.cnblogs.com/lout/p/6111739.html    
+"""
+git clone git@github.com:ximitiejiang/cvpk.git --depth=1
+
+
+
+# %%
 """基本的markdown语法？
 参考：https://www.jianshu.com/p/191d1e21f7ed
 """
