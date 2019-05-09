@@ -596,15 +596,9 @@ class Coco_vehicle_person(CocoDataset):
 
 
 # %%
-"""Q.如何做尺寸变换和尺寸缩放？
-
+"""Q.如何用Albumentations做数据增强
+参考：https://github.com/albu/albumentations
+1. 安装pip3 install albumentations
+2. 
 """
 
-#cv2.resize(img, size, interpolation=interp_codes[interpolation])
-def imresize():
-    pass
-
-
-def imrescale():
-    pass
-    

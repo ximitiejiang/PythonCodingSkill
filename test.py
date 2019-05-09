@@ -6,21 +6,91 @@ Created on Mon Apr 22 16:50:54 2019
 @author: ubuntu
 """
 
-from math import pi
+
 import numpy as np
+from matplotlib import pyplot as plt
 
-def area(r):
-    return pi*r*r
+"""
+一张图片，缩小到(1333,800),相应的gt_bbox也缩小到
+所以对小物体的预测，主要取决于浅层anchor的大小，
+"""
 
-if __name__ =='__main__':
-    result = area(2.5)
-    print("area = %.3f"%result)
+"""这是retinanet最浅层0层的base_anchors, 最小面积945，最大面积2485"""
+ba0 = np.array([[-19.,  -7.,  26.,  14.],
+                [-25., -10.,  32.,  17.],
+                [-32., -14.,  39.,  21.],
+                [-12., -12.,  19.,  19.],
+                [-16., -16.,  23.,  23.],
+                [-21., -21.,  28.,  28.],
+                [ -7., -19.,  14.,  26.],
+                [-10., -25.,  17.,  32.],
+                [-14., -32.,  21.,  39.]])
+"""retinanet第1层base_anchors, 最小面积3969，最大面积10,201"""
+ba1 = np.array([[-37., -15.,  52.,  30.],
+                [-49., -21.,  64.,  36.],
+                [-64., -28.,  79.,  43.],
+                [-24., -24.,  39.,  39.],
+                [-32., -32.,  47.,  47.],
+                [-43., -43.,  58.,  58.],
+                [-15., -37.,  30.,  52.],
+                [-21., -49.,  36.,  64.],
+                [-28., -64.,  43.,  79.]])
+"""retinanet第2层base_anchors, 最小面积16,109，最大面积41,209"""
+ba2 = np.array([[ -75.,  -29.,  106.,   60.],
+                [ -98.,  -41.,  129.,   72.],
+                [-128.,  -56.,  159.,   87.],
+                [ -48.,  -48.,   79.,   79.],
+                [ -65.,  -65.,   96.,   96.],
+                [ -86.,  -86.,  117.,  117.],
+                [ -29.,  -75.,   60.,  106.],
+                [ -41.,  -98.,   72.,  129.],
+                [ -56., -128.,   87.,  159.]])
+"""retinanet第3层base_anchors, 最小面积65,025，最大面积164,451"""
+ba3 = np.array([[-149.,  -59.,  212.,  122.],
+                [-196.,  -82.,  259.,  145.],
+                [-255., -112.,  318.,  175.],
+                [ -96.,  -96.,  159.,  159.],
+                [-129., -129.,  192.,  192.],
+                [-171., -171.,  234.,  234.],
+                [ -59., -149.,  122.,  212.],
+                [ -82., -196.,  145.,  259.],
+                [-112., -255.,  175.,  318.]])
+"""retinanet第4层base_anchors, 最小面积261,003，最大面积658,377"""
+ba4 = np.array([[-298., -117.,  425.,  244.],
+                [-392., -164.,  519.,  291.],
+                [-511., -223.,  638.,  350.],
+                [-192., -192.,  319.,  319.],
+                [-259., -259.,  386.,  386.],
+                [-342., -342.,  469.,  469.],
+                [-117., -298.,  244.,  425.],
+                [-164., -392.,  291.,  519.],
+                [-223., -511.,  350.,  638.]])
+
+
+def show_bbox(bboxes):
+    """输入array"""
+#    x = np.arange(-5.0, 5.0, 0.02)
+#    y1 = np.sin(x)
+#
+#    plt.figure(1)
+#    plt.subplot(211)
+#    plt.plot(x, y1)
+    wh = [((bb[3]-bb[1]), (bb[2]-bb[0])) for bb in bboxes]
+    areas = [(bb[3]-bb[1])*(bb[2]-bb[0]) for bb in bboxes]
+    print('(w,h) = ', wh)
+    print('areas = ', areas, 'min area = ', min(areas), 'max area = ', max(areas))
     
-    d1= [1,2,3,4,5]
-    def sum_it(data):
-        result=0
-        for i in data:
-            result +=i
-        return result
-    sum_result = sum_it(d1)
-    print('sum_result=%.1f'%sum_result)
+    plt.plot([0,8,8,0,0],[0,0,8,8,0])
+    for bbox in bboxes:
+        plt.plot([bbox[0],bbox[2],bbox[2],bbox[0],bbox[0]],
+                 [bbox[1],bbox[1],bbox[3],bbox[3],bbox[1]])
+#        plt.plot((bbox[2],bbox[1]),(bbox[2],bbox[3]))
+#        plt.plot((bbox[2],bbox[3]),(bbox[0],bbox[3]))
+#        plt.plot((bbox[0],bbox[3]),(bbox[0],bbox[1]))
+
+plt.figure()
+show_bbox(ba0)
+show_bbox(ba1)
+show_bbox(ba2)
+show_bbox(ba3)
+show_bbox(ba4)

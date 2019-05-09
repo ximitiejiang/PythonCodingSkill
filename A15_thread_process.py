@@ -158,6 +158,33 @@ def parallel_apply(modules, inputs, kwargs_tup, devices):
                 thread.join()
 
 # %%
+"""多进程的基础理解
+1. 如果一个任务能够用ys=map(func, xs)来解决，他就能够用并行方案解决, 且多进程方案采用的方法其实就类似map()函数
+2. 多进程工具multiprocessing.Pool就是python自带的一个多进程创建的简单工具
+   + Pool代表进程池，包含3个基本方法map(), imap()和imap_unordered()
+   + pool.map(fn, data)，其中fn是进程函数，data是list，用于循环送入fn函数，map()返回的是list
+     pool.imap(fn, data)，其中imap返回迭代器
+     pool.imap_unordered(fn, data)，其中imap_unordered返回迭代器，且返回的是无序的
+   + 注意：Pool使用完毕以后必须关闭，否则进程不会退出，所以最好自动关闭，即采用with...的写法
+   + 
+"""
+import multiprocessing
+def f(x):
+    return x*x
+
+cores = multiprocessing.cpu_count()
+pool = multiprocessing.Pool(processes=cores)
+xs = range(5)
+print(pool.map(f,xs))
+
+for ys in pool.imap(f, xs):
+    print(ys)
+
+for ys in pool.imap_unordered(f, xs):
+    print(ys)
+
+
+# %%
 '''Q. 多进程实现方法
 通常是用multiprocess实现多进程，然后基于pytorch的distributed实现多进程分布到一机多卡或多机多卡
 

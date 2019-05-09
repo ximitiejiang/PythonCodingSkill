@@ -123,6 +123,14 @@ def ssd_get_anchors(img_size,
     return all_anchors, all_valids
 
 
+# %%
+"""SSD与RetinaNet的base anchor尺寸差异，以及相应的anchor定义差异对比？
+1. 先定anchor_base, ratio, scale三大参数
+    + ssd: 
+    + retinanet: 
+"""
+
+
 
 # %% 
 """Q. SSD的anchor target是如何计算的？跟two stage的faster rcnn有什么区别？
