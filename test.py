@@ -13,6 +13,10 @@ from matplotlib import pyplot as plt
 """
 一张图片，缩小到(1333,800),相应的gt_bbox也缩小到
 所以对小物体的预测，主要取决于浅层anchor的大小，
+分析过程：
+1. 假设retinanet针对voc数据集，在没有别的变换情况下，输出的bbox的分布主要是中等尺寸(1024-9216)和大尺寸的bbox(>9216), 小尺寸bbox(<1024)非常少
+    此时retinanet的base anchors是足够覆盖voc的中等尺寸和大尺寸anchor
+2. 假设retinanet针对coco数据集
 """
 
 """这是retinanet最浅层0层的base_anchors, 最小面积945，最大面积2485"""
