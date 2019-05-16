@@ -300,7 +300,7 @@ def nms(proposals, iou_thr):
         y11 = np.maximum(ymin[index[0]], ymin[index[1:]])    # (1,4)vs(n,4)
         x22 = np.minimum(xmax[index[0]], xmax[index[1:]])
         y22 = np.minimum(ymax[index[0]], ymax[index[1:]])        
-        w = np.maximum(0, x22-x11+1)    # the weights of overlap
+        w = np.maximum(0, x22-x11+1)    # the width of overlap
         h = np.maximum(0, y22-y11+1)    # the height of overlap       
         overlaps = w * h        
         ious = overlaps / (areas[index[0]]+areas[index[1:]] - overlaps)        

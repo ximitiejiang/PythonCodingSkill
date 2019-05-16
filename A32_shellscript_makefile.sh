@@ -3,10 +3,19 @@
 
 # 参考http://www.runoob.com/linux/linux-shell.html
 
-# --------------------sh文件和makefile文件的应用区别？--------------------
-# 我当前的理解是makefile也是脚本，但主要专注在对c/cpp进行编译上。
-# 而sh脚本是一个更广泛使用的东西，他能调用makefile，
 
+# --------------------export PYTHONPATH 操作--------------------
+# 方法1只针对当前终端：如果只是export，则只是针对当前终端，一旦当前终端关闭或在另一个终端，则路径无效
+# 方法2只针对当前用户：如果先打开.bashrc文件，gedit ~/.bashrc，然后再export PATH=...$PATH，则当前用户每次登录都有效
+# 方法3可适用所有用户：可先打开sudo gedit /etc/profile，然后再export PATH=...$PATH
+# 其中，方法1是立即生效，方法2/3都需要保存以后才生效
+# 大部分github里边的软件，都采用安装egg的方式加到PYTHONPATH中，少部分用方法1针对当前终端，基本没有添加到bashrc或profile文件中去的情况
+# PATH是指系统环境变量(可echo $PATH查看)，而PYTHONPATH是PYTHON的环境变量，等效于sys.path
+export PYTHONPATH=/home/ubuntu/suliang_git/pysot:$PYTHONPATH    # 命令行添加方式
+
+import sys
+sys.path.append('/home/ubuntu/suliang_git/pysot')      # python脚本添加方式
+ 
 
 # --------------------Terminal的快捷操作--------------------
 cd suli + tab  # 用tab可以对当前目录下的子目录地址自动补全
@@ -234,6 +243,24 @@ ls
 # --------------------创建文件夹快捷方式--------------------
 ln -s abc/bc/c    # -s 代表symlink
 
+# --------------------创建文件方法1： 用vim filename--------------------
+vim main.c       # 创建main.c文件
+vim makefile     # 创建makefile文件
+
+# --------------------创建文件方法2: cat命令一般用来创建文件，查看文件内容，文件合并，追加文件内容能-----------
+# cat的本意是concatenate and print, 所以主要是用于合并和输出，输出到空文件就是创建了
+# 参考：https://www.cnblogs.com/fabulousyoung/p/4079759.html
+cat >main.c<<EOF    # 创建文件用>file_name指定文件名，并且要定义成对出现的文件结束标志位<<EOF 文件内容 EOF
+EOF
+
+cat >>main.c<<EOF   # 追加文件内容用>>file_name制定文件名，注意创建用单箭头但追加用双肩头
+EOF
+
+cat f1.txt  # 在终端查看文件内容
+
+cat f1.txt f2.txt>f3.txt  # 合并2个文件成1个文件，并清空f3.txt后写入合并的内容
+cat f1.txt f2.txt>>f3.txt # 合并2个文件成1个文件，不清空f3.txt而是在末尾追加写入
+
 # --------------------复制文件--------------------
 cp src_file dst_file
 
@@ -242,6 +269,9 @@ mv src_file dst_file
 
 # --------------------下载文件--------------------
 curl -LO http://images.cocodataset.org/zips/train2017.zip
+
+# --------------------下载文件--------------------
+$ wget -c https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth
 
 # --------------------解压缩文件--------------------
 unzip -qqjd ../images ../images/train2017.zip
@@ -282,6 +312,54 @@ if [ -d "build" ]; then
 fi
     
 
+
+
+# --------------------在线安装一些系统软件--------------------
+sudo apt-get install           # apt-get 代表advanced package tool是一个应用程序管理器， 其中install指令就是从网络获取软件并安装在本机
+
+
+# --------------------打印当前文件目录树--------------------
+sudo apt install tree
+tree ssd       # 同时显示文件夹和文件
+tree -L 1 ssd  # 只展示L1层级的文件夹和文件
+
+#
+#1. sh脚本和makefile的区别：
+#    sh和makefile都是脚本语言，但makefile似乎主要专注在对c/cpp进行编译上；而sh脚本是一个更广泛使用的东西，他能调用makefile
+#2. sh脚本的基本语法：
+#    >只要在命令行能够运行的指令都可以直接写在sh脚本文件中
+#    >需要创建一个.sh文件，然后在命令行运行$ sh filename.sh
+#    >等号左右不能有空格，否则报错
+#    >变量赋值类似python，不过只有2种数据类型，一种整数，一种字符串
+#    >变量计算或者输出，都必须带$，计算还必须包含2组括号，且计算结果只能取整(下取整floor)
+
+
+# makefile的功能：用于描述整个c++工程的编译/链接的规则，就包括那些源文件需要编译，如何编译，需要哪些库文件，如何产生可执行文件。
+# 虽然makefile编写事无巨细都要定义，但只要定义完成后整个工程的自动化编译就只需要一句make，很方便。
+# 所谓编译，就是把源文件编译成中间文件，linux下中间文件是.out文件，windows下是.obj文件，这就是compile
+# 所谓链接，就是把大量编译文件.o合成一个执行文件，这就是link
+
+#1. 基本makefile的写法：
+#    all ... : prerequisites ...
+#        command
+#    targetA: 依赖1 依赖2    ...
+#        command
+#    其中target可以是编译的.out文件，也可以是链接的可执行文件
+#    其中prerequisites就是生成target所需要的文件
+#    其中command就是make需要执行的shell命令
+#    makefile执行过程：他会比较target与prerequisites的文件修改日期，如果targets较早，则更新，如果targets不存在，则执行command
+#    
+#1. 常见处理方法如下：相比之下我喜欢用sh文件直接调用setup.py这样省去了makefile
+# c++语言嵌入python中编译过程稍有差异
+#   1. 如果是c++本身的编译，通常是写一个makefile作为编译工具，然后直接make即可
+#   2. 如果是python调用c++，通常是写一个setup.py作为编译工具，然后用sh脚本调用运行这个setup文件即可
+# 如下是一个setup.py文件用于编译
+
+# --------------------make指令--------------------
+make              # 执行当前路径下的makefile文件，且只能执行文件名为makefile/Makefile的文件
+make -f filename  # 执行指定文件，且可以执行任何自定义脚本文件，比如make -f test.mk
+make target1      # 执行makefile中的某一个target
+
 # --------------------调用makefile中的目标--------------------
 make clean               # 执行该目录下的make文件中的clean段 
 make PYTHON=${PYTHON}    # 执行该目录下的make文件：此时会执行makefile中all段
@@ -300,9 +378,15 @@ cd ../nms
 make clean                                  # 调用makefile文件的clean子段
 make PYTHON=${PYTHON}                       # 调用makefile文件的all字段(默认all子段)
 
-# --------------------打印当前文件目录树--------------------
-sudo apt install tree
-tree ssd       # 同时显示文件夹和文件
-tree -L 1 ssd  # 只展示L1层级的文件夹和文件
+# --------------------makefile语法跟shell语法有区别--------------------
+object=program.o foo.o utils.o   # 定义一个变量
+$ (object)                       # 引用一个变量
+${object}                        # 引用一个变量
+
+$@      # 自动化变量：代表规则中的目标文件名
+$<      # 代表规则中地一个依赖文件名
+$^      # 代表规则中所有以来文件列表，文件名用空格分割
+$$      # 把$$转义成普通字符$
+\$$@     # 把$@转义成普通字符串$@
 
 

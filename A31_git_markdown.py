@@ -7,68 +7,6 @@ Created on Thu Mar 14 17:00:21 2019
 """
 
 # %%
-"""在linux系统里如何使用sh文件和相关命令编程进行自动运行？
-shell脚本语法参考A32_sh_test.sh
-
-1. sh脚本和makefile的区别：
-    sh和makefile都是脚本语言，但makefile似乎主要专注在对c/cpp进行编译上；而sh脚本是一个更广泛使用的东西，他能调用makefile
-2. sh脚本的基本语法：
-    >只要在命令行能够运行的指令都可以直接写在sh脚本文件中
-    >需要创建一个.sh文件，然后在命令行运行$ sh filename.sh
-    >等号左右不能有空格，否则报错
-    >变量赋值类似python，不过只有2种数据类型，一种整数，一种字符串
-    >变量计算或者输出，都必须带$，计算还必须包含2组括号，且计算结果只能取整(下取整floor)
-"""
-
-
-
-# %%
-"""如何使用简单的makefile，用来对build
-0. makefile的功能：用于描述整个c++工程的编译/链接的规则，就包括那些源文件需要编译，如何编译，需要哪些库文件，如何产生可执行文件。
-虽然makefile编写事无巨细都要定义，但只要定义完成后整个工程的自动化编译就只需要一句make，很方便。
-所谓编译，就是把源文件编译成中间文件，linux下中间文件是.out文件，windows下是.obj文件，这就是compile
-所谓链接，就是把大量编译文件.o合成一个执行文件，这就是link
-
-1. 基本makefile的写法：
-    target ... : prerequisites ...
-        command
-        ...
-    其中target可以是编译的.out文件，也可以是链接的可执行文件
-    其中prerequisites就是生成target所需要的文件
-    其中command就是make需要执行的shell命令
-    makefile执行过程：他会比较target与prerequisites的文件修改日期，如果targets较早，则更新，如果targets不存在，则执行command
-    
-1. 常见处理方法如下：相比之下我喜欢用sh文件直接调用setup.py这样省去了makefile
-    compile.sh 调用setup.py,  这种方式好处是省略了写makefile
-    compile.sh 调用makefile，然后makefile再调用setup.py，这种方式好处是可以单独运行make，且不用输入文件名
-"""
-# 获得python版本
-PYTHON=${PYTHON:-python}
-# 创建目标
-all:       # 创建终极目标all：通常用来编译所有目标
-    $(PYTHON) setup.py build_ext --inplace   # 调用setup.py文件进行编译
-clean:     # 创建伪目标clean：目的是删除所有被make创建的多余文件
-    rm -r *.so   # 删除所有so文件
-
-
-# %%
-"""在linux系统用指令创建软链接？
-"""
-$ cd ssd_detector
-$ mkdir data
-$ ln -s /home/ubuntu/MyDatasets/coco
-$ ln -s /home/ubuntu/MyDatasets/voc/VOCdevkit
-
-
-
-# %%
-"""在linux系统中如何设计断点续传
-"""
-$ wget -c https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth
-
-
-
-# %%
 """如何在ipython调试软件中设置让图片单独显示而不是嵌入在命令行？
 参考：https://blog.csdn.net/mozai147/article/details/79850065
 """

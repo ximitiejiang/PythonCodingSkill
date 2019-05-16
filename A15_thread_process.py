@@ -9,33 +9,119 @@ Created on Thu Jan 17 11:46:40 2019
 
 '''-----------------------------------------------------------------------
 Q. 线程与进程的区别，如何使用多线程进行计算加速？
-1. 进程由若干个线程组成，一个进程包含至少一个线程
-2. 任何进程默认就会启动一个线程，我们叫主线程，其name属性默认是MainThread，主线程又可以启动新的线程
+参考：https://www.cnblogs.com/whatisfantasy/p/6440585.html
 
+1. 进程是系统分配资源的最小单元，所以一个程序一般就是一个进程，比如一个播放器，一个浏览器就分别是1个进程
+   线程是进程进行运算调度的最小单元，所以一个进程可包含多个线程
+   进程个数受限于cpu数量，也就是多少核cpu，每个cpu可启动一个进程
+   线程个数一般不受限
+
+2. 并发是指两个或多个事件在同一段时间内发生，而并行是指两个或多个事件同一时刻发生。
+   对于python多线程来说，由于有GIL的限制，每个线程需要拿到唯一的GIL执行代码，然后释放GIL给下一个线程，所以python的多线程属于并发，也就是多个线程在同一段时间内发生，但无法做到并行
+   对于python多进程来说，有独立的GIL，所以多进程之间是可以并行实现的。
+   
+3. 虽然python多线程无法并行实现，但实际运行时并不是多进程就比多线程快，因为多进程在切换任务消耗时间比较高，CPU
+   原则是：在CPU密集型任务下任务切换比较少，多进程快 (所谓CPU密集型是指比如循环处理，计数运算等，此时CPU占有率较高)，因为CPU密集型任务下如果频繁进程切换自然速度慢下来
+   而在IO密集型任务下任务切换比较多，多线程更快 (所谓IO密集型是指比如文件处理，网络爬虫，此时硬盘IO读写较多，时间等待较长)
+   针对python的情况，大多数任务下多进程比多线程快，只有在网络请求密集任务上，多线程更快，多进程更占CPU资源。
+
+4. 多线程基本操作过程： 创建线程放入list，启动，加入
+    threads = []
+    for i in range(10):     # 创建
+        threads.append(threading.Thread(target=fn, args=(kk)))
+    for thread in threads:  # 启动
+        thread.start()
+    for thread in threads:  # 加入(相当与等待所有线程结束)
+        thread.join()       
+
+   多进程基本操作：创建进程放入进程池，启动
+    p = multiprocessing.Pool(10)  # 
+    for i in range(0, 10):
+        p.apply_async(func=fn, args=(kk))   # 进程池创建进程
+    p.close()                               # 进程池关闭
+    p.join()                                # 进程池加入(相当与等待所有进程结束)
+    
+
+5. 多线程对象的基本方法
+   参考：https://www.cnblogs.com/whatisfantasy/p/6440585.html
+    thread.start()：启动
+    thread.join()：逐个执行每个线程，直到线程执行完(相当与等待结束)
+    thread.setName()：设置线程名字
+    thread.getName()：获得线程名字
+    thread.run()：自定义线程对象的run方法，这是线程被cpu调用自动执行的方法，用于自定义
+    thread.setDaemon(True)：设置为守护线程
+    
+    多进程池对象的基本方法(多进程可以独立操作，也可以用进程池操作，用进程池操作消耗内存空间更少)
+    pool.apply_async()：异步(并行)
+    pool.apply()：同步(串行)
+    pool.close()：等待所有进程结束后，才关闭进程池
+    pool.join()：主进程等待所有子进程执行完毕
+    
+    多进程其他方法
+    multiprocessin.cpu_count()：获得本机cpu个数(也就是多核个数)，这也决定了能够开启多少个进程
+    
+    
 3. 进程比线程更好，因为进程更稳定
    多进程可以分布式计算，分布到多台机器上去，但多线程只能分布到一台机器的多个CPU上
 '''
-import time, threading
 
-# 新线程执行的代码:
-def loop():
-    print('thread %s is running...' % threading.current_thread().name)
-    n = 0
-    while n < 5:
-        n = n + 1
-        print('thread %s >>> %s' % (threading.current_thread().name, n))
-        time.sleep(1)
-    print('thread %s ended.' % threading.current_thread().name)
 
-if __name__ == '__main__':
-    loopit = False
-    if loopit:
-        print('thread %s is running...' % threading.current_thread().name)
-        t = threading.Thread(target=loop, name='LoopThread')  # 创建新线程
-        t.start()                                             # 新线程启动
-        t.join()                                              # 新线程结束，该指令会等到线程运行完成以后才运行，相当于(等待+结束)
-        print('thread %s ended.' % threading.current_thread().name)
+# %% 
+"""两种任务下，多线程和多进程效率对比
+参考：https://www.cnblogs.com/zhangyubao/p/7003535.html
+cpu密集型任务下，
 
+"""
+import time
+import threading
+import multiprocessing
+
+max_process = 4
+max_thread = max_process
+
+def fun(n, n2):
+    """一个CPU密集型计算函数"""
+    for i in range(0, n):
+        for j in range(0, int(n*n*n*n2)):
+            t = i*j
+
+def thread_main(n2):   # 多线程执行，n2表示计算相乘的最大值
+    threads = []
+    for i in range(0, max_thread):
+        t = threading.Thread(target=fun, args=(50, n2))
+        threads.append(t)
+    start = time.time()
+    for i in threads:
+        i.start()
+    for i in threads:
+        i.join()
+    print("threads use time: ", time.time() - start, 's')
+
+def process_main(n2):
+    p = multiprocessing.Pool(max_process)
+    for i in range(0, max_process):
+        p.apply_async(func = fun, args=(50, n2))
+    start = time.time()
+    p.close()
+    p.join()
+    print("processes use time: ", time.time() - start, 's')
+
+#if __name__ == "__main__":
+#    run = True
+#    if run:
+print('when n=50, n2=0.1:')
+thread_main(0.1)
+process_main(0.1)
+
+print('when n=50, n2=1:')
+thread_main(1)
+process_main(1)
+
+print('when n=50, n2=10:')
+thread_main(10)
+process_main(10)
+        
+    
 
 # %%
 '''Q. 线程锁怎么用？在python中的多线程是否

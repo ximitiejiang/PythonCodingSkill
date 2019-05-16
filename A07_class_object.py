@@ -961,4 +961,19 @@ class MySubClass(LoggerMixin, Displayer):
 subclass = MySubClass()
 subclass.display("this is a message")   # 先找到父类LoggerMixin, 通过super()到Displayer类的display()函数
                                         # 然后执行父类loggerMixin的self.log()函数，但此时的self是MySubClass而不是LoggerMixin，所以是调用MySubClass的log()
-    
+
+
+# %%
+"""如何实现对象的工厂模式？
+1. 需要先获得一组类的列表
+2. 从类列表中提取类名
+3. 根据类名生成对象
+"""
+# 方式1：通过导入package来获得这个package下面所有的类，但需要先把类导入package的__init__文件的__all__变量中
+from .. import datasets
+args = dict(a=1)                          # 这里datasets是一个package(也就是一个文件夹)
+obj_type = getattr(datasets, class_name)  # 根据类名获得类
+obj = obj_type(**args)                    # 生成类的对象
+
+# 方式2：通过registry()装饰器函数，预先搜集所有类
+

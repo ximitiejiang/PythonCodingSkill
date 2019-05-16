@@ -815,18 +815,21 @@ import numpy as np
 # 一维数组，只能水平重复
 a0 = np.array([1,2,3,4,5])
 np.repeat(a0,4,axis=0)  # 对于一维数组，repeat也只能在一维操作
+np.repeat(a0,4,axis=1)  # 报错
 # 为了实现一维数组的纵向重复组合，需要先升维
 a2 = a0[None,:]
 np.repeat(a2,4, axis=0)
 
 # 二维堆叠
 b0 = np.array([[1,2,3],[4,5,6]])
-b1 = np.repeat(b0,3,axis=0)  # 对于二维数组，repeat取出[]内的部分进行重复堆叠
-b2 = np.repeat(b0,3,axis=1)
+np.repeat(b0,3,axis=0)  # 对于二维数组，repeat取出[]内的部分进行重复堆叠
+np.repeat(b0,3,axis=1)
 
 # 用np.tile()实现同时在二维堆叠
-c0 = np.array([1,2,3,4,5])
-c1 = np.tile(c0, (2,3))
+c0=np.array([1,2,3,4,5])
+np.tile(c0, (3,1))   # 用tile很方便实现行重复，列重复，且不会搞错，用repeat总会搞错
+np.tile(c0, (3,))
+np.tile(c0, (2,3))
 
 
 
@@ -1137,7 +1140,7 @@ yy = np.repeat(y[:,None],len(x),axis=1)
 # %% 
 """另一种理解axis的方法
 1. 常规理解： axis=0, 行变换的方向， axis=1，列变换的方向
-2. 高维理解： axis=i, 每轮计算固定其他维度该维循环，并最终该维坍缩为0
+2. 高维理解： axis=i, 每轮计算固定其他维度该维循环，并最终该维坍缩为0  (非常重要且有价值的理解)
 """
 import numpy as np
 
