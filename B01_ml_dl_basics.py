@@ -604,6 +604,7 @@ import torch
 """案例2：实现VGG的全连接层"""
 x1 = random.uniform(-1,1, size=(512,7,7))  
 x2 = torch.tensor(x1.astype(np.float32)).unsqueeze(0)  # 特征图尺寸为(b,c,h,w)=(1,512,7,7)
+x2 = torch.cat([x2,x2], dim=0)
 # 以下是VGG的classifier，用全连接层来实现的
 l1 = nn.Linear(512 * 7 * 7, 4096)
 r1 = nn.ReLU(True)
@@ -690,6 +691,7 @@ conv_module = nn.Sequential(nn.Conv2d(3,64,3,1,1),
 
 # %%        激活函数
 """解释不同激活函数的优缺点？
+参考：https://blog.csdn.net/weixin_42398658/article/details/84553411  (这是对relu的优缺点解释非常深刻的文章)
 0. 区分线性变换与非线性变换，这是数学方面的知识，参考《深度学习与计算机视觉》第2.1章节
    线性变换：
    非线性变换：
