@@ -341,6 +341,8 @@ Q: 如何理解和使用抽象类和抽象方法@abstractmethod?
 from abc import ABCMeta, abstractmethod
 class Person():
     __metaclass__ = ABCMeta  # 定义了抽象类
+    
+    @abstractmethod
     def name(self):
         pass
 
