@@ -476,7 +476,8 @@ def assigner(bboxes, gt_bboxes):
     # 第一步：先创建一个与所有anchor对应的矩阵，取值-1(代表没有用的anchor)
     assigned = overlaps.new_full((overlaps.size(1),), -1, dtype=torch.int64)  # (n,)对应n个anchors, 填充-1表示无关样本
                                                                               # 注意这里dtype要改一下，否则跟下面相加的int64冲突
-    max_overlap, argmax_overlap = overlaps.max(dim=0)      # (n,)对应n个anchors，表示每个anchor跟哪一个gt的iou最大 (该变量跟assigned同尺寸，用来给assigned做筛选)
+    max_overlap, argmax_overlap = overlaps.max(dim=0)      # (n,)对应n个anchors，max_overlap表示每个anchor跟哪一个gt的iou最大 (该变量跟assigned同尺寸，用来给assigned做筛选)
+                                                           # argmax_overlap取值(0,1,2)分别代表第0/第1/第2个gt bbox
     gt_max_overlap, gt_argmax_overlap = overlaps.max(dim=1)# (m,)对应m个gt，表示每个gt跟那个anchor的iou最大
     # 第二步：标记负样本，阀值定义要经可能让负样本数量跟正样本数量相当，避免样本不平衡问题
     assigned[(max_overlap >= 0) & (max_overlap < neg_iou_thr)] = 0  # 0< iou <0.3, value=0
