@@ -390,3 +390,10 @@ $$      # 把$$转义成普通字符$
 \$$@     # 把$@转义成普通字符串$@
 
 
+# --------------------conda源的添加和删除--------------------
+conda config --add channels https://mirrors.ustc.edu.cn/anaconda/pkgs/free/
+conda config --add channels https://mirrors.ustc.edu.cn/anaconda/pkgs/main/
+conda config --set show_channel_urls yes
+
+conda config --remove-key channels  # 移除
+
