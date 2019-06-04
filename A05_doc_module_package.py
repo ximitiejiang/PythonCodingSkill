@@ -314,20 +314,98 @@ __all__ = [
 # 然后在其他文件中引用
 
 
-
-''' --------------------------------------------------------------------------
+# %%
+'''
 Q: 如何保存变量和加载变量
+1. pkl格式的优点：可以存储python认可的所有对象，包括list/dict/object/set等等
+   如果是其他如tensor/ndarray, 可以放在list容器里边再存就可以
+2. 格式简单便于操作
+
 pickle.dump(var_name, f_handle)
 var = pickle.load(f_handle)
 其中f_handle = open('file_path', 'type'), type可以是r/rb/rt/r+, w/wb/wt/w+, a/ab/at/a+
 '''
 import pickle
 bboxes = [[263, 211, 324, 339], [165, 264, 253, 372], [241, 194, 295, 299]]
+# 最简单最快的方式：
 # 保存变量
 pickle.dump(bboxes, open('bboxes.txt','wb'))
 # 加载变量
 bb1 = pickle.load(open('bboxes.txt','rb'))
 
+# 相对正规的方式
+with open('./bboxes.pkl','wb') as f:
+    pickle.dump(bboxes, f)
+
+with open('./bboxes.pkl','rb') as f:
+    pickle.load(bboxes, f)
+
+# %%
+"""----------------------------------------------------------------------
+Q. 如何读写pkl文件
+pkl文件是利用python的cPickle库支持的一种文件，内容会变成序列化的乱码值。
+导入方式是import cPickle as pickle
+
+pickle对比json:
+    1. pickle功能更强，可以序列化数据，函数，类等等，但只在python中使用，不被别的认可。且只能以binary(wb/rb)的模式读写
+    2. json只能序列化基本数据类型(连numpy都不支持)，但可以在别的数据之间通用转换。是以str的模式读写
+    所以多数情况下，用pickle更多也更方便(不用考虑数据格式)，很少用json，除非要跟别的程序做数据交换
+
+注意cPickle, Pickle, six.moves的区别：
+1. cPickle是c代码写成，Pickle是python写成，相比之下cPickle更快
+2. cPickle只在python2中存在，python3中换成_pickle了
+3. six这个包是用来兼容python2/python3的，这应该是six的由来(是2与3的公倍数)
+   six包里边集成了有冲突的一些包，所以可以从里边导入cPickle这个在python3已经取消的包
+
+基本命令：
+1. pickle.load(f)
+2. pickle.dump(f)
+3. result = pickle.dumps(data)
+4. ori = pickle.loads(result)
+
+    def load_from_fileobj(self, file, **kwargs):
+        return pickle.load(file, **kwargs)
+
+    def load_from_path(self, filepath, **kwargs):
+        return super(PickleHandler, self).load_from_path(
+            filepath, mode='rb', **kwargs)
+
+    def dump_to_str(self, obj, **kwargs):
+        kwargs.setdefault('protocol', 2)
+        return pickle.dumps(obj, **kwargs)
+
+    def dump_to_fileobj(self, obj, file, **kwargs):
+        kwargs.setdefault('protocol', 2)
+        pickle.dump(obj, file, **kwargs)
+
+    def dump_to_path(self, obj, filepath, **kwargs):
+        super(PickleHandler, self).dump_to_path(
+            obj, filepath, mode='wb', **kwargs)
+
+"""
+from six.moves import cPickle as pickle
+
+# 转换pkl格式变量
+data = dict(a=1,b=2)
+result = pickle.dumps(data)   # python数据转pkl数据
+ori =  pickle.loads(result)   # pkl数据转python数据
+
+# 读取写入pkl文件
+data = dict(a=1, b=2)
+with open('test_pkl.pkl', 'wb') as f:
+    pickle.dump(data, f)   # 必须要用带b的模式写入
+    
+with open('test_pkl.pkl', 'rb') as f:
+    data2 = pickle.load(f)   # 必须要用带b的模式读入
+
+with open('results.pkl', 'rb') as f:
+    data3 = pickle.load(f)   # 报错：ModuleNotFoundError: No module named 'numpy.core._multiarray_umath'
+                             # 应该是原始pkl文件保存的numpy版本比目标电脑的numpy版本高(mac的是1.14.1)
+
+# 还有pickle的常用用法用来保存变量: 可在命令行直接输入
+f = open('test.pkl', 'wb')  # 注意必须用b的模式
+pickle.dump(data, f)                             
+                             
 
 ''' --------------------------------------------------------------------------
 Q: 如何读取xml文件？
@@ -443,71 +521,73 @@ with open('test/test_data/test111.json','w') as f:  # 打开文件，如果该�
 
 
 # %%
-"""----------------------------------------------------------------------
-Q. 如何读写pkl文件
-pkl文件是利用python的cPickle库支持的一种文件，内容会变成序列化的乱码值。
-导入方式是import cPickle as pickle
+"""如何保存加载yaml文件
+1. yaml格式的文件，保存方式采用冒号和缩进的方式表示层级关系，其中冒号前面表示dict的key，冒号后边表示dict的value
+冒号后边可以直接写value但必须空一个空格再写value，或者写到下一行用缩进来表示，一个缩进在yaml lib是4个空格，在其他
+库有可能是2个空格，此时上一行的冒号后边就不需要跟一个空格了。具体缩进多少其实都可以，只要每层的空格对齐了就行。
+例如如下一个yaml格式文件，就是一个典型.yml文件的内容：
 
-pickle对比json:
-    1. pickle功能更强，可以序列化数据，函数，类等等，但只在python中使用，不被别的认可。且只能以binary(wb/rb)的模式读写
-    2. json只能序列化基本数据类型(连numpy都不支持)，但可以在别的数据之间通用转换。是以str的模式读写
-    所以多数情况下，用pickle更多也更方便(不用考虑数据格式)，很少用json，除非要跟别的程序做数据交换
+model:
+    arch: fcn8s
+data:
+    dataset: pascal
+    train_split: train_aug
+    val_split: val
+    img_rows: 'same'
+    img_cols: 'same'
+    path: /home/ubuntu/suliang_git/pytorch-semseg/data/VOCdevkit/VOC2012/
+    sbd_path: /private/home/meetshah/datasets/VOC/benchmark_RELEASE/
+training:
+    train_iters: 300000
+    batch_size: 1
+    val_interval: 1000
+    n_workers: 16
+    print_interval: 50
+    optimizer:
+        name: 'sgd'
+        lr: 1.0e-10
+        weight_decay: 0.0005
+        momentum: 0.99
+        
+2. 采用yaml库对yaml文件进行操作: 读取的数据是一个嵌套的dict
+    数组：采用 - 开始
+    字符串：默认不带引号(带上也不会出错)，但如果是字符串中有空格或特殊字符(\n)则需要带引号，
+    一般是用单引号，虽然双引号也可以但双引号不能对特殊字符转义
+例如如下数据格式：
 
-注意cPickle, Pickle, six.moves的区别：
-1. cPickle是c代码写成，Pickle是python写成，相比之下cPickle更快
-2. cPickle只在python2中存在，python3中换成_pickle了
-3. six这个包是用来兼容python2/python3的，这应该是six的由来(是2与3的公倍数)
-   six包里边集成了有冲突的一些包，所以可以从里边导入cPickle这个在python3已经取消的包
+string:
+    'eason'
+string2:
+    'hello world'
+array:             # 这是二维list
+    -
+        - cat
+        - dog
+        - goldfish
+array2:           # 这是一维list
+    - 2.0
+    - 3.5
+    - 1.2
+array3: [apple, pearl]
 
-基本命令：
-1. pickle.load(f)
-2. pickle.dump(f)
-3. result = pickle.dumps(data)
-4. ori = pickle.loads(result)
+读取方式1：yaml.load()但这种方式虽然能用，但已经被yaml库废弃掉，因为不安全的问题，参考https://msg.pyyaml.org/load
+with open('data.yml') as f:
+    cfg = yaml.load(f)
+读取方式2： yaml.save_load()这是替代方式
 
-    def load_from_fileobj(self, file, **kwargs):
-        return pickle.load(file, **kwargs)
-
-    def load_from_path(self, filepath, **kwargs):
-        return super(PickleHandler, self).load_from_path(
-            filepath, mode='rb', **kwargs)
-
-    def dump_to_str(self, obj, **kwargs):
-        kwargs.setdefault('protocol', 2)
-        return pickle.dumps(obj, **kwargs)
-
-    def dump_to_fileobj(self, obj, file, **kwargs):
-        kwargs.setdefault('protocol', 2)
-        pickle.dump(obj, file, **kwargs)
-
-    def dump_to_path(self, obj, filepath, **kwargs):
-        super(PickleHandler, self).dump_to_path(
-            obj, filepath, mode='wb', **kwargs)
-
-"""
-from six.moves import cPickle as pickle
-
-# 转换pkl格式变量
-data = dict(a=1,b=2)
-result = pickle.dumps(data)   # python数据转pkl数据
-ori =  pickle.loads(result)   # pkl数据转python数据
-
-# 读取写入pkl文件
-data = dict(a=1, b=2)
-with open('test_pkl.pkl', 'wb') as f:
-    pickle.dump(data, f)   # 必须要用带b的模式写入
+3. yml文件结合Dict来用，非常方便，很容易就实现.py文件的cfg导入的功能。
+   因为yaml格式专门用来做配置文件的格式，所以还有很多处理格式的小语法，非常方便
     
-with open('test_pkl.pkl', 'rb') as f:
-    data2 = pickle.load(f)   # 必须要用带b的模式读入
+"""
+import yaml
+from addict import Dict
 
-with open('results.pkl', 'rb') as f:
-    data3 = pickle.load(f)   # 报错：ModuleNotFoundError: No module named 'numpy.core._multiarray_umath'
-                             # 应该是原始pkl文件保存的numpy版本比目标电脑的numpy版本高(mac的是1.14.1)
+with open('data.yml') as f:
+    cfg = yaml.load(f)
+    cfg = Dict(cfg)
 
-# 还有pickle的常用用法用来保存变量: 可在命令行直接输入
-f = open('test.pkl', 'wb')  # 注意必须用b的模式
-pickle.dump(data, f)                             
-                             
+
+
                              
                              
                              
