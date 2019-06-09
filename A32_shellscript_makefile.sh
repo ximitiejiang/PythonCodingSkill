@@ -4,6 +4,18 @@
 # 参考http://www.runoob.com/linux/linux-shell.html
 
 
+# --------------------export命令--------------------
+export NGPUS=2   # 在当前登录下添加一个环境变量NGPUS=4
+                 # 只要该terminal终端关闭或者换一个终端，就相当于该次登录退出，该变量即消失
+
+gedit ~/.bashrc  # 如果要永久添加某个环境变量，就要在bashrc文件中添加
+export NGPUS=2
+source ~/.bashrc
+
+export -p     # 显示当前所有环境变量
+echo $NGPUS   # 显示某个环境变量
+
+
 # --------------------export PYTHONPATH 操作--------------------
 # 方法1只针对当前终端：如果只是export，则只是针对当前终端，一旦当前终端关闭或在另一个终端，则路径无效
 # 方法2只针对当前用户：如果先打开.bashrc文件，gedit ~/.bashrc，然后再export PATH=...$PATH，则当前用户每次登录都有效
@@ -301,6 +313,14 @@ PYTHON=${PYTHON:-"python"}
 # --------------------执行某个py文件--------------------
 # 由于是执行python的文件，所以需要增加前缀$PYTHON
 $PYTHON setup.py build_ext --inplace
+
+$python3 abc.py          # 这种运行方式叫直接运行，此时在sys.path中会增加该abc.py文件所在文件夹的目录
+$python3 -m abc.py       # 这种运行方式叫导入模块，此时在sys.path中会增加''，这里''代表当前目录，也就是把输入命令时的目录加到sys.path
+
+# 什么时候选择什么运行方式：参考https://www.cnblogs.com/xueweihan/p/5118222.html
+# 如果abc.py文件中有一句import 其他文件夹文件，此时如果用python3 abc.py只会在该文件所在文件夹中搜索，会导致导入失败
+# 而如果用python3 -m abc.py此时sys.path会有''代表该文件所在目录，导入才能成功?????
+
 
 # --------------------判断某个目录下是否有指定文件夹--------------------
 # if ; then  fi
