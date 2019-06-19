@@ -21,7 +21,7 @@ Q. tensor的创建
 '''
 import torch
 f1 = torch.tensor([[1,2,3],[4,5,6]])  # 默认float
-f2 = torch.tensor(2,3)
+f2 = torch.tensor([2,3])
 f3 = torch.IntTensor([1,2,3])  # 整数tensor
 
 torch.ones(2,3)
@@ -196,7 +196,7 @@ Q. tensor的排序和筛选
 2. pytorch的实施
 (1) tensor的排序
     排序返回数值/index: t1, indics = torch.sort(t, dim=1)
-    排序返回index: torch.argsort()
+
 (2) tensor的筛选(2类，一类返回bool，一类返回index)：
     筛选返回bool： 有如下函数，也有重载运算符
         torch.gt(t, value) ，大于
@@ -212,7 +212,9 @@ Q. tensor的排序和筛选
 '''
 # -------tensor排序---------------
 t = torch.tensor([[2,0,13,-8,0],[-3,7,0,32,3]])
-t.sort(dim=0)
+t1, idx = t.sort(dim=0)
+
+torch.argsort(t, dim=1)
 # -------tensor筛选---------------
 t = torch.tensor([[2,0,13,-8,0],[-3,7,0,32,3]])
 # 获得bool
@@ -239,6 +241,7 @@ torch.clamp(t1, min=2, max=10)
 Q. tensor的比较函数有哪些？
 '''
 # equal, ge, gt, le, lt, ne 除了
+t0 = torch.tensor([[2,0,13,-8,0],[-3,7,0,32,3]])
 torch.equal(t0,t1)
 torch.ge(t0,t1)
 torch.gt(t0,t1)
@@ -249,7 +252,7 @@ torch.isinf(t3)
 torch.isnan(t4)
 # 排序
 torch.sort(t0,dim=0)
-torch.argsort(t0,dim=0)
+
 torch.topk(t1, 3, dim=1)
 
 
@@ -401,6 +404,9 @@ Q. 对tensor的堆叠
 '''
 t1 = torch.tensor([1,2,3,4,5])
 t2 = torch.tensor([6,7,8,9,10])
+torch.cat([t1,t2], dim=0)   # 可以，不过这里dim=0并不是行变换，只是只能在唯一的一个维度进行堆叠，不能升维度
+torch.cat([t1,t2], dim=1)   # 报错，因为没有dim=1这个维度
+
 torch.stack((t1,t2),0)  # 注意 torch使用dim关键字代替了numpy的axis
 torch.stack((t1,t2),1)  #
 # stack([t1,t2],-1) dim=-1的用法

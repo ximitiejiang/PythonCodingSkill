@@ -563,6 +563,8 @@ def edge_detect():
     plt.subplot(2,2,3), plt.imshow(sobelx, cmap='gray'),plt.title('sobelx')
     plt.subplot(2,2,4), plt.imshow(sobely, cmap='gray'),plt.title('sobely')
 
+if __name__ == "__main__":
+    edge_detect()
 
 '''-----------------------------------------------------------------------
 Q. 如何检测角点？
@@ -632,9 +634,12 @@ def lane_line_detector(img):
     
 
 if __name__ == '__main__':
-    path = './test/test_data/solidWhiteCurve.jpg'
-    img = cv2.imread(path)
-    lane_line_detector(img)
+    test_lane_line = False
+    if test_lane_line:
+    
+        path = './test/test_data/solidWhiteCurve.jpg'
+        img = cv2.imread(path)
+        lane_line_detector(img)
     
     
 

@@ -226,6 +226,11 @@ new = getattr(torch.optim, type)
 '''
 Q. 如何定义类的三种方法：类方法@classmethod，静态方法@staticmethod，属性方法@property
 三者的区别和使用范围是什么？
+2019-5-24更新了一个更本质好记的理解
+    * 普通方法就是包含形参self的方法，可以借由self来调用对象的属性
+    * 类方法就是包含形参cls的方法，可以借由cls来访问类的属性
+    * 静态方法就是不包含self/cls的方法，所以也不能调用类和对象的属性，只是一个独立的小函数
+
 关键0：理解类和对象的关系
     * 类相当于出厂就能动的最小系统机器人，有最小系统下的类属性和类方法
       而对象相当于已通电全功能版机器人，不仅有类属性/类方法，还增加对象属性和普通方法
@@ -300,11 +305,13 @@ class Dog():
     def __init__(self, name):
         self.name = name
         self.__food = None
+    
     @classmethod
     def like(cls, food):   # 普通方法
         print('dogs like %s'% (food))
+        print('but in fact this dog %s likes %s'%cls.food) # 静态方法可以访问类属性
 
-Dog.like('food')    # 类调用类方法，传入额外参数
+Dog.like('apple')    # 类调用类方法，传入额外参数
 Dog.like(Dog.food)  # 类调用类方法，传入类属性
 
 d = Dog('Jack')
@@ -341,6 +348,8 @@ Q: 如何理解和使用抽象类和抽象方法@abstractmethod?
 from abc import ABCMeta, abstractmethod
 class Person():
     __metaclass__ = ABCMeta  # 定义了抽象类
+    
+    @abstractmethod
     def name(self):
         pass
 
