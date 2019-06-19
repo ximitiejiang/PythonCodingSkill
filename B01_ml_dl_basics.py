@@ -151,6 +151,37 @@ P(A1A2(～A3)(～A4)) = P(A1)P(A2|A1)P(~A3|A1A2)P(~A4|A1A2(~A3))
 2. 独热编码的特点：只有一位是1，其他位都是0
 """
 
+
+# %%        无监督 - kmean均值算法
+"""kmean算法的原理和应用：
+1. kmean算法原理：从一组特征中通过寻找距离所有特征最近的点作为预测点
+2.
+"""
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+from sklearn.datasets import make_blobs
+
+# 生成样本X(200,2), 标签y(200,)
+X, y = make_blobs(n_samples=200,
+                  n_features=2,
+                  cluster_std=1,
+                  center_box=(-10., 10.),
+                  shuffle=True,
+                  random_state=1)
+
+plt.figure(figsize=(6,4), dpi=144)
+plt.scatter(X[:,0], X[:,1])
+
+# 创建算法，拟合数据
+kmean = KMeans(n_clusters=3)
+kmean.fit(X)
+# 查看结果：获得评分，获得聚类中心点，获得预测坐标
+score = kmean.score(X)
+centers = kmean.cluster_centers_
+preds = kmean.labels_
+
+
+
 # %%        传统机器学习算法
 """如何用深度学习来完成分类和回归任务？
 1. 分类任务：
