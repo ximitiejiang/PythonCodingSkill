@@ -1162,13 +1162,16 @@ np.sum(a1, axis=(1,2)) # 表示同时在2个维度循环计算，固定层，行
 
 # %%
 """
-矩阵和array的点乘叉乘的差别:
+矩阵mat和数组array的点乘叉乘的差别:
 # 总结下来就是： 
     mulitiply为按位(就是普通乘法，每一位单独做，所以用普通的multiply乘法单词表示)，
     dot为矩阵乘法(一行对一列累加缩减为1个值，这是dot的由来)
 # 而最常用的*则被运算符重载为不同功能：
     array偏重常规运算所以*重载为按位运算， 
     mat偏重矩阵运算所以*重载为矩阵乘法
+# mat还有一个跟array最大的不同：
+    mat作为矩阵，没有一维这种(n,)类型，所以切片以后也是(1,n), 比如mat_a为(2,2)， 切片后为(1,2)
+    array作为数组，切片会降维，比如array_a为(2,2)，切片后为(2,)，实际是省略了(1,2)中的1，但在广播时会自动恢复。
 """
 import numpy as np
 
@@ -1192,3 +1195,47 @@ mt1*mt2                       # * 代表矩阵乘法
 np.multiply(mt1, mt2)         # muliply 代表按位
 np.dot(mt1,mt2)               # 代表矩阵乘法
 
+# %%
+"""Matplotlib.pyplot的几个核心绘图命令
+"""
+import matplotlib.pyplot as plt
+import numpy as np
+# 散点图plt.scatter
+n=1024   #数据大小
+X=np.random.normal(0,1,n)   #每一个点的X值
+Y=np.random.normal(0,1,n)   #
+T=np.arctan2(Y,X)
+plt.scatter(X,Y,s=75,c=T,alpha=.5)
+
+
+# 柱状图plt.bar
+n=12
+X=np.arange(n)
+Y1=(1 - X / float(n)) * np.random.uniform(0.5,1.0,n)
+Y2=(1 - X / float(n)) * np.random.uniform(0.5,1.0,n)
+plt.bar(X,+Y1)
+plt.bar(X,-Y2)
+plt.xlim(-1,n)
+plt.xticks(())
+plt.ylim(-1.25,1.25)
+plt.yticks(())
+plt.bar(X,+Y1,facecolor='#9999ff',edgecolor='white')   # 设置主题颜色和边框颜色
+plt.bar(X,-Y2,facecolor='#ff9999',edgecolor='white')
+for x,y in zip(X,Y1):
+    plt.text(x+0.4,y+0.05,'%.2f' % y,ha='center',va='bottom')  # 增加显示数值
+for x,y in zip(X,Y2):
+    plt.text(x+0.4,-y-0.05,'%.2f' % y,ha='center',va='bottom')
+    
+# 等高线图plt.contour, plt.contourf
+def f(x,y):
+    return (1 - x/2 + x**5 + y**3) * np.exp(-x**2,-y**2)
+n=256
+x=np.linspace(-3,3,n)
+y=np.linspace(-3,3,n)
+X,Y=np.meshgrid(x,y)    # (m,n)
+Z=f(X,Y)                # (m,n)
+
+plt.contourf(X,Y,Z,8,alpha=0.75,cmap=plt.cm.hot)      # 填充每一部分的颜色 (X, Y, Z)
+                                                      # X,Y,Z为相同shape的数组，Z代表高度   
+C=plt.contour(X,Y,Z,8,colors='black',linewidth=0.5)   # 绘制每一部分之间的边界 
+    
