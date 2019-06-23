@@ -624,25 +624,53 @@ type(x)
 # 然后切片取出
 x[0] 
 
+# %%
+"""Q.如何判断空list/空dict/空元组？
+1. 空list/空dict/空元组都相当与False，可以很方便的直接判断True or False
+"""
+aa = {}
+if aa:
+    print('aa is not empty.')
+else:
+    print('aa is empty')
+    
 
-'''------------------------------------------------------------------------
-Q: 如何判断None这种变量？
-方式1：用is/is not判断
-方式2：用x/not x判断
+# %%
+'''Q: 如何判断None这种变量？
+1. None/0/空列表[]/空元组()/空字典{}都可以等效于False
+   所以可以直接用True/False的方式判定
+
+2. 也可以把None/True/False看成对象， 用is/is not来判定
+
 '''
-# 布尔变量的两种写法：方法1(is/is not语句做判断)，方法2(直接作为判断句)
+# 方式1, 当成布尔变量，直接判定，最为方便
+bb = False
+if bb:
+    print('bb is True')
+else:
+    print('bb is False')
+
+cc = None
+if cc:
+    print('cc is not None.')
+else:
+    print('cc is None')
+    
+# 方式2：当成对象，用is/is not判定，也ok
 x = False
-if x is False: print('x is False')
-if x: print('x is True')
+if x is False: 
+    print('x is False')
+if x: 
+    print('x is True')
 
-# None的判断可以用方法1： is/is not
-x = None
-if x is None: print('x is None')  # is None
-if x is not None: print('x is not None')
-# None的判断也可以用方法2，此时None/0/空列表[]/空元组()/空字典{}都可以等效于False
-if not x: print('x is None')
-# 最佳实践：尽量用not x这种写法，而不要用==或者is，也就是尽量用方法2(直接判断 if.., if not..)
+y = None
+if y is None: 
+    print('y is None')  # is None
+if y is not None: 
+    print('y is not None')
 
+
+# %%
 """--------------------------------------------------------------------------
 Q. 如何理解zip函数
 1. zip()函数是把一个迭代对象转换成tuple输出
@@ -889,12 +917,22 @@ plt.hist(b.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='blue')
 plt.hist(g.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='green')
 plt.hist(r.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='red')
 
-
-'''-------------------------------------------------------------------------
-Q. Numpy的排序筛选
+# %%
+"""Q. Numpy的排序筛选
+本质的几句话：
+numpy排序两种情况
+    1. 直接排序元素，此时只能无关联性的各行或各列自己排序自己，用np.sort(arr, axis=1), 或者arr.sort()
+    2. 先排序某列index, 再调整每行，用arr[np.argsort(arr[:,1])]， 这在一行一个样本的排序中及其有用。
+    
+numpy筛选两种情况：两种情况其实本质一样，都可以方便筛选元素或者按行，非常有用
+    1. 先用不等式筛选出bool列表，然后再筛出任意行， 比如a[a>0]筛元素， a[a[:,1]>0]筛某些行
+    2. 先用np.where(a)筛选出index列表，然后再筛出行，比如a[np.where(a[:,1]>0)]筛选某些行
+    
+具体来说------------------------------
 numpy排序: 
     排序返回数值: np.sort(a)返回副本, a.sort(axis=1)在原数据上直接操作 (这个sort函数是numpy自己的，跟python的sort不一样)
     排序返回index: np.argsort(a)
+
 numpy筛选：
     筛选返回bool list: a>0
     筛选返回value: a[a>0]
@@ -903,7 +941,7 @@ numpy能够很好的处理筛选的问题，最常见的多条件筛选，最常
 通过不同的判断方式(f1>0, f2<-2之类)得到不同的flag分别代表不同条件结果，
 然后f1 & f2 & f3..，即可得到最终的条件flag，最后data[flag]即可得到需要的数据。
 非常方便。
-'''
+"""
 # list的排序和筛选
 a1 = [2,1,4,3,6]
 a2 = dict(a=1,b=3,c=5,d=7)
@@ -912,19 +950,29 @@ d0 = [i for i in a1 if i >3]   # list筛选：列表式筛选
 d1 = {key:value for key,value in a2.items() if value > 4} # 字典筛选： 字典式筛选
 
 # array的排序
-b1 = np.array([[2,7,0,5,8,4],[3,5,7,8,9,4]])
+b1 = np.array([[2,7,0,5,8,4],
+               [3,5,7,8,9,4],
+               [0,8,1,4,2,2]])
 np.sort(b1, axis=0)
 np.sort(b1, axis=1)
 b1.sort(axis=1)       # 
 
 np.argsort(b1)                 # 排序 - 返回index
 
+b1[np.argsort(b1[:,1])]   # 非常有用的排序方法：先得到某列index排序然后再排序每行样本
+
+
 # array的筛选：可以返回3种类型的数据：bool/value/index，可以说非常灵活。
 # 核心思想：筛选一般返回bool,因为bool很方便，跟切片可以结合a[bool]直接获得对应位置的数值
 # 虽然index也有一样效果，但bool不需要记位置，显然更快捷，而inidex倒往往需要用函数才能获得
-b1[...,1] > 2                  # 直接判断筛选，返回bool list
-b2 = b1[...,1][b1[...,1] > 2]  # 直接判断筛选，返回value list
-np.where(b1>2)                 # 函数判断筛选，返回index list
+b1 = np.array([[5,3],
+               [0,2],
+               [4,6]])
+b1[:,1] > 2                  # 直接判断筛选，返回bool list
+
+# 以下两种方法类似，都很有用。方法一相对更方便。
+b1[b1[:,0]>2]             # 先找到bool list，然后筛选每行
+b1[np.where(b1[:,0]>2)]   # 先找到index list, 然后筛选每行
 
 from numpy import random
 a = random.randn(10)
@@ -935,6 +983,17 @@ a[a > 0]
 a[(a > 0) & (a < 1)]     # 把bool list往切片一丢，就能得到数值
 b = np.where(a>0)
 a[b]                     # 把index往切片一丢，也能得到数值，跟丢bool是一样的
+
+"""但要注意，numpy的排序用np.sort会同时在每一个指定轴上排序，比如axis=0按列则每一列都要单独排序。
+如果要想按照某一列的排列顺序而不去动其他列，比如一行一个样本的情况，则不能直接用np.sort。
+"""
+c = np.array([[2,5,1],
+              [3,0,4],
+              [0,6,2]])
+    
+np.sort(c, axis=0)        # 这种对元素的直接排序得到的是每一列元素都排序，不适合对于一行一个样本的这种样本排序
+idx = np.argsort(c[:,0])  # 而这种argsort排序，却可以对任一列单独排序，且通过得到的index来按行调整顺序，非常适合对一行一个样本的排序
+c[idx]  # 通过idx来对一行作为最小个体来排序，非常有用的技能。
 
 # 多条件筛选实例
 np.random.seed(6)
