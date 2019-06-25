@@ -1306,4 +1306,21 @@ Z=f(X,Y)                # (m,n)
 plt.contourf(X,Y,Z,8,alpha=0.75,cmap=plt.cm.hot)      # 填充每一部分的颜色 (X, Y, Z)
                                                       # X,Y,Z为相同shape的数组，Z代表高度   
 C=plt.contour(X,Y,Z,8,colors='black',linewidth=0.5)   # 绘制每一部分之间的边界 
-    
+
+
+# %%
+"""pandas的基本操作
+"""
+import pandas as pd
+# 用pandas的最常用地方是读取数据为dataframe格式
+data = pd.read_csv(path)
+
+# 转换df格式为numpy
+data1 = np.array(data)
+
+# df创建
+df = 
+# df切片
+
+#
+
