@@ -6,6 +6,26 @@ Created on Fri Aug 24 20:26:11 2018
 @author: suliang
 """
 
+"""Q. 如何把字符串直接转换成变量名？
+1. 采用exec()函数，来把任何字符串转化成python代码执行，非常强大
+2. exec()还可以传参数，比如exec('print(a)', {'a':10}), 通过字典就可以传给字符串里边的a一个数值
+   但关键注意一点，如果用在对象里边，self这个关键字也需要传进去，否则无法识别self，如下所示。
+"""
+class AAA():
+    def __init__(self):
+        self.Winnie = 36
+        
+    def show(self):
+        data = {'Eason':10, 'Leo':37}
+        for name, age in data.items():
+            exec('self.' + name + '=age', {'self':self, 'age':age})
+            
+aaa = AAA()
+aaa.show()
+print(aaa.Winnie)
+print(aaa.Leo)
+
+
 '''
 Q: 一些特殊的转义字符
 '''
