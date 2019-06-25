@@ -181,8 +181,17 @@ d1.setdefault('h', 2)
 # 删除
 d1.pop('a')
 
-'''------------------------------------------------------------------------
-Q.怎么使用OrderedDict和defaultDict?
+# %%
+"""常用的判断一个变量是否存在的方法? locals() + get()
+1. 用locals()可以返回一个所有变量汇总的字典，然后就可以用get()函数搜索字典里边的变量，这样即使不存在也不会报错被迫中断程序。
+2. 
+"""
+if not locals().get(xyz, None):
+    print('xyz exist, you can use it.')
+
+
+# %%
+'''Q.怎么使用OrderedDict和defaultDict?
 '''
 # defaultdict
 from collections import defaultdict, OrderedDict
