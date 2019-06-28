@@ -586,8 +586,8 @@ Q: 如何生成正态分布的随机数据？
 核心功能2： 随机打乱序列  (对应pytorch只实现了一个torch.randperm()对从0开始的数组重排列)
 random.permutation(lst), 如果是放入array，则每行看成一个元素，也作为list按行随机乱序
 random.shuffle(lst)    inplace操作
-核心功能3：从一组数随机选一个  (对应pytorch没有)
-random.choice(lst)
+核心功能3：从一组数随机选n个  (对应pytorch没有)
+random.choice(lst, size=3, replace=True), 可随机输出size个数，默认replace=True说明数字抽样会放回，也就是会有重复数字。可设置为不放回抽样replace=False
 '''
 import numpy as np
 # -------------区分分布类型，按尺寸(m,n)：rand, randn-----------------------
@@ -629,9 +629,9 @@ t = [2,1,3,7,5]    # 虽然是np的函数，但支持list
 np.random.shuffle(t) # inplace操作
 
 # 从指定list中随机选一个数
-lst = [1,10,100,1000]
+lst = [1,10,100,1000,2,20,200,2000]
 arr = np.array(lst)
-np.random.choice(lst)
+np.random.choice(lst, size=2)   # 默认
 np.random.choice(arr)
 
 
