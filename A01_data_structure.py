@@ -311,6 +311,17 @@ def aa(m,n,l,a=1,b=2):
 aa(*lst, **dct)  # 解包后提供给函数作为参数
 
 
+# %%
+"""如何合并两个字典？
+合并两个list很简单，lst1 = lst2
+但合并两个字典之前没有特别好的方法，现在有了，如下。
+"""
+# 最快的方法
+d1 = dict(a=1, b=2, c=3)
+d2 = dict(a=2, d=4, e=5)
+d3 = {**d1, **d2}        # 注意，如果两个字典中有相同的键，写在前面的字典的键会被后边的字典的键覆盖掉。
+
+
 '''------------------------------------------------------------------------
 Q: 有一个字典，怎么对字典里边的值进行计算(最大值，最小值，排序)？
 '''
@@ -592,8 +603,8 @@ Q: 如何生成正态分布的随机数据？
 核心功能2： 随机打乱序列  (对应pytorch只实现了一个torch.randperm()对从0开始的数组重排列)
 random.permutation(lst), 如果是放入array，则每行看成一个元素，也作为list按行随机乱序
 random.shuffle(lst)    inplace操作
-核心功能3：从一组数随机选一个  (对应pytorch没有)
-random.choice(lst)
+核心功能3：从一组数随机选n个  (对应pytorch没有)
+random.choice(lst, size=3, replace=True), 可随机输出size个数，默认replace=True说明数字抽样会放回，也就是会有重复数字。可设置为不放回抽样replace=False
 '''
 import numpy as np
 # -------------区分分布类型，按尺寸(m,n)：rand, randn-----------------------
@@ -635,9 +646,9 @@ t = [2,1,3,7,5]    # 虽然是np的函数，但支持list
 np.random.shuffle(t) # inplace操作
 
 # 从指定list中随机选一个数
-lst = [1,10,100,1000]
+lst = [1,10,100,1000,2,20,200,2000]
 arr = np.array(lst)
-np.random.choice(lst)
+np.random.choice(lst, size=2)   # 默认
 np.random.choice(arr)
 
 
