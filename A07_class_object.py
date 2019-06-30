@@ -978,11 +978,21 @@ subclass.display("this is a message")   # 先找到父类LoggerMixin, 通过supe
 2. 从类列表中提取类名
 3. 根据类名生成对象
 """
-# 方式1：通过导入package来获得这个package下面所有的类，但需要先把类导入package的__init__文件的__all__变量中
+# 方式1: 最简单初级的方式，先把所有类都导入到py文件，然后在py文件中创建字典{类名字符串: 类}，然后就可以按照类名字符串来创建类了
+class_dict = ['relu': ReLU,
+              'sigmoid': Sigmoid,
+              'leaky_relu': LeakyReLU]
+obj = class_dict['relu']()  # 创建一个类的对象
+
+# 方式2：通过导入package来获得这个package下面所有的类，但需要先把类导入package的__init__文件的_all__变量中
+# 这个方法相对上一种，在py文件中只需要一行导入一个包，不需要导入很多类，更简洁
+# 而导入的是一个package对象，从对象中获得类名相当于获得对象的属性，需要用getattr()
 from .. import datasets
 args = dict(a=1)                          # 这里datasets是一个package(也就是一个文件夹)
 obj_type = getattr(datasets, class_name)  # 根据类名获得类
 obj = obj_type(**args)                    # 生成类的对象
 
-# 方式2：通过registry()装饰器函数，预先搜集所有类
+# 方式3：通过registry()装饰器函数，预先搜集所有类到一个
+# 这种方法优势在于无论类是写在多少个文件中，多么分散，都可以通过装饰器来获得。所以相对前两种更灵活和方便
+
 
