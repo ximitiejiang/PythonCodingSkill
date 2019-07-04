@@ -985,14 +985,31 @@ class_dict = ['relu': ReLU,
 obj = class_dict['relu']()  # 创建一个类的对象
 
 # 方式2：通过导入package来获得这个package下面所有的类，但需要先把类导入package的__init__文件的_all__变量中
-# 这个方法相对上一种，在py文件中只需要一行导入一个包，不需要导入很多类，更简洁
+# 这个方法相对上一种，在py文件中只需要一行导入一个包，不需要导入很多类，面对用户有更简洁接口
 # 而导入的是一个package对象，从对象中获得类名相当于获得对象的属性，需要用getattr()
 from .. import datasets
 args = dict(a=1)                          # 这里datasets是一个package(也就是一个文件夹)
 obj_type = getattr(datasets, class_name)  # 根据类名获得类
 obj = obj_type(**args)                    # 生成类的对象
 
-# 方式3：通过registry()装饰器函数，预先搜集所有类到一个
-# 这种方法优势在于无论类是写在多少个文件中，多么分散，都可以通过装饰器来获得。所以相对前两种更灵活和方便
-
+# 方式3：通过registry()装饰器函数，预先搜集所有类到一个，但也需要在先把类导入__init__文件从而启动装饰器函数。
+# 这种方法相对于上一种，优势在于无论类是写在多少个文件中，多么分散，都可以通过装饰器来获得。
+class Registry():
+    def __init__(self):
+        self._module_dict = dict()   # 用于存放{类名：类}
+    
+    @property
+    def module_dict(self):
+        return self._module_dict
+        
+    def register_module(self, cls):  # 作为装饰器，获取cls作为参数
+        if not issubclass(cls, nn.Module):
+            raise TypeError(
+                'module must be a child of nn.Module, but got {}'.format(type(cls)))
+        module_name = cls.__name__    # 获得类的__name__属性作为模型名字
+        if module_name in self._module_dict:
+            raise KeyError('{} is already registered in registered dict'.format(module_name))
+        self._module_dict[module_name] = cls  # 把cls加入到模型字典中
+        return cls  # 装饰器返回该类
+registered = Registry()  # 实例化注册器
 
