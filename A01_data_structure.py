@@ -999,26 +999,6 @@ print('my friend %s can calculate %.6f!'%(b,pi))
 
 
 
-'''-------------------------------------------------------------------------
-Q. 常用最简洁的几个绘图命令？
-'''
-# 绘制线条
-plt.plot(x,y)
-
-# 绘制多图
-plt.subplot(131), plt.imshow(img1), plt.title('img1')
-plt.subplot(132), plt.imshow(img2), plt.title('img2')
-plt.subplot(133), plt.imshow(img3), plt.title('img3')
-
-# 绘制直方图: data需要是一个展平的list, bins为柱子个数，range为个数范围显示，alpha为透明度，facecolor为柱子颜色
-import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-img = cv2.imread('test/test_data/messi.jpg')
-b,g,r = cv2.split(img)
-plt.hist(b.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='blue')
-plt.hist(g.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='green')
-plt.hist(r.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='red')
 
 # %%
 """Q. Numpy的排序筛选
@@ -1362,7 +1342,48 @@ np.dot(mt1,mt2)               # 代表矩阵乘法
 """
 import matplotlib.pyplot as plt
 import numpy as np
-# 散点图plt.scatter
+
+
+
+# 线条图plt.plot----------------------------
+# 实例参考如下一个经典的各种设置都有的案例
+# https://mp.weixin.qq.com/s?__biz=MzIxNjY2MTQ2NA==&mid=2247484018&idx=1&sn=ca15d8b224e58d85668e2ddcf3b4f424&chksm=9784eec5a0f367d36be1ff009247ef1b49bf4b479a03d6fdf68f8aba2c0ee487bf71a46cfd80#rd
+x = np.arange(-10,10,1)
+y = x * x
+
+plt.figure()    # 创建一个新图
+m1 = plt.plot(x, y, color='red', marker='o',    # marker可以为'o', ''
+              linewidth=1.0, linestyle='--',    # 线宽和线型
+              label='y=x^2')  # 如果有设置label，则只要plt.legend()即可显示 
+                                                                           
+m2 = plt.scatter(x, y+10, color='blue', label='y=x^2+10')
+plt.title('show the curve result')
+
+#plt.xlabel('X')
+#plt.ylabel('Y')
+plt.xlim((-8,8))  # 设置x轴的显示范围
+plt.ylim((0,20))  # 设置y轴的显示范围
+
+ticks = np.linspace(-4,4,9)  #刻度范围(-1,2),共计5个
+plt.xticks(ticks)            # 设置x轴刻度线显示内容
+plt.yticks([-2.2, -1, 1, 1.5, 2.4],
+           ['really bad','bad','normal','good','really good']) # 设置y轴刻度线显示内容
+plt.grid()  # 设置网格(只会显示ticks设置的点的网格)
+plt.legend(loc = 'upper right')      # 设置图例位置：'upper right', 'lower left', 'best'
+#plt.legend(handles=[m1, m2], labels=['1', '2'], loc='upper right') # 也可以这样设置图例，则绘制时不需要指定label
+
+ax = plt.gca()  # 获得坐标轴
+ax.spines['right'].set_color('none')  # 设置坐标轴颜色：'left' 'right' 'top' 'bottom'
+ax.spines['top'].set_color('none')
+
+ax.xaxis.set_ticks_position('bottom')    # 设置x轴刻度显示的位置：可以显示在top, bottom, both, default, none
+ax.spines['bottom'].set_position(('data', 0))  # 设置bottom边框的位置在数据的y=0的位置, data代表该边框在数据中，也可以为'data' 'outward' 'axes'
+ax.yaxis.set_ticks_position('left')    # 设置x轴刻度显示的位置：可以显示在left, right, both, default, none
+ax.spines['left'].set_position(('outward', 0))  # 设置left边框的位置在x=0的位置，
+#ax.set_title('ax title', fontsize=14, color='r')  # 这个title跟plt.title()只有一个会显示，另一个会被覆盖
+
+
+# 散点图plt.scatter--------------------------
 n=1024   #数据大小
 X=np.random.normal(0,1,n)   #每一个点的X值
 Y=np.random.normal(0,1,n)   #
@@ -1370,7 +1391,7 @@ T=np.arctan2(Y,X)
 plt.scatter(X,Y,s=75,c=T,alpha=.5)
 
 
-# 柱状图plt.bar
+# 柱状图plt.bar------------------------------
 n=12
 X=np.arange(n)
 Y1=(1 - X / float(n)) * np.random.uniform(0.5,1.0,n)
@@ -1387,8 +1408,13 @@ for x,y in zip(X,Y1):
     plt.text(x+0.4,y+0.05,'%.2f' % y,ha='center',va='bottom')  # 增加显示数值
 for x,y in zip(X,Y2):
     plt.text(x+0.4,-y-0.05,'%.2f' % y,ha='center',va='bottom')
+
+# 绘制多图----------------------------------
+plt.subplot(131), plt.imshow(img1), plt.title('img1')
+plt.subplot(132), plt.imshow(img2), plt.title('img2')
+plt.subplot(133), plt.imshow(img3), plt.title('img3')
     
-# 等高线图plt.contour, plt.contourf
+# 等高线图plt.contour, plt.contourf------------------------
 def f(x,y):
     return (1 - x/2 + x**5 + y**3) * np.exp(-x**2,-y**2)
 n=256
@@ -1396,10 +1422,28 @@ x=np.linspace(-3,3,n)
 y=np.linspace(-3,3,n)
 X,Y=np.meshgrid(x,y)    # (m,n)
 Z=f(X,Y)                # (m,n)
-
 plt.contourf(X,Y,Z,8,alpha=0.75,cmap=plt.cm.hot)      # 填充每一部分的颜色 (X, Y, Z)
                                                       # X,Y,Z为相同shape的数组，Z代表高度   
 C=plt.contour(X,Y,Z,8,colors='black',linewidth=0.5)   # 绘制每一部分之间的边界 
+
+# 绘制直方图: data需要是一个展平的list, bins为柱子个数，range为个数范围显示，alpha为透明度，facecolor为柱子颜色
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+img = cv2.imread('test/test_data/messi.jpg')
+b,g,r = cv2.split(img)
+plt.hist(b.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='blue')
+plt.hist(g.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='green')
+plt.hist(r.flatten(), bins=256, range=[0,256], alpha= 0.5, facecolor='red')
+
+
+'''-------------------------------------------------------------------------
+Q. 常用最简洁的几个绘图命令？
+'''
+# 绘制线条
+
+
+
 
 
 # %%
