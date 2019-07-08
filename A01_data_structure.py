@@ -1459,6 +1459,23 @@ data1 = np.array(data)
 # df创建
 
 # df切片
+r1 = data.loc[0]  # 提取第0行
+r2 = data.loc[1]
+d0 = data[0]     # 提取某列
+d1 = data[1]
 
-#
+
+# df的常用函数
+data.sum()
+data.mean()
+data.var()
+data.std()
+
+data.corr(method='pearson')    # 获得整个相关系数矩阵
+r1.corr(r2, method='pearson')  # 获得两行之间的相关系数
+
+data.cov()  # 获得整个协方差矩阵
+d0.cov(d1)  # 获得两列之间的相关系数
+
+data.describe()  # 获得基本统计量计算结果
 
