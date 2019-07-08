@@ -1350,9 +1350,9 @@ import numpy as np
 # https://mp.weixin.qq.com/s?__biz=MzIxNjY2MTQ2NA==&mid=2247484018&idx=1&sn=ca15d8b224e58d85668e2ddcf3b4f424&chksm=9784eec5a0f367d36be1ff009247ef1b49bf4b479a03d6fdf68f8aba2c0ee487bf71a46cfd80#rd
 x = np.arange(-10,10,1)
 y = x * x
-
+color = [[0,0,1],[0,1,0]]  # 可以输入字符'r'/'g'/'b'，也可以输入取值(0-1)之间的list代表rgb颜色表。
 plt.figure()    # 创建一个新图
-m1 = plt.plot(x, y, color='red', marker='o',    # marker可以为'o', ''
+m1 = plt.plot(x, y, color=color[0], marker='o',    # marker可以为'o', ''
               linewidth=1.0, linestyle='--',    # 线宽和线型
               label='y=x^2')  # 如果有设置label，则只要plt.legend()即可显示 
                                                                            
@@ -1384,11 +1384,12 @@ ax.spines['left'].set_position(('outward', 0))  # 设置left边框的位置在x=
 
 
 # 散点图plt.scatter--------------------------
-n=1024   #数据大小
+colors = [[0.0, 0.0, 0.0], [0.5019607843137255, 0.0, 0.0], [0.0, 0.5019607843137255, 0.0]]
+n=3   #数据大小
 X=np.random.normal(0,1,n)   #每一个点的X值
 Y=np.random.normal(0,1,n)   #
 T=np.arctan2(Y,X)
-plt.scatter(X,Y,s=75,c=T,alpha=.5)
+plt.scatter(X,Y,s=75,c=colors,alpha=.5)
 
 
 # 柱状图plt.bar------------------------------
