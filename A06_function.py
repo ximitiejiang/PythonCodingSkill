@@ -10,24 +10,109 @@ Created on Fri Aug 24 20:29:54 2018
 # %%
 """一些常见数学函数？
 """
-from math import log, sqrt, exp, pow, pi, e
+import numpy as np
+import math
 # log函数： 默认e为底，可设置底数，如下是3为底和10为底
-log(64, 2)     
-log(1000, 10)
+math.log(64, 2)     
+math.log(1000, 10)
 
 # pow函数：指数运算x^y
-pow(2, 10)  
+math.pow(2, 10)  
 
 # exp函数
-exp(3)
+math.exp(3)
 
 # sqrt函数：开方
-sqrt(16)
+math.sqrt(16)
 
 # 两个常数
-print(pi)
-print(e)
+print(math.pi)
+print(math.e)
 
+# 对应numpy的函数：----------------------
+np.log(12)             # 既可以用数值也可以用数组
+np.log([12,25])        # e为底
+np.log2([32, 64])      # 2为底
+np.log10([100, 1000])  # 10为底
+
+np.power(2, 10)
+np.power([1,2], 10)
+
+np.exp([1,2])
+
+np.sqrt([1,2])
+
+
+# %% 
+"""Q. 函数的传值和传址在python里边是如何体现的？
+1. 不可变对象：数字/字符串/元祖，复制后只会创建新内存，不存在指针
+2. 可变对象：数组/字典/array，复制后不会创建新内存，属于指针传递
+
+所以形参如果是数值/字符串/元组，那就属于传值，不会一起改变;
+而形参如果是数组/字典/array/tensor，那就属于传址(指针传递)，会一起改变。
+
+同时：内置函数接收的形参，都会在内部复制，也就都不会影响原始数据;
+但是自定义函数，需要重点关注inplace的一些操作，比如a += 10, 或者sort(a)，因为inplace操作对于可变对象相当于对指针的原对象进行了操作。
+
+"""
+import numpy as np
+import torch
+# 可变对象和不可变对象实验
+def change(data):
+    if isinstance(data, int):
+        data += 100
+    if isinstance(data, str):
+        data = data + 'hello'
+    
+    if isinstance(data, list):
+        data.append(100)
+    if isinstance(data, dict):
+        data['new'] = 100
+    if isinstance(data, np.ndarray):
+        data += 100
+    if isinstance(data, torch.Tensor):
+        data += 100
+        
+data = 1
+change(data)   # 数值属于不可变对象，不会被改变
+print(data)
+
+data = 'hi'
+change(data)   # dict属于不可变对象，不会被改变
+print(data)
+
+
+data = dict(a = 1)
+change(data)   # dict属于可变对象，传入指针，会被改变
+print(data)
+
+data = [1]
+change(data)   # list属于可变对象，传入指针，会被改变
+print(data)
+
+data = np.array([1,2,3])
+change(data)   # array属于可变对象，传入指针，会被改变
+print(data)
+
+data = torch.tensor([1,2,3])
+change(data)   # tensor属于可变对象，传入指针，会被改变
+print(data)
+
+
+
+# 案例：自定义一个加法函数
+def add_array(a,b):
+    a += b            # 这种inplace操作需要额外注意，是否修改了原始形参的变量值。
+    return a
+
+a = np.array([1,2,3])
+b = 100
+
+a+b  # 按位相加
+
+c = add_array(a, b)  # 此时，无意间为了得到c而改变了形参a的值，这种隐形错误需要关注。
+print(c)
+print(a)
 
 # %%
 '''Q: 怎么编写可接受任意数量的位置参数，或者任意数量的关键字参数？
