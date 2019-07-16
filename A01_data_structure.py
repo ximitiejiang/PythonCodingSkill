@@ -668,9 +668,10 @@ random.shuffle(lst)    inplace操作
 核心功能3：从一组数随机选n个  (对应pytorch没有)
 random.choice(lst, size=3, replace=True), 可随机输出size个数，默认replace=True说明数字抽样会放回，也就是会有重复数字。可设置为不放回抽样replace=False
 
-总结下来随机打乱顺序只需要1个函数
+总结下来随机打乱顺序只需要1个函数:
     np.random.permutation()
-(而random.shuffle()可以用permutation完全替代，random.choice()也可以用permutation打乱index后提取任意个来替代)
+(而random.shuffle()可以用permutation完全替代;
+ 而random.choice()也可以用permutation打乱index后提取任意个来替代： idx = np.random.permutation(range(len(data)))[0]
 '''
 import numpy as np
 # -------------区分分布类型，按尺寸(m,n)：rand, randn-----------------------
