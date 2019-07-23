@@ -887,8 +887,46 @@ L[C] = C + merge(L[A], L[B],A,B) = C + merge([A,X,Y,O], [B,X,Y,O],A,B)
 
 
 
-'''-------------------------------------------------------------------------
-Q.如何使用Mixin类？
+# %%
+"""Q. c++的菱形继承有数据冗余的问题，那么在python中有没有这个问题？
+1. 菱形继承的问题，本质上就是中间的两个父类由于继承自同一个父类，会拥有同样的属性，此时孙类再继承两个父类，就会产生数据冗余的问题。
+
+2. c++的编译器无法识别孙类的属性到底选择哪个父类属性，所以产生错误，c++的解决方案是在并行的两个父类引入虚继承virtual， 从而让孙继承
+  从两个虚继承父类得到继承，并能够自动去掉重复的部分，所以孙类就不会有数据冗余的问题
+  
+3. python的编译器自动为用户进行的选择，按照MRO钻石原则指定了继承顺序，从而选择先继承的父类的属性或方法作为孙类的属性或方法。
+    注意，对多个父类的初始化，有可能会有参数个数不匹配的问题，需要采用*args, **kwargs来平衡参数个数。
+
+"""
+class A():
+    def __init__(self, name):
+        self.name = name
+        
+class B1(A):
+    def __init__(self, name, age, *args, **kwargs):
+        super().__init__(name)
+        self.age = age + 10
+        
+class B2(A):
+    def __init__(self, name, age, code, *args, **kwargs):
+        super().__init__(name)
+        self.age = age + 100
+        self.code = code
+        
+class C(B1, B2):
+    def __init__(self, name, age, code, salary):
+        super().__init__(name, age, code)
+        self.salary = salary
+
+c = C("Leo", 12, "001", 3000)   # TODO: 这里参数个数始终还有问题，待调试
+c.age # 由于菱形继承问题，python编译器自动帮助用户选择了继承顺序，所以c.age的值是固定的
+
+
+
+
+
+# %%
+'''Q.如何使用Mixin类？
 Python是支持多重继承的，但多重集成的问题在于继承关系混乱，有限顺序不明确，相同方法冲突不明确。
 所以不同语言采用不同解决方案，java只能有一个父类但多个interface，而python的优化方法就是Mixin方法，
 松本行弘的程序世界建议原则是：常规继承采用单一继承，第二个以上的父类采用Mixin抽象类，继承是i am, 而mixin是i can。
