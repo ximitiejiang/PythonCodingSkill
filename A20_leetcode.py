@@ -44,9 +44,17 @@ Created on Sun Jan 20 09:48:53 2019
 
 # %% 
 """在python实现一个链表：get(index), addAtHead(val), addAtTail(val), addAtIndex(index, val), deletAtInde(index)
+    1. 由于是链表，则数据结构不能是线性的，需要单独定义Node类
+    2. Node类的设置：包含data/next，这里next由于没法用指针，但可以用一个数值
 """
+class Node:
+    def __init__(self, data, ):
+        self.data
+
+
 class MyLinkedList():
     def __init__(self):
+        self.head = Node()
     def get(self, index):
     def addAtHead(self, val):
     def
