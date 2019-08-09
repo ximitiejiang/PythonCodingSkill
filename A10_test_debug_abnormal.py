@@ -146,8 +146,8 @@ logging.basicConfig(filename='logging_test.txt',  # 日志输出文件名，指�
 参考：http://www.cnblogs.com/yyds/p/6901864.html
 '''
 import logging
-log_format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'
-logging.basicConfig(level=logging.INFO, format=log_format)
+log_format = '%(asctime)s - %(levelname)s - %(name)s - %(message)s'  # 定义输出内容的形式
+logging.basicConfig(level=logging.INFO, format=log_format)  # 对logging进行基本配置：level, format
 logger = logging.getLogger('new logger')                 # 创建logger对象，没有指定名字，则返回RootLogger, 名字叫root
 logger.debug('this is a debug log')
 logger.info('this is a info log')

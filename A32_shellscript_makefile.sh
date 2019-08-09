@@ -26,6 +26,17 @@ export NGPUS=2
 source ~/.bashrc
 
 
+# 1. 临时只针对当前终端
+export PYTHONPATH=/home/xx/../xx  # 相当于添加一个临时变量，可通过env指令查看到
+    
+# 2. 永久针对当前用户
+gedit ~/.bashrc    # 这是打开用户目录~/下的bashrc文件
+export PYTHONPATH=/home/xx/../xx
+
+# 3. 永久针对所有用户
+sudo gedit /etc/profile   # 这是打开根目录/etc下的profile文件
+export PYTHONPATH=/home/xx/../xx
+
 env  # 显示所有环境变量
 env | grep abc  # 显示某一个abc环境变量
 
