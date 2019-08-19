@@ -1391,6 +1391,8 @@ np.dot(mt1,mt2)               # 代表矩阵乘法
 
 # %%
 """Matplotlib.pyplot的几个核心绘图命令
+在spyder中设置绘图单独窗口显示：
+Tools > Preferences > IPython Console > Graphics > Graphics backend, inline 即终端输出，Qt则是新窗口输出
 """
 import matplotlib.pyplot as plt
 import numpy as np
