@@ -46,10 +46,21 @@ echo $NGPUS   # 显示某个环境变量
 unset       # 上次前面新建的环境变量
 
 # --------------------export PYTHONPATH 操作--------------------
-# 方法1只针对当前终端：如果只是export，则只是针对当前终端，一旦当前终端关闭或在另一个终端，则路径无效
-# 方法2只针对当前用户：如果先打开.bashrc文件，gedit ~/.bashrc，然后再export PATH=...$PATH，则当前用户每次登录都有效
-# 方法3可适用所有用户：可先打开sudo gedit /etc/profile，然后再export PATH=...$PATH
-# 其中，方法1是立即生效，方法2/3都需要保存以后才生效
+#添加路径到sys.path的方法有：  
+#        1. 临时只针对当前终端
+#        sys.path.insert(0, path), 可以临时看到
+#        或者在命令行export PYTHONPATH=/home/xx/../xx  # 相当于添加一个临时变量，可通过env指令查看到
+#            
+#        2. 永久针对当前用户
+#        gedit ~/.bashrc                    # 这是打开用户目录~/下的bashrc文件
+#        export PYTHONPATH=/home/xx/../xx
+#        source ~/.bashrc
+#        
+#        3. 永久针对所有用户
+#        sudo gedit /etc/profile            # 这是打开根目录/etc下的profile文件, 而sudo nano /etc/profile往往什么都不显示，可能nano没有gedit好用
+#        export PYTHONPATH=/home/xx/../xx
+#        source /etc/profile                 # 立即生效
+
 # 大部分github里边的软件，都采用安装egg的方式加到PYTHONPATH中，少部分用方法1针对当前终端，基本没有添加到bashrc或profile文件中去的情况
 # PATH是指系统环境变量(可echo $PATH查看)，而PYTHONPATH是PYTHON的环境变量，等效于sys.path
 export PYTHONPATH=/home/ubuntu/suliang_git/pysot:$PYTHONPATH    # 命令行添加方式
@@ -65,6 +76,10 @@ sys.path.append('/home/ubuntu/suliang_git/pysot')      # python脚本添加方�
  ctrl + 0     # 恢复原始大小
  F11  # 全屏
  
+ 
+# --------------------自定义命令别名-------------------- 
+# 采用alias自定义命令别名：该别名就能够表示某一条很长的命令，可用来指定某应用程序的版本。
+alias python='/usr/bin/python3.5'  # 该命令会让python自动链接到python3.5 
  
  
 # --------------------快速查看cpu与内存与gpu的消耗-------------------- 
@@ -82,9 +97,11 @@ ctrl + r      # 可以reverse search搜索历史命令，比如按下ctrl+r之�
 # --------------------切换权限--------------------
 # 其中su是直接切换成超级用户，而sudo是用户在无需直到超级用户口令的情况下使用普通用户自己口令即可获得系统管理权限。
 su        # 登录超级用户，但此时需要输入超级用户口令。
-sudo su   # 切换到root用户/根用户/管理员权限， 此时只需要输入普通用户口令。
-su ubuntu # 切换到普通用户
+sudo su   # (从sudo到su)切换到root用户/根用户/管理员权限， 此时只需要输入普通用户口令。
+su ubuntu # (从su到ubuntu)切换到普通用户
 
+sudo passwd  # 设置超级用户root的密码：此时linux会提示我们设置root密码，连续输入2次就能够设置一个唯一不变的root密码
+             # 在超级用户root权限下，也可以直接输入passwd，来设置密码
 
 # --------------------进入某个目录--------------------
 # /表示绝对路径的开始，也就表示从根目录开始
@@ -149,8 +166,9 @@ mv src_file dst_file
 
 
 # --------------------改变文件权限--------------------
-# 有3种权限：r表示读权限，w表示写权限，x表示可执行权限
 # +表示添加权限，-表示减少权限，=表示赋予权限
+# 有3种权限：r表示读权限，w表示写权限，x表示可执行权限
+#            而在linux中通过终端中文件名的颜色可以区分是什么权限：白色表示无权限，绿色表示???
 # 用ll可以查看权限：分别显示 所有人 - 组 - 其他人
 # u表示当前用户，a表示所有人，g表示group，
 chmod +x test.sh     # 增加可执行权限
@@ -158,7 +176,7 @@ chmod +x test.sh     # 增加可执行权限
 
 
 # --------------------压缩和解压缩文件--------------------
-#　参数很多，但可以按照一个句子记忆，czf＝compress gz to file, zxf=gz extract from file
+#　参数很多，但可以按照一个句子记忆，czf＝compress gz file, zxf=gz extract file
 # f永远在最后，压缩时是c什么什么, 解压缩时是什么什么x 
 # (1)压缩tar -c， (2)解压缩tar -x, (3)查看tar -tf, 其中tar使用更方便，zip/unzip使用较少
 tar -cvf my.tar *.*          # cvf=Compress visually to (tar)File，*.*为该目录下所有文件(不含文件夹)
@@ -196,13 +214,16 @@ rm !(*.zip|*.iso)     # 只保留zip和iso文件
 
 wget -c https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth  # 用wget进行断点续传
 
+apt-get update      # 新安装的系统一定要先apt-get update用来从源更新相关可用的软件列表，从而知道哪些软件可以更新，否则往往会无法更新某些内容。
+apt-get upgrade     # 用来对系统中所有软件进行更新，这条慎用！免得到时候所有软件都更新到最新版本造成兼容性问题。
+ 
 sudo apt-get install tree    # apt-get install指令就是从网络获取软件并安装在本机
-apt-get install tree         # 是在线寻找并安装软件
 apt install  tree            # 是离线安装本地软件
 apt-get remove tree          # 删除本地软件
 apt-get update tree          # 更新本地软件
 
 curl -LO http://images.cocodataset.org/zips/train2017.zip
+
 # --------------------打印当前文件目录树--------------------
 sudo apt install tree
 tree ssd       # 同时显示文件夹和文件

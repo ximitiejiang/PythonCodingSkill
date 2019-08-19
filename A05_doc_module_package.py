@@ -134,11 +134,17 @@ path的语法跟from..import语法有一个地方正好相反：就是从相对�
         export PYTHONPATH=/home/xx/../xx
         
         3. 永久针对所有用户
-        sudo gedit /etc/profile   # 这是打开根目录/etc下的profile文件
+        sudo gedit /etc/profile            # 这是打开根目录/etc下的profile文件, 而sudo nano /etc/profile往往什么都不显示，可能nano没有gedit好用
         export PYTHONPATH=/home/xx/../xx
-    
+        source /etc/profile                 # 立即生效
+        
     但要注意：无论用上面那种方法，要搞清楚是添加到哪个python，一定要添加到自己在IDE中使用的那个python中去。
-    (我添加总是会添加到python3.5，可我IDE用的是python3.7，所以始终不成功)
+    (我添加总是会添加到python3.5，可我IDE用的是python3.7，所以始终不成功，后来发现原来在我的~/.bashrc文件
+    中不知道什么时候我有添加一行alias python='/usr/bin/python3.5'，也就是被我自己指定了python3.5，把这行
+    注释掉以后，终端的python也就变成anaconda版本的python3.7了)
+    其中在终端输入python进入的是python3.5，且跟anaconda无关。
+    而在spyder中查找python版本，则是python3.7,且注明是anaconda自带的。
+    
  
 '''
 import sys, os
