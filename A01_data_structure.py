@@ -652,10 +652,10 @@ print(old, new)
 
 '''------------------------------------------------------------------------
 Q: 如何生成正态分布的随机数据？
-本质只要记住4个函数：random.randn, 
-                    random.rand, 
-                    random.randint, 
-                    random.permutation
+本质只要记住4个函数：random.randn(2,4) 标准正态分布N(0,1)值 -> 可生成各种取值范围的正态分布
+                    random.rand(2,4) 均匀分布(0,1)值 -> 可生成各种取值范围的均匀分布
+                    random.randint(0,10,size=(2,4)), 整数值  -> 可生成各种类型整数
+                    random.permutation(lst), 随机乱序 -> 可替代random.shuffle, random.choice
 
 核心功能1：随机生成
 类似函数比较多，写法不统一，比较乱，numpy这块有点反人类的感觉, 但最终总结成好理解的2类：
