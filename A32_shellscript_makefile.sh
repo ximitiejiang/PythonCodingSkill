@@ -206,13 +206,15 @@ rm !(*.zip)           # 只保留zip文件
 rm !(*.zip|*.iso)     # 只保留zip和iso文件
 
 
+
+
 # --------------------下载和安装程序--------------------
-# wget只用于下载，但可以支持断点续传，即wget -c，基于3个最常用TCP/IP协议即HTTP,HTTPS,FTP
+# wget只用于下载，但可以支持断点续传，即wget -c，基于3个最常用TCP/IP协议即HTTP,HTTPS,FTP。(相当于迅雷)
 # apt不但可用于下载，也可用于安装，是一个完整的包管理工具，可下载安装，离线安装，删除，更新
 #       apt-get是apt中的一个子集，用于对网络软件操作
-# curl
-
-wget -c https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth  # 用wget进行断点续传
+# curl不仅仅能下载，他还是一个开发环境支持多种网络协议和编写图形界面，他类似于一个浏览器，可以模拟更多web请求，包括下载。(相当于浏览器)
+#       curl也可以支持断点续传
+wget -c https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth  # 无参数表示下载，-c表示断点续传
 
 apt-get update      # 新安装的系统一定要先apt-get update用来从源更新相关可用的软件列表，从而知道哪些软件可以更新，否则往往会无法更新某些内容。
 apt-get upgrade     # 用来对系统中所有软件进行更新，这条慎用！免得到时候所有软件都更新到最新版本造成兼容性问题。
@@ -222,7 +224,11 @@ apt install  tree            # 是离线安装本地软件
 apt-get remove tree          # 删除本地软件
 apt-get update tree          # 更新本地软件
 
-curl -LO http://images.cocodataset.org/zips/train2017.zip
+curl -LO -C http://images.cocodataset.org/zips/train2017.zip   # 无参数只是打印内容不下载，-O表示下载，-C表示断点续传
+
+# --------------------几种不同安装程序的命令--------------------
+pip install tree       # pip用来从pypi中获得软件进行安装，并且可以安装该软件的其他旧版本，比如安装python的老版本
+apt-get install tree   # apt-get install只能安装最新版本
 
 # --------------------打印当前文件目录树--------------------
 sudo apt install tree
@@ -240,12 +246,6 @@ $python3 -m abc.py       # 这种运行方式叫导入模块，此时在sys.path
 # 什么时候选择什么运行方式：参考https://www.cnblogs.com/xueweihan/p/5118222.html
 # 如果abc.py文件中有一句import 其他文件夹文件，此时如果用python3 abc.py只会在该文件所在文件夹中搜索，会导致导入失败
 # 而如果用python3 -m abc.py此时sys.path会有''代表该文件所在目录，导入才能成功?????
-
-
-
-
-
-
 
 
 

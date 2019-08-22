@@ -512,8 +512,36 @@ d1 = dict(a=1,b=2,c=4,d=9,e=3)
 d1-2 = {key:value for key,value in d1.items() if value > 4}
 
 
-'''-----------------------------------------------------------------------
-Q: 相比于list, 似乎字典用得比较少，而且似乎[('eason',6),('jack',4)]这种tuple结构可以替代字典。
+
+# %%
+"""Q. 筛选之后的元素替代？
+用np.where最方便
+"""
+a = np.array([3,1,3,0,1,4,5])
+idx = np.where(a==1)             # np.where()的第一种用法：筛选index   
+
+b = np.where(a==1, 100,-100)     # np.where()的第二种用法：筛选之后的直接替代。这个方法非常好用
+
+
+
+# %%
+"""Q. 如何对数组做padding?
+numpy提供了一个现成函数np.pad(arr, value, mode)
+- 其中value是对每个轴的填充值，比如((1,1),(1,1))表示在第0轴前面填充
+"""
+a = np.ones((4,4))
+np.pad(a, ((1,1),(1,1)), "constant")
+
+np.pad(a, ((2,1),(1,2)), "constant")  # 默认就是填充0，数组表示第一维(行)前面填充2行后边填充1行，第二维(列)前面填充1列后边填充2列。
+
+np.pad(a, ((2,1),(1,2)), "constant", constant_values=(10,20))  # 指定前面行和列填充10， 后边行和列填充20
+
+np.pad(a, ((0,0), (0,0), (1,1), (1,1)), "constant")  # 这句不知道为什么报错，但在ml from scratch是对的。
+
+
+
+# %%
+'''Q: 相比于list, 似乎字典用得比较少，而且似乎[('eason',6),('jack',4)]这种tuple结构可以替代字典。
 但什么时候用字典方便？字典的方便特性怎么用？
 1. 在带有字符/数字混合的情况下，用字典更好，因为字典天然对字符可以筛选：d1['str']。
    而用[tuple]结构，对筛选字符就得上for循环，不是太方便
@@ -1153,9 +1181,9 @@ b = np.array([[1,0,2],[5,3,4]])
 
 # numpy常规按元素操作 ------ pytorch中也完全照抄了这些函数和概念
 np.exp(b)
-np.log(b)
-np.log10(b)
-np.log2(b)
+np.log(b)    # 注意默认log是以np.e为底
+np.log10(b)  # 除非注明np.log10()
+np.log2(b)   # 除非注明np.log2()
 np.abs(a)
 np.add(b, 10)
 b + 10
@@ -1164,7 +1192,7 @@ a * 10
 np.ceil(a)
 np.floor(a)
 np.round(a)
-np.power(a,2)
+np.power(a,2)    # 注意这个n次方的函数，跟python自带的次方函数不同(python自带的是pow(a,2),且只能针对单个数值计算)
 np.sign(a)
 np.sqrt(b)
 np.sin(b)
