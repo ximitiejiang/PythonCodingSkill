@@ -984,28 +984,15 @@ a6 = np.concatenate((a1,a2),axis=1)  # concatenate报错
 
 '''------------------------------------------------------------------------
 Q. 如何进行数据的重复叠加？(堆叠是少量不同数组组合，重复叠加是大量相同数组组合)
-1. 使用np.repeat((m,n)) 在某一维堆叠: 一维数组只能水平堆叠(想要竖直堆叠就先升维度)，二维数组两个维度都可以
-2. 使用np.tile((m,n)) 同时在二维堆叠，这个比np.repeat用得更多，且np.tile()就等效于torch.repeat()
-    np.repeat与np.tile的区别是np.tile是两个方向同时堆叠，size定义是一个tuple,
-    而np.repeat是单方向堆叠，size定义是一个长度
 
-3. pytorch的对应
-    np.repeat() -> t.expand()  # 单维度堆叠(只是t.expand仅针对单维度数组，且对维度计算方式是按子元素而不是常规的源堆叠数组) 
+1. 使用np.tile((m,n)) 同时在二维堆叠: 如果是一维数组横向复制不会升维度，如果是二维数组复制就会升维度。
+2. 注意pytorch的对应有变化，变成repeat()了
     np.tile() -> t.repeat(m,n) # 双维度同时堆叠，所以基本上numpy/pytorch都用这行的这两个函数，比前一行的方便。
+
+3. 注意区别np.repeat()这是用来对每个元素进行重复的函数，而不是堆叠的函数
+   np.repeat(data, 3) #
 '''
 import numpy as np
-# 一维数组，只能水平重复
-a0 = np.array([1,2,3,4,5])
-np.repeat(a0,4,axis=0)  # 对于一维数组，repeat也只能在一维操作
-np.repeat(a0,4,axis=1)  # 报错
-# 为了实现一维数组的纵向重复组合，需要先升维
-a2 = a0[None,:]
-np.repeat(a2,4, axis=0)
-
-# 二维堆叠
-b0 = np.array([[1,2,3],[4,5,6]])
-np.repeat(b0,3,axis=0)  # 对于二维数组，repeat取出[]内的部分进行重复堆叠
-np.repeat(b0,3,axis=1)
 
 # 用np.tile()实现同时在二维堆叠
 c0=np.array([1,2,3,4,5])
@@ -1016,6 +1003,22 @@ np.tile(c0.reshape(-1,1), (2,3))
 
 c1 = np.array([[1,2],[3,4]])
 np.tile(c1, (3,2))
+
+
+# 另一个类似函数np.repeat是元素重复： 注意repeat函数在处理(1,n)和(m,n)数组的重复时，行为非常特殊，需要仔细分析
+a0 = np.array([1,2,3,4])
+np.repeat(a0,3,axis=0)  # 相当于一维数组中每个元素重复4次
+np.repeat(a0,3,axis=1)  # 报错：一维数组不能直接纵向元素复制
+
+# 二维数组
+a2 = np.array([[1,2,3,4]]) # 二维数组，第一维=1  (1,4)
+np.repeat(a2,3, axis=0)    # 
+np.repeat(a2,3, axis=1)
+
+# 二维元素
+b0 = np.array([[1,2],[3,4]])
+np.repeat(b0,3,axis=0)  # 对于二维数组，repeat取出[]内的部分进行重复堆叠
+np.repeat(b0,3,axis=1)
 
 
 '''------------------------------------------------------------------------
