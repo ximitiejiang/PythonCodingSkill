@@ -76,9 +76,20 @@ Q: 如何通过print语句把待输出内容写入文件中？
 with open('xx.txt', 'rt') as f:
     print('Hello World!', file = f)  # 加上file关键字即可
 
+
 # %%
-''' --------------------------------------------------------------------------
-Q: 如何把相对路径转化为绝对路径？又如何把绝对路径转化为相对路径
+"""Q. 把路径加到sys.path的最简单方法
+"""
+import sys, os
+
+sys.path.insert(os.path.abspath('..')) # 把当前所在文件夹的父文件夹加入sys.path
+
+sys.path.insert(os.pardir)        # 等效的方法，更简洁。
+    
+    
+
+# %%
+'''Q: 如何把相对路径转化为绝对路径？又如何把绝对路径转化为相对路径
 关键理解1：
     os.path.abspath(path)：获得绝对路径，等效于增加当前main的路径
     os.path.basename(path)：获得文件名

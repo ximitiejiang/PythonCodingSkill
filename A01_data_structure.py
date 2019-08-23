@@ -538,7 +538,8 @@ np.pad(a, ((2,1),(1,2)), "constant", constant_values=(10,20))  # 指定前面行
 
 np.pad(a, ((0,0), (0,0), (1,1), (1,1)), "constant")  # 这句不知道为什么报错，但在ml from scratch是对的。
 
-
+pad=1
+np.pad(a, [(0,0), (0,0), (pad, pad), (pad, pad)], 'constant') 
 
 # %%
 '''Q: 相比于list, 似乎字典用得比较少，而且似乎[('eason',6),('jack',4)]这种tuple结构可以替代字典。
