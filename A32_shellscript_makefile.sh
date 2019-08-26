@@ -303,6 +303,12 @@ echo "this is a test too"
 !
 
 # --------------------运行shell脚本文件--------------------
+# 注意几种不同运行程序方法的区别：参考https://www.cnblogs.com/shanheyongmu/p/6708683.html
+
+# 1. 先cd切换到执行文件目录，然后直接运行文./hello.sh，这种方式不需要添加到PATH目录。但如果直接用hello.sh，就需要先把该目录添加到系统的$PATH目录下(这是一个系统信任的可执行bin文件目录)
+# 2. 先cd切换到执行文件目录，然后通过sh调动运行：比如sh hello.sh，这种方式不是执行文件自己运行，而是sh来调用，所以不需要考虑权限问题
+# 3. 先cd切换到执行文件目录，然后通过. hello.sh也就是source hello.sh来调用：这种方式类似于sh hello.sh，但他是在当前shell中执行，sh hello.sh则是在新的shell执行，执行完后返回父shell.
+
 chmod +x test.sh     #chmod代表change mode也就是变更操作权限，+代表增加权限，x代表可执行，+x代表增加可执行权限
 ./test.sh     # 执行脚本：必须写成./test.sh让系统在当前目录下寻找文件，而不是test.sh否则系统会去PATH里边寻找test.sh
 
