@@ -723,6 +723,7 @@ random.choice(lst, size=3, replace=True), 可随机输出size个数，默认repl
  而random.choice()也可以用permutation打乱index后提取任意个来替代： idx = np.random.permutation(range(len(data)))[0]
 '''
 import numpy as np
+import matplotlib.pyplot as plt
 # -------------区分分布类型，按尺寸(m,n)：rand, randn-----------------------
 # 均匀分布
 np.random.rand(2,4)    # 一组实数，只能取默认range=[0,1)
@@ -731,6 +732,18 @@ np.random.rand()       # 单个实数,[0,1)
 np.random.randn(2,4)   # 一组实数，范围[0,1)，正态分布
 np.random.randn()      # 单个实数，范围[0,1)，均匀分布
 r2 = 5*np.random.randn(2,4)+10  # 生成2x4的正态分布N(10,5)
+
+# 检查分布类型
+a = np.random.rand(50000)
+b = np.random.randn(50000)
+plt.subplot(121)
+plt.hist(a, 20, range=(-3, 3), label='rand')  # 显示的均匀分布
+plt.legend()
+
+plt.subplot(122)
+plt.hist(b, 20, range=(-3, 3), label='randn') # 显示的是标准正态分布
+plt.legend()
+
 
 # -------------区分数据类型，按范围(low,high)：randint, uniform-----------------------           
 # 生成均匀分布数组（整数），[low,high)左闭右开
