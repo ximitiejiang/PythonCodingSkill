@@ -1588,3 +1588,14 @@ def get_dist_info():
 """
 
 
+# %%
+"""关于RuntimeError: Expected object of scalar type Double but got scalar type Float for argument #2 'weight'
+参考：https://stackoverflow.com/questions/49407303/runtimeerror-expected-object-of-type-torch-doubletensor-but-found-type-torch-fl
+
+1. 在pytorch的默认权重weight/bias的数据类型是torch.FloatTensor，所以需要保证weight/bias跟输入img的类型一致。
+   比如让img变成float:  x = x.float()
+   或者让model变成double: model = model.double()
+   但最好是让输入变成float()，因为double类型会极大减慢GPU运算速度。
+"""
+x = x.float()
+
