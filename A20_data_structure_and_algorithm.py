@@ -18,30 +18,255 @@ Created on Sun Jan 20 09:48:53 2019
     对数线性时间，复杂度nlogn，比如快速排序？？？
     指数时间，复杂度2^n，比如递归求斐波那且数列？？？
     阶乘时间，复杂度n!，比如？？？    
-2. 一般来说：O(1) < O(logn) < O(n) < O(nlogn) < O(n^2) < O(n^3) < O(2^n) < O(n!) 
 
-3. 几种常见数据结构：
-    > 队列FIFO: 先进先出，新进来的排队尾，要出去的从队头出去（head队头是出口）
-        > 注意双指针技巧：比如交换字符串顺序str='his name is: eason-kevin' -> 'kevin-eason :is name his'
-    > 栈LIFO：后进先出，新进来的排队尾，要出去的也从队尾出去（top栈顶是队尾即出入口）
-    > 链表：
-    > 哈希表：hash表是一种数据结构，通过特定的哈希函数把
-    > 二分查找
-    > 
+2. 空间复杂度O: 代表的是算法所占的内存空间
+   O(1)的空间复杂度表示算法所占空间不随被处理数据量的大小而改变。
+   
+
+2. 一般来说：O(1) < O(log(n)) < O(n) < O(nlog(n)) < O(n^2) < O(n^3) < O(2^n) < O(n!) 
+
+
 3. 算法分类：
-    > 数组相关
-    > 字符串
     > 链表
-    > 数
-    > 排序和搜索
+    > 树
+    > 图
+    > 搜索： 顺序搜索，二叉搜索
+    > 排序：
     > 动态规划：是指把大问题分成子阶段，后一问题基于前一问题的解答输出，按顺序规划解决
     > 设计问题
     > 数学问题和其他
 
 """
 
+# %%
+"""Q. 基本的搜索算法有哪些？
+参考：<数据结构(python语言描述)>
+搜索算法的复杂度一般都是O(n)
+搜索算法包括：
+1. 顺序搜索：如果数据是无序的，一般采用顺序搜索，算法复杂度为O(n)
+2. 二叉搜索：如果数据是有序的，一般采用二叉搜索，算法复杂度为O(log2(n))
+"""
+import numpy as np
+def sequential_search_min(datas):
+    """顺序搜索最小值，直接返回最小值"""
+    min_value = datas[0]
+    c_idx = 0
+    while c_idx < len(datas) - 1:        # 核心是循环c_idx
+        if datas[c_idx] < min_value:
+            min_value = datas[c_idx]
+        c_idx += 1
+    return min_value
+
+data1 = [19, 2, 5, 23, 6, 3, 15, 7]
+data2 = np.random.permutation(np.arange(10))
+sequential_search_min(data1)
+sequential_searchmin(data2)
+
+def sequential_search_value(datas, value):
+    """顺序搜索固定值，有则返回位置号，没有则返回-1"""
+    c_idx = 0
+    while c_idx < len(datas):            # 核心是循环c_idx
+        if value == datas[c_idx]:
+            return c_idx
+        c_idx += 1
+    return -1
+        
+data1 = [19, 2, 5, 23, 6, 3, 15, 7]
+data2 = np.random.permutation(np.arange(10))
+sequential_search_value(data1, 23)
+sequential_search_value(data2, 15)
 
 
+def binary_search_value(datas, target):
+    """二叉搜索：要求数据是有序的，有则返回位置号，没有则返回-1
+    1..10, (10-1)//2=5, (10-5)//2=2
+    """
+    left_idx = 0
+    right_idx = len(datas) - 1
+    while left_idx < right_idx:           # 核心是循环定义left_idx和right_idx
+        mid = (right_idx - left_idx)//2
+        if datas[mid] == target:
+            return mid
+        elif datas[mid] < target:
+            left_idx = mid
+        elif datas[mid] > target:
+            right_idx =mid
+    
+data1 = [i*2 + 1 for i in range(10)]
+binary_search_value(data1, 9)
+
+
+
+# %%
+"""如果搜索对象不能直接比较，那如何进行搜索?
+1. 此时需要对搜索对象的类建立特殊方法__lt__, __gt__, __eq__，从而让对象支持直接比较。
+"""
+class Account():
+    """搜索的方法是建立在对象能够进行大小比较的基础上，如果对象不能直接比较，则需要
+    自定义比较的特殊方法__lt__, __gt__, __eq__
+    """
+    def __init__(self, name=None, gender=None, money=0):
+        self.name = name
+        self.gender = gender
+        self.money = money
+    def __lt__(self, other): # 定义<方法
+        return self.money < other.money
+    def __gt__(self, other): # 定义>方法
+        return self.money > other.money
+    def __eq__(self, other): # 定义==方法
+        return self.money == other.money
+    
+winie = Account('winnie', 0, 200)
+leo = Account('leo', 1, 120)
+eason = Account('eason', 1, 300)
+lucy = Account('lucy', 0, 190)
+
+peoples = [winie, leo, eason, lucy]
+
+target = Account('target', 1, 300)
+
+sequential_search_value(peoples, target)
+
+
+# %%
+"""Q. 基本的排序算法有哪些？
+基本排序方法通常的复杂度都是O(n^2)
+1. 选择排序：每轮定义一个(最小值)，(直接交换)到idx起点。也就是从左往右获得极小值，所以关键是外循环改变起点位置
+2. 冒泡排序：每轮定义一个(最大值)，(两两交换)直到终点。也就是从右往左获得极大值，所以关键是外循环改变终点(也就是长度)位置
+3. 插入排序：关键是外循环改变插入子数组的终点(也就是长度)
+
+总结下来就是：
+    选择排序从左往右，从小的开始排；
+    冒泡排序从右往左，从大的开始排；
+    插入排序从左往右，从中间开始排。
+"""    
+    
+def selection_sort(datas):
+    """选择排序：顺序遍历寻找最小值，每轮遍历就选择一个最小值并交换到该轮起点，
+    由于每轮都会选择一个最小值，所以叫选择排序
+    选择排序的复杂度计算：(n-1)+(n-2)+...+1 = (1+n-1)(n-1)/2 =n(n-1)/2, 所以算法复杂度为O(n^2)
+    """
+    i=0
+    while i < len(datas) - 1:  # 核心是外循环i和内循环j=i+1
+        j = i + 1
+        while j < len(datas): 
+            if datas[j] < datas[i]:
+                data[i], data[j] = data[j], data[i]
+            j += 1
+        i += 1
+    return datas
+
+data = np.random.permutation(np.arange(10))
+selection_sort(data)
+
+
+def bubble_sort(datas):
+    """冒泡排序：从第一个数开始循环，每次比较2个数，让大的数交换后后一位，一轮循环就能找到一个最大数交换到最后，
+    下一轮循环就从第一个数到倒数第2个数开始循环，找到第二大的数交换到倒数第二位。
+    由于每轮循环都是把该轮最大的数换到最后一位，类似于最大的气泡跑到水面最上面，所以叫冒泡算法。
+    冒泡排序的复杂度计算：内循环加外循环，所以必然也是O(n^2)
+    """
+    n = len(datas)
+    while n > 1:
+        i = 0
+        while i < n - 1:
+            if datas[i] > datas[i + 1]:
+                datas[i], datas[i + 1] = datas[i + 1], datas[i]
+            i += 1
+        n -= 1
+    return datas
+
+data = np.random.permutation(np.arange(10))
+bubble_sort(data)            
+
+
+def insert_sort(datas):
+    """插入排序：第0个元素不算，从第一个元素开始，检查他与之前元素的关系，并插入到合适的位置，最终得到排好序的列表。
+    插入排序的优点在于：如果列表中有部分数据是有序的，甚至整个数组是有序的，则插入的效果越好，速度越快。
+    当列表无序，则算法事件复杂度为O(n^2)，当列表有序，则算法复杂度是线性O(n)。
+    """
+    n = 1
+    while n < len(datas):
+        item = datas[n]
+        j = n - 1
+        while j >=0:
+            if item < datas[j]:
+                datas
+    
+
+# %%
+"""Q. 更好的排序：快速排序(快排)，是如何设计的？
+快速排序是经典的算法，之所以能够图片前面基本排序的复杂度天花板O(n^2)，是采用了分而治之的核心思想。
+就是把列表先分拆成子列表分别排序。
+
+"""
+def quick_sort(datas):
+    """快速排序："""
+    
+    
+    def partition(datas, left, right)
+
+
+
+# %%
+"""Q. 更好的排序：合并排序(归并排序)，是如何设计的？
+归并排序也是经典的算法，也体现了分而治之！
+
+"""
+def merge_sort(datas):
+
+    
+    
+
+
+# %%
+"""Q. 什么是动态规划问题？用什么思路解决动态规划问题
+
+"""
+
+
+
+# %%
+"""Q. 动态规划问题案例：有一个楼梯，总共20级台阶，每次只能走一级或者二级，全部走完，有多少种走法？
+
+"""
+
+
+
+
+
+# %%
+"""Q. 什么是哈希表？如何用哈希表解决算法问题？
+"""
+
+
+
+
+# %%
+"""Q. 哈希表问题案例：寻找列表中满足两数之和等于目标值的元素下标，
+比如列表是[2,7,4,9]，要求找和等于6的两个元素，则应返回[0,2]，不存在则返回空
+"""
+def find_two_with_sum(datas, target):
+    """输入列表和一个和，返回能得到该和的两个数的idx"""
+    dic = {}
+    for i, x in enumerate(datas):     # 先获得两个数中的一个数的idx
+        j = dic.get(target - x, -1)   # 再
+        if j != -1:
+            return i, j
+        else:
+            dic[x] = i
+        return []
+    
+data = [1,3,5,7,9]
+find_two_with_sum(data, 8)
+
+
+# %%
+"""Q. 哈希表问题案例：给定一个字符串，找到没有重复字符的最长子串？
+"""
+
+
+    
 # %% 
 """在python实现一个链表：get(index), addAtHead(val), addAtTail(val), addAtIndex(index, val), deletAtInde(index)
     1. 由于是链表，则数据结构不能是线性的，需要单独定义Node类
