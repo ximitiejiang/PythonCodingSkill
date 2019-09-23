@@ -89,6 +89,23 @@ sys.path.insert(os.pardir)        # 等效的方法，更简洁。
     
 
 # %%
+"""Q. 如果两个module文件产生交叉导入，或者叫交叉引用，导致报错无法导入如何解决？
+参考1：https://blog.csdn.net/qq_34146899/article/details/52530844 （提供的方法解决了我的问题）
+参考2：https://blog.csdn.net/polyhedronx/article/details/81911580 （提供了背后的机理）
+
+比如：
+在utils/prepare_training这个module文件中，导入了models/detector_lib这个module文件中的类OneStageDetector
+在models/detector_lib这个module文件中，又反过来导入了utils/prepare_training这个module文件中的get_model这个函数。
+两个module文件相互引用对方，会导致报错。
+
+解决方案1：在models/detector_lib中把import get_model这句话放到具体使用的位置的前一句去，而不是放在文件最开始，即可导入。
+
+"""
+
+
+
+
+# %%
 '''Q: 如何把相对路径转化为绝对路径？又如何把绝对路径转化为相对路径
 关键理解1：
     os.pardir: 常量，代表'..'
