@@ -20,3 +20,4 @@ if __name__ == '__main__':
     调用方法：
     python ./test2.py 12 24  
     """
+    
