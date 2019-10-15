@@ -934,10 +934,13 @@ loss2 = F.nll_loss(t2, label1)  # loss=3.4710, 说明nll_loss不需要输入labe
    相当于二分类交叉熵计算 l(x,y) = yn*logxn + (1-yn)*log(1-xn)
    F.binary_cross_entropy(d1,d2,reduction='mean')
    其中d1为输入概率，必须是(0-1)之间的值，所以该损失函数之前需要增加sigmoid函数把特征转换为2分类概率
-   d2为二分类标签，必须是0,1两种值"""
+   d2为二分类标签，可以是[0,1]独热编码整数，也可以是[0~1]之间的概率实数
+   label的取值差异是二分类交叉熵跟多分类交叉熵的最大不同，所以二分类交叉熵也可以用来回归某一概率值，
+   比如在FCOS算法中就是用二分类交叉熵来回归centerness值。
+"""
 img = torch.tensor([ 0.5913, -0.9281,  0.7846], requires_grad=True)
-label = torch.tensor([1., 0., 1.])
-loss = F.binary_cross_entropy(F.sigmoid(img),label)   # 计算得到loss = 0.3832
+label = torch.tensor([0.8, 0.2, 0.7])
+loss = F.binary_cross_entropy(img.sigmoid(),label)   # 计算得到loss = 0.3832
 # 手动计算过程如下: 相当于多样本，3个样本-----------------------
 from math import log, exp
 img_sigmoid = F.sigmoid(img)  # 得到[0.6437, 0.2833, 0.6867]

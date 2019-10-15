@@ -349,17 +349,19 @@ print('after f3, value = {}'.format(value))
 
 # %%
 '''Q. 高阶函数 - map怎么用？
-# 高阶函数的主题参考：
-# https://www.cnblogs.com/cwp-bg/p/8859260.html
-iterator = map(func, iterable)
-map的功能是把迭代对象中的元素依次送入函数中，返回一个迭代器(next方法)(python2.x返回list)
+0. map()函数核心功能就是：替代for循环，生成迭代器。
+1. map的一个最常见用途：替代for循环
+    list(map(func, data1, data2)), 其中map(func, data1, data2) 就等效于替代了
+    for d1, d2 in zip(data1, data2):
+        result.append(func(d1, d2))
+    可见，map这个功能在非常多方面能用，并能够在很多地方形成非常简洁的效果。
+
 '''
-def ff(x):
-    return x**2
-a = map(ff, [1,2,3])
-for i in a:
-    print(i)
-print(list(map(ff, [1,2,3])))
+arg1 = [1,2,3,4,5]
+arg2 = [10,20,30,40,50]
+arg3 = [100, 200, 300, 400,500]
+
+result = list(map(lambda x, y, z : x + y + z, arg1, arg2, arg3))  #通过list把map生成的迭代器转化成list
 
 
 '''-------------------------------------------------------------
