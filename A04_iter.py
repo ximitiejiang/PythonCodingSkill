@@ -10,21 +10,21 @@ Created on Fri Aug 24 20:27:22 2018
 
 '''---------------------------------------------------------------------------
 Q: 为什么要一个迭代器，现实中有哪些迭代器，怎么创建一个迭代器？
+参考：https://blog.csdn.net/zhusongziye/article/details/80246910 (还是有点不太清晰)
 1. 核心概念的区别：
-    迭代对象：可切片
-    迭代器/生成器：可next
-    迭代对象转迭代器：iter()
+    迭代对象：要么是实现了getitem的可切片对象，要么是实现了__iter__的迭代器
+    迭代器/生成器：必然可next，要么通过__next__()方法，要么在__iter__中返回迭代器/生成器，要么用iter()函数转化一个有geitem的迭代对象。
+    判断方式：通过collections里边的Iterable, Iterator来用isinstance()判断
 
 (1)迭代对象iterable：拥有__getitem__()方法的对象就是一个可迭代对象。
     可迭代对象的特点就是能够切片索引，比如list, tuple, range()...
-    而类的__iter__()方法，可以理解为就是让对象实现了__getitem__的方法，即转化为一个可迭代对象并return回来。
     但可迭代对象是需要数据事先生成在内存中，然后随时切片(无法像迭代器一样加载哪个生成哪个)
         方法0：迭代对象的用法就是切片d[2]
         方法1：for循环可用(for循环内部把它转化为迭代器)
         方法2：iter()函数把迭代对象转化为迭代器       （重要）
     
 (2)迭代器iterator：
-        拥有__iter__()函数返回的迭代对象，也拥有__next__()函数返回每个元素
+        拥有__iter__()函数返回的迭代器(但不完整，无法迭代, )，也拥有__next__()函数返回每个元素
         或者拥有__iter__()直接返回的迭代器，就不需要额外再写__next__了
         方法1：for循环可用
         方法2：next()函数可用，获得一个单独的元素     （重要）
@@ -48,6 +48,8 @@ Q: 为什么要一个迭代器，现实中有哪些迭代器，怎么创建一�
     reverse() 逆向迭代器
         
 '''
+from collections import Iterable, Iterator
+
 # --------迭代对象---------------
 for i in range(5):  # 用range()生成一个迭代对象，但不是迭代器，所以不能用next()函数
     print(i)
@@ -55,6 +57,37 @@ for i in range(5):  # 用range()生成一个迭代对象，但不是迭代器，
 lst = [2,4,6,8]     # 所有list/dict/tuple/set都是迭代对象，但不是迭代器，所以不能用next()函数
 for i in lst:
     print(i)
+
+# 一个迭代对象实现实例：但还没调试通过
+class AA():
+    def __init__(self, num):
+        self.data = [i for i in range(num)]
+        
+    def __iter__(self):
+        return self.data         # 迭代对象
+
+class BB():
+    def __init__(self, num):
+        self.data = [i for i in range(num)]
+        
+    def __iter__(self):
+        return iter(self.data)
+
+
+aa = AA(10)
+isinstance(aa, Iterable)  
+isinstance(aa, Iterator)  # 可见AA实现了__iter__()方法的是一个迭代对象，但不是迭代器。
+for i in aa:    # TODO: ???迭代对象居然不能for循环，for循环把迭代对象变成迭代器
+    print(i)
+next(aa)        # 不能工作：迭代对象没有next方法
+
+
+bb = BB(10)
+isinstance(bb, Iterable)  # 而BB实现了__iter__()方法，并从中返回了一个迭代器，所以不需要再实现__next__，应该是一个迭代器了。
+isinstance(bb, Iterator)  # TODO：???但不知道为什么这里依然判定为False, pytorch里边Sampler就是这么实现的阿 
+for i in bb:              # 工作正常，但不知道是迭代对象的正常还是迭代器的正常
+    print(i)
+next(bb)                  # TODO: ???为什么迭代器没有next
 
 # --------迭代器---------------
 data = ['a','b','c']
