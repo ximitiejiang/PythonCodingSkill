@@ -356,13 +356,42 @@ print('after f3, value = {}'.format(value))
         result.append(func(d1, d2))
     可见，map这个功能在非常多方面能用，并能够在很多地方形成非常简洁的效果。
 
+2. 同时为了拓展第1条的应用场景，还多跟partial()绑在一起用，来输入除了可zip的参数之外的其他参数
+
 '''
+# 实例1
 arg1 = [1,2,3,4,5]
 arg2 = [10,20,30,40,50]
 arg3 = [100, 200, 300, 400,500]
 
 result = list(map(lambda x, y, z : x + y + z, arg1, arg2, arg3))  #通过list把map生成的迭代器转化成list
 
+# 实例2
+def func(a, b, c):
+    return a, b, c
+arg1 = [1,2,3,4,5]
+arg2 = [10,20,30,40,50]
+arg3 = [100, 200, 300, 400,500]
+
+result = list(map(func, arg1, arg2, arg3))  # 相当于从arg1~argn中zip一下迭代取出数据
+
+# 实例3: 用partial先绑定部分不能map的参数
+from functools import partial
+def func(za, zb, zc, d, e, f): # 原函数，其中za,zb,zc都是可以map的，d,e,f都不能map, 所以不能直接对func用map
+    za = za + d
+    zb = zb + e
+    zc = zc + f
+    return za, zb, zc
+    
+arg1 = [1,2,3,4,5]
+arg2 = [10,20,30,40,50]
+arg3 = [100, 200, 300, 400,500]
+d = 1
+e = 10
+f = 100
+
+pfunc = partial(func, d, e, f)    # 实时计算的时候先用partial把不能map的参数绑定到一个函数wrapper上。
+result = list(map(pfunc, arg1, arg2, arg3))  # 然后再用map就很方便了，等同于实例2的方式。
 
 '''-------------------------------------------------------------
 Q. 高阶函数 - reduce怎么用？
