@@ -393,6 +393,20 @@ f = 100
 pfunc = partial(func, d, e, f)    # 实时计算的时候先用partial把不能map的参数绑定到一个函数wrapper上。
 result = list(map(pfunc, arg1, arg2, arg3))  # 然后再用map就很方便了，等同于实例2的方式。
 
+# 实例4： 用partial + map 处理numpy, 这种方法实在是方便和重要，实例都多一些
+import numpy as np
+def func(za, zb, zc, d, e, f): # 原函数，其中za,zb,zc都是可以map的，d,e,f都不能map, 所以不能直接对func用map
+    za = za + d
+    zb = zb + e
+    zc = zc + f
+    return za, zb, zc
+arg1 = np.ones((4, 2, 2))
+arg2 = np.zeros((4, 2, 2))
+arg3 = np.random.randn(4, 2, 2)
+
+pfunc = partial(func, 1, 10, 100)
+result = list(map(pfunc, arg1, arg2, arg3)) # 相当于先对arg1-arg3进行map切片，然后计算。
+
 '''-------------------------------------------------------------
 Q. 高阶函数 - reduce怎么用？
 '''
