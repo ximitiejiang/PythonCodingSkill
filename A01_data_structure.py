@@ -889,7 +889,7 @@ from functools import reduce
 input = [1,2,3,4,5]
 def fn(x,y):
     return x+y
-out = reduce(fn, input)   # reduce返回一个标量
+out = reduce(fn, input)   # reduce返回一个标量，相当于累加了input
 
 '''------------------------------------------------------------------------
 Q. 如何理解和使用高阶函数partial？
