@@ -275,15 +275,19 @@ result = pfunc(aa_list, bb_list, cc_list)    # 再用map提取循环的参数
 ### 关于文件路径以及读取和写入文件
 1. 路径操作
 ```
-os.path.basename(path)
-os.path.dirname(path)
-os.path.abspath(path)
+os.path.basename(path)  # 文件名
+os.path.dirname(path)   # 当前文件夹名(相对于__main__)
+os.path.abspath(path)   # 绝对路径
 os.path.isdir(path)
 os.path.isfile(path)
 os.pardir              # 代表父文件夹，也就是'..'
 os.curdir              # 代表当前文件夹，也就是'.'
 ```
-2. 读写文件
+2. 相对路径
+- (相对main文件路径)相对路径都是相对于__main__文件，'./'是相对于main文件的当前目录，'../'是相对于main文件的上级目录
+- (相对所在文件路径)如果需要获得相对所在文件的路径，则可以利用__file__变量，path = os.path.dirname(os.path.abspath(__file__))
+
+3. 读写文件
 ```
 with open(path, 'rb') as f:
     lines = f.readlines()
@@ -294,3 +298,6 @@ with open(path, 'rb') as f:
 with open(path, 'wb') as f:
     data = 'hello'
     f.write(data)
+```
+
+### 关于    
