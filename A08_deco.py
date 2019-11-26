@@ -285,8 +285,8 @@ import time
 def timeit(func):
     def wrapper(*args, **kwargs):
         start = time.time()
-        func(*args, **kwargs)
         print('this function lasts time: {}'.format(time.time()-start))
+        return func(*args, **kwargs)
     return wrapper
 
 @timeit
