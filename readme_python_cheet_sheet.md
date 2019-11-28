@@ -300,4 +300,32 @@ with open(path, 'wb') as f:
     f.write(data)
 ```
 
-### 关于    
+### 关于pandas的基础
+# 保存和导入
+```
+import pandas as pd
+pd.read_csv(filename)
+pd.read_excel(filename)
+pd.read_json(filename)
+
+df.to_csvc(filename)
+df.to_excel()
+df.to_json()
+```
+
+# 查看
+df.head(n)  # 查看前n行
+df.tail(n)
+df.shape
+
+# 切片和筛选
+df[col]         # 返回某列-数组series形式
+df[col1, col2]  #
+s.iloc[i]
+s.loc
+
+
+
+
+
+
