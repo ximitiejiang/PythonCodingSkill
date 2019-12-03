@@ -903,7 +903,8 @@ imgs = torch.tensor([[-0.5883,  1.4083, -1.9200,  0.4291, -0.0574],
                      [ 1.5962,  2.2646, -0.2490,  0.1534, -0.5345],
                      [-0.2562, -0.4440, -0.1629,  0.8097,  0.6865]], requires_grad=True)
 labels = torch.tensor([2, 0, 4], dtype=torch.int64)  # pytorch的交叉熵函数要求label格式为int64/也就是LongTensor
-loss1 = F.cross_entropy(imgs, labels, reduction='none')   # loss = 2.1105 (默认已经缩减)
+loss1 = F.cross_entropy(imgs, labels, reduction='none')   # loss = [3.9039, 1.2425, 1.1852]
+                                                          # loss.mean()缩减后就是2.1105
 # 纯手动实现多分类交叉熵：[exp+概率化+log]+[(-1)+概率相乘]，前半截在logsoftmax完成，后半截在nll_loss完成，也可以全部在cross_entropy中一起完成
 # 对比二值交叉熵的过程： [sigmoid]+[log+(-1)+概率相乘]，前半截在sigmoid完成，后半截在binary_cross_entropy完成，也可以全部在binary_cross_entropy_with_logits一起完成
 n_img, n_class = imgs.shape
